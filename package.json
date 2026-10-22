@@ -1,0 +1,13 @@
+{
+  "name": "guessthemove-live",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler deploy --env preview"
+  },
+  "devDependencies": {
+    "wrangler": "^4.75.0"
+  }
+}

@@ -7,9 +7,18 @@ name = "app-guessthemove-live"
 routes = [
   { pattern = "app.guessthemove.live", custom_domain = true }
 ]
+vars = { ENVIRONMENT = "production" }
 
 [env.preview]
 name = "app-guessthemove-live-preview"
 routes = [
   { pattern = "preview.app.guessthemove.live", custom_domain = true }
 ]
+vars = { ENVIRONMENT = "preview" }
+
+[env.demo]
+name = "app-guessthemove-live-demo"
+routes = [
+  { pattern = "demo.app.guessthemove.live", custom_domain = true }
+]
+vars = { ENVIRONMENT = "demo" }

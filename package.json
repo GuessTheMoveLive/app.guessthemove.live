@@ -5,9 +5,12 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "deploy:preview": "wrangler deploy --env preview"
+    "deploy:preview": "wrangler deploy --env preview",
+    "deploy:demo": "wrangler deploy --env demo",
+    "build:data": "node scripts/build-game-data.mjs && node scripts/build-vendor.mjs"
   },
   "devDependencies": {
+    "chess.js": "^1.4.0",
     "wrangler": "^4.75.0"
   }
 }

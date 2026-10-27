@@ -36,7 +36,7 @@ await run({
   // starts. This avoids a full npm install from scratch on every iteration.
   // The onSandboxReady hook still runs npm install as a safety net to handle
   // platform-specific binaries and any packages added since the last copy.
-  copyToWorktree: ["node_modules"],
+  copyToWorktree: ["node_modules", "web/node_modules"],
 
   // Lifecycle hooks — commands grouped by where they run (host or sandbox).
   hooks: {
@@ -44,7 +44,7 @@ await run({
       // onSandboxReady runs once after the sandbox is initialised and the repo is
       // synced in, before the agent starts. Use it to install dependencies or run
       // any other setup steps your project needs.
-      onSandboxReady: [{ command: "npm install" }],
+      onSandboxReady: [{ command: "npm install" }, { command: "npm install", cwd: "web" }],
     },
   },
 });

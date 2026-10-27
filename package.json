@@ -8,7 +8,9 @@
     "deploy:preview": "wrangler deploy --env preview",
     "deploy:demo": "wrangler deploy --env demo",
     "build:data": "node scripts/build-game-data.mjs && node scripts/build-vendor.mjs",
-    "sandcastle": "npx tsx .sandcastle/main.mts"
+    "sandcastle": "npx tsx .sandcastle/main.mts",
+    "typecheck": "npm run check --prefix web",
+    "test": "npm run test --prefix web"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.12.0",

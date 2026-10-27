@@ -7,9 +7,11 @@
     "deploy": "wrangler deploy",
     "deploy:preview": "wrangler deploy --env preview",
     "deploy:demo": "wrangler deploy --env demo",
-    "build:data": "node scripts/build-game-data.mjs && node scripts/build-vendor.mjs"
+    "build:data": "node scripts/build-game-data.mjs && node scripts/build-vendor.mjs",
+    "sandcastle": "npx tsx .sandcastle/main.mts"
   },
   "devDependencies": {
+    "@ai-hero/sandcastle": "^0.12.0",
     "chess.js": "^1.4.0",
     "wrangler": "^4.75.0"
   }

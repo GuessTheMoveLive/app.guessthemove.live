@@ -1,0 +1,15 @@
+{
+	// Used only by @sveltejs/adapter-cloudflare at build time (see vite.config.ts), so the
+	// adapter writes the generated SvelteKit worker to its default location instead of
+	// clobbering src/worker-entry.ts. Real deployment config (Durable Object binding, main
+	// entry) lives in wrangler.jsonc.
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "web",
+	"compatibility_date": "2026-10-27",
+	"compatibility_flags": ["nodejs_als"],
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	}
+}

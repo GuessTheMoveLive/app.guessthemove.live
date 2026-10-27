@@ -5,11 +5,25 @@
 	"compatibility_flags": [
 		"nodejs_als"
 	],
-	"main": ".svelte-kit/cloudflare/_worker.js",
+	"main": "src/worker-entry.ts",
 	"assets": {
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
 	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "SESSION_ROOM",
+				"class_name": "SessionRoom"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["SessionRoom"]
+		}
+	],
 	"workers_dev": true,
 	"preview_urls": true
 }

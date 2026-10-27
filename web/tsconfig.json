@@ -15,5 +15,5 @@
 		}
 	},
 	"include": ["src", "vite.config.ts"],
-	"exclude": ["src/lib/paraglide"]
+	"exclude": ["src/lib/paraglide", "src/worker-entry.ts"]
 }

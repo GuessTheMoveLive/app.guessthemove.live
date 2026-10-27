@@ -45,6 +45,3 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
 
-## Note: existing local-markdown work in progress
-
-Before this setup, the `guess-the-move` spec effort was tracked as local markdown under `.scratch/guess-the-move/` (`map.md` + `issues/*.md`), driven by the `domain-modeling`/`research`/`prototype`/`grilling` skills rather than `/wayfinder`. That convention predates this file and is a separate, still-valid workflow for spec-shaping work — it is not migrated to GitHub issues by this setup. New tracker-backed work (bugs, implementation tickets, `/wayfinder` runs) uses GitHub as described above.

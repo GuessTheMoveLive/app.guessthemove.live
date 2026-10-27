@@ -8,6 +8,9 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit({
+			// SvelteKit removed the built-in `$lib` alias in favor of `#lib` (package.json
+			// "imports"), but some code uses the conventional `$lib` spelling - keep both working.
+			alias: { $lib: 'src/lib' },
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
 				runes: ({ filename }) =>

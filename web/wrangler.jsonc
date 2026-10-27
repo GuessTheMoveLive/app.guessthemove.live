@@ -6,6 +6,7 @@
 		"nodejs_als"
 	],
 	"main": "src/worker-entry.ts",
+	"routes": [{ "pattern": "preview.app.guessthemove.live", "custom_domain": true }],
 	"assets": {
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"

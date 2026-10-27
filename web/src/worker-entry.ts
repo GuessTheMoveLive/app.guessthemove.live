@@ -16,7 +16,9 @@ export default {
 		const match = url.pathname.match(SESSION_ROOM_PATH);
 
 		if (match && request.headers.get('Upgrade') === 'websocket') {
-			const id = env.SESSION_ROOM.idFromName(match[1]);
+			// Room Codes are case-insensitive: people retype them off a projected screen, and
+			// idFromName is case-sensitive, so "abc" and "ABC" would otherwise be two rooms.
+			const id = env.SESSION_ROOM.idFromName(decodeURIComponent(match[1]).toUpperCase());
 			return env.SESSION_ROOM.get(id).fetch(request);
 		}
 

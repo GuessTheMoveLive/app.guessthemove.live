@@ -6,7 +6,7 @@ A product/technical spec for a single-event, live "guess-the-move" chess trainer
 
 ## Notes
 
-- Domain vocabulary lives in [CONTEXT.md](../../CONTEXT.md) — read it before working any ticket; update it inline if a ticket sharpens or renames a term.
+- Domain vocabulary lives in [GLOSSARY.md](../../GLOSSARY.md) — read it before working any ticket; update it inline if a ticket sharpens or renames a term.
 - Settled scope parameters (framing decisions made while naming the destination, not separately ticketed): single livestreamed event, no accounts or persistence across Sessions; cloud-hosted; Participant client is a mobile web PWA (no native app); target scale is small, up to ~30 concurrent Participants.
 - For a `grilling` ticket, call the Skill tool for both `grilling` and `domain-modeling`. For `research`, call `research`. For `prototype`, call `prototype`.
 - Explicitly out of scope: the "train an opening against a human-like computer" mode (see below) — don't let it bleed back into tickets on this map.

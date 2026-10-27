@@ -19,4 +19,4 @@ Depends conceptually on [Move equivalence & scoring bands](01-move-equivalence-s
 
 **Sign/floor**: no floor ties Round Score's sign to Guess Score's sign — a strong Analysis Tree can carry a negative-Guess-Score Round to a net positive Round Score, rewarding depth of thought even when the actual Guess was wrong. Effective Round Score range: -3 (worst Guess, no tree credit) to +6 (best Guess, tree contribution capped at +3).
 
-CONTEXT.md's Round Score, Soundness Bonus, and Assessment Bonus entries have been sharpened to record this formula precisely, since it's the actual scoring rule rather than implementation detail.
+GLOSSARY.md's Round Score, Soundness Bonus, and Assessment Bonus entries have been sharpened to record this formula precisely, since it's the actual scoring rule rather than implementation detail.

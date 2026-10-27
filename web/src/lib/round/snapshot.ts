@@ -13,4 +13,8 @@ export interface RoundSnapshot {
 	context: RoundContext;
 	/** Epoch ms when the current Round's clock runs out, or null when no Round is running. */
 	deadline: number | null;
+	/** 0-based index of the current Round into the Featured Game's quiz steps. */
+	roundIndex: number;
+	/** Total number of Rounds in the Featured Game, so the UI can show "Round 4 of 35". */
+	totalRounds: number;
 }

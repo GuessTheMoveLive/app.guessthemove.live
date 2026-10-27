@@ -74,14 +74,22 @@ export function pieceAt(fen: string, square: string): Piece | null {
 	return null;
 }
 
-/** Render a SAN move in Unicode glyphs (#24): piece letters and promotion pieces become glyphs. */
+/**
+ * Render a SAN move in standard PGN notation, except K/Q/R/B/N letters (piece-to-move
+ * and promotion piece) become their Unicode glyphs. Pawn moves are left exactly as
+ * standard SAN (e.g. "e4", "exd5") — no glyph is prefixed, unlike a figurine-only
+ * notation that would mark every move with a piece symbol.
+ */
 export function sanToGlyph(san: string): string {
 	if (san === 'O-O' || san === 'O-O-O') return san;
 
-	const withPromo = san.replace(/=([QRBN])/g, (_, letter: string) => `=${PIECE_GLYPH[SAN_LETTER_TO_TYPE[letter]]}`);
+	const withPromo = san.replace(
+		/=([QRBN])/g,
+		(_, letter: string) => `=${PIECE_GLYPH[SAN_LETTER_TO_TYPE[letter]]}`
+	);
 	const leadType = SAN_LETTER_TO_TYPE[withPromo[0]];
 	if (leadType) return PIECE_GLYPH[leadType] + withPromo.slice(1);
-	return PIECE_GLYPH.p + withPromo;
+	return withPromo;
 }
 
 /** The destination square a SAN lands on, or null for castling (which names no square). */

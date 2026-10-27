@@ -59,6 +59,11 @@ export class SessionClient {
 		this.#send({ type: 'reveal' });
 	}
 
+	/** Host advances from a fully revealed Round into the next one (#22's Host-driven pacing). */
+	nextRound(): void {
+		this.#send({ type: 'next_round' });
+	}
+
 	submit(guess: string): void {
 		this.#send({ type: 'submit', guess });
 	}

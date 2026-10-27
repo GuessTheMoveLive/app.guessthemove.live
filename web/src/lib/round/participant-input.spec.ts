@@ -45,16 +45,16 @@ describe('pieceAt', () => {
 	});
 });
 
-describe('sanToGlyph (#24: Unicode glyphs only, never SAN letters)', () => {
+describe('sanToGlyph (standard PGN notation; only K/Q/R/B/N become glyphs)', () => {
 	it('swaps a piece letter for its glyph', () => {
 		expect(sanToGlyph('Nf3')).toBe('♞f3');
 		expect(sanToGlyph('Qxe7')).toBe('♛xe7');
 		expect(sanToGlyph('Rd1')).toBe('♜d1');
 	});
 
-	it('prefixes a pawn move with the pawn glyph', () => {
-		expect(sanToGlyph('e4')).toBe('♟e4');
-		expect(sanToGlyph('exd5')).toBe('♟exd5');
+	it('leaves a pawn move as plain SAN — no glyph prefix', () => {
+		expect(sanToGlyph('e4')).toBe('e4');
+		expect(sanToGlyph('exd5')).toBe('exd5');
 	});
 
 	it('keeps castling as written', () => {
@@ -67,9 +67,9 @@ describe('sanToGlyph (#24: Unicode glyphs only, never SAN letters)', () => {
 		expect(sanToGlyph('Qf7#')).toBe('♛f7#');
 	});
 
-	it('converts a promotion piece letter to its glyph too', () => {
-		expect(sanToGlyph('e8=Q')).toBe('♟e8=♛');
-		expect(sanToGlyph('bxa1=N+')).toBe('♟bxa1=♞+');
+	it('converts a promotion piece letter to its glyph, pawn move itself stays plain', () => {
+		expect(sanToGlyph('e8=Q')).toBe('e8=♛');
+		expect(sanToGlyph('bxa1=N+')).toBe('bxa1=♞+');
 	});
 });
 
@@ -87,7 +87,7 @@ describe('resolveTapMove', () => {
 
 	it('resolves a quiet pawn push to its exact answer-key SAN and glyph', () => {
 		const move = resolveTapMove(QUIZ_FEN, 'd2', 'd4', candidates);
-		expect(move).toMatchObject({ from: 'd2', to: 'd4', san: 'd4', glyph: '♟d4', capture: false });
+		expect(move).toMatchObject({ from: 'd2', to: 'd4', san: 'd4', glyph: 'd4', capture: false });
 	});
 
 	it('resolves to the listed SAN even when it carries a disambiguator', () => {
@@ -137,14 +137,14 @@ describe('buildMoveHistory (#24: glyph move list, paired by move number)', () =>
 		]);
 
 		expect(history).toEqual([
-			{ number: 1, white: '♟e4', black: '♟e5' },
+			{ number: 1, white: 'e4', black: 'e5' },
 			{ number: 2, white: '♞f3', black: '♞c6' }
 		]);
 	});
 
 	it('leaves Black blank on a trailing White move', () => {
 		const history = buildMoveHistory([step({ ply: 1, san: 'e4' })]);
-		expect(history).toEqual([{ number: 1, white: '♟e4', black: null }]);
+		expect(history).toEqual([{ number: 1, white: 'e4', black: null }]);
 	});
 
 	it('is empty with no moves played yet', () => {

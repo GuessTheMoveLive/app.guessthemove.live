@@ -16,17 +16,7 @@
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();
-
-	// v1 Featured Game position for the active Round. The round machine does not yet
-	// advance through plies server-side (a follow-up), so the Participant screen
-	// resolves taps against the first graded position of the baked-in game (#27).
 	const game = getGameData();
-	const quizStep = quizSteps()[0];
-	const fen = quizStep?.fenBefore ?? game.startFen;
-	const candidateSans = quizStep
-		? [quizStep.san, ...quizStep.alternatives.map((a) => a.san)]
-		: [];
-	const history = buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)));
 
 	let name = $state(page.url.searchParams.get('name') ?? '');
 	let joined = $state(false);
@@ -56,6 +46,26 @@
 	const myState = $derived(snapshot?.context.participants[me]);
 	const myTotal = $derived(snapshot?.context.totals[me] ?? 0);
 	const locked = $derived(myState?.status === 'submitted' || myState?.status === 'late');
+
+	// The Host advances Rounds through the Featured Game (#34's Next Round); this screen
+	// follows whichever Round SessionRoom says is current rather than always showing the
+	// first one (#27's pre-analysed answer-key table is the position/candidate-move source).
+	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
+	const quizStep = $derived(quizSteps()[roundIndex]);
+	const fen = $derived(quizStep?.fenBefore ?? game.startFen);
+	const candidateSans = $derived(
+		quizStep ? [quizStep.san, ...quizStep.alternatives.map((a) => a.san)] : []
+	);
+	const history = $derived(
+		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
+	);
+
+	// A new Round means a fresh tap — drop any half-made selection from the last one.
+	$effect(() => {
+		roundIndex;
+		origin = null;
+		pending = null;
+	});
 
 	function tapSquare(square: string) {
 		if (pending || locked || phase !== 'active') return;

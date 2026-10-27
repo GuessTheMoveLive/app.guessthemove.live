@@ -17,7 +17,7 @@ The shared screen (driven from a PC, shown on the beamer) a Session's Host uses 
 _Avoid_: Beamer, projector, control panel
 
 **Participant**:
-A phone joined to a Session via its Room Code. Submits Guesses and, optionally, Analysis Trees during Rounds.
+A phone joined to a Session via its Room Code, identified by a free-typed display name (no account). Submits Guesses and, optionally, Analysis Trees during Rounds.
 _Avoid_: Player, user
 
 **Room Code**:
@@ -36,11 +36,14 @@ The Candidate Game chosen to guess through for the rest of the Session, played m
 **Featured Side**:
 The color in the Featured Game whose moves Participants guess.
 
+**Scoring Start Move**:
+The move in the Featured Game from which Guesses begin to count. Rounds before it are still played in full — a Guess is still submitted, there's still a Reveal — but always score 0, regardless of accuracy. The Leaderboard only starts moving once it's reached.
+
 **Accuracy Score**:
 A computed quality gate on a Candidate Game: the Featured Side's average per-move win-probability loss, from the reached position through to the game's end, which must stay below the inaccuracy cutoff, with no single Featured Side move crossing the blunder cutoff. Only the Featured Side's moves count — the side other than the Featured Side is not scored.
 
 **Round**:
-One iteration of guessing a single Featured Side move: Participants submit Guesses and may extend Analysis Trees, the Host triggers Reveal, then a Round Score and updated Leaderboard follow.
+One iteration of guessing a single Featured Side move: Participants submit Guesses and may extend Analysis Trees, the Host triggers Reveal, then a Round Score and updated Leaderboard follow. A Round not submitted by its deadline scores -3 for that Participant; there is no no-penalty abstain.
 
 **Guess**:
 A Participant's submitted move for the current Round's Featured Side move. Locked in once submitted; hidden from everyone (including the Host Display) until Reveal.
@@ -79,7 +82,7 @@ A Participant's total for one Round: Guess Score plus that Round's Analysis Tree
 The Host-triggered moment a Round's Guesses and Analysis Trees become visible to the room and the Leaderboard updates. Nothing is visible to anyone (Participants or the Host Display) before it.
 
 **Leaderboard**:
-The running total of Round Scores per Participant, shown after each Reveal alongside that Round's Momentum Highlight.
+The running total of Round Scores per Participant, shown after each Reveal alongside that Round's Momentum Highlight. The shared/Host view shows only the top 5; a Participant's own phone always additionally shows their own current score, even outside the top 5.
 
 **Momentum Highlight**:
 The Participant with the largest Round Score gain in the Round just revealed.

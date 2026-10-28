@@ -18,6 +18,7 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
+	import Podium from '#lib/components/podium.svelte';
 	import ScoreSheet from '#lib/components/score-sheet.svelte';
 
 	const code = page.params.code ?? '';
@@ -68,7 +69,6 @@
 	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
 	const me = $derived(name.trim());
 	const myState = $derived(snapshot?.context.participants[me]);
-	const myTotal = $derived(snapshot?.context.totals[me] ?? 0);
 	// The Round Score, broadcast on every snapshot once the Round closes - shown as
 	// the headline number instead of the running total (#37). Distinct from
 	// `feedback?.score`, which is the same value but only arrives once the Host
@@ -77,6 +77,7 @@
 	const myRoundScore = $derived(snapshot?.context.scores[me] ?? 0);
 	const locked = $derived(myState?.status === 'submitted' || myState?.status === 'late');
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
+	const top3 = $derived(topLeaderboard(snapshot?.context.totals ?? {}, 3));
 	const feedback = $derived(client.feedback);
 
 	// Once kicked, forget the saved name - a refresh must land back on the Join screen,
@@ -89,6 +90,8 @@
 	// follows whichever Round SessionRoom says is current rather than always showing the
 	// first one (#27's pre-analysed answer-key table is the position/candidate-move source).
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
+	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
+	const isFinalRound = $derived(phase === 'reveal' && roundIndex + 1 >= totalRounds);
 	const quizStep = $derived(quizSteps()[roundIndex]);
 	const fen = $derived(quizStep?.fenBefore ?? game.startFen);
 	const candidateSans = $derived(
@@ -319,9 +322,12 @@
 		{#if leaders.length}
 			<Card.Root>
 				<Card.Header>
-					<Card.Title>{m.leaderboard_title()}</Card.Title>
+					<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
 				</Card.Header>
-				<Card.Content>
+				<Card.Content class="flex flex-col gap-4">
+					{#if isFinalRound}
+						<Podium entries={top3} highlightId={me} />
+					{/if}
 					<Leaderboard entries={leaders} highlightId={me} />
 				</Card.Content>
 			</Card.Root>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import QRCode from 'qrcode';
 	import { SessionClient } from '#lib/round/session-client.svelte.js';
 	import {
@@ -17,6 +18,7 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
+	import Podium from '#lib/components/podium.svelte';
 	import ScoreSheet from '#lib/components/score-sheet.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 
@@ -29,6 +31,25 @@
 	let tick: ReturnType<typeof setInterval>;
 	let qrDataUrl = $state<string | null>(null);
 	let confirmingDelete = $state(false);
+	let linkCopied = $state(false);
+	let copiedResetTimer: ReturnType<typeof setTimeout>;
+
+	// Absolute join URL (not just the /play/{code} path) so it can be pasted as-is
+	// into WhatsApp or any other share target, as a fallback for the QR code.
+	const joinPath = $derived(resolve('/play/[code]', { code }));
+	const joinUrl = $derived(`${page.url.origin}${joinPath}`);
+
+	async function copyJoinLink() {
+		try {
+			await navigator.clipboard.writeText(joinUrl);
+			linkCopied = true;
+			clearTimeout(copiedResetTimer);
+			copiedResetTimer = setTimeout(() => (linkCopied = false), 2000);
+		} catch {
+			// Clipboard permission denied or unavailable — the link is still shown and
+			// selectable by hand, so there's nothing more to do here.
+		}
+	}
 
 	onMount(() => {
 		client.connect({ code, role: 'host', token });
@@ -39,6 +60,7 @@
 	});
 	onDestroy(() => {
 		clearInterval(tick);
+		clearTimeout(copiedResetTimer);
 		client.disconnect();
 	});
 
@@ -61,14 +83,20 @@
 	const progress = $derived(submissionProgress(participants));
 	const answered = $derived(everyoneAnswered(participants));
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
+	const top3 = $derived(topLeaderboard(snapshot?.context.totals ?? {}, 3));
 	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
 	const scoreboard = $derived(
-		scoreboardRows(participants, snapshot?.context.totals ?? {}, snapshot?.context.priorTotals ?? {})
+		scoreboardRows(
+			participants,
+			snapshot?.context.totals ?? {},
+			snapshot?.context.priorTotals ?? {}
+		)
 	);
 	const rosterSize = $derived(scoreboard.length);
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
+	const isFinalRound = $derived(phase === 'reveal' && !hasNextRound);
 	const quizStep = $derived(quizSteps()[roundIndex]);
 	const breakdown = $derived(answerKeyBreakdown(quizStep ?? null));
 	const history = $derived(
@@ -116,8 +144,21 @@
 					<img src={qrDataUrl} alt={m.host_qr_alt({ code })} class="h-60 w-60" />
 				{/if}
 				<p class="text-center text-sm text-muted-foreground">
-					{m.host_scan_hint({ path: `/play/${code}` })}
+					{m.host_scan_hint()}
 				</p>
+				<div class="flex w-full max-w-sm items-center gap-2">
+					<a
+						href={joinPath}
+						target="_blank"
+						rel="noopener"
+						class="flex-1 truncate rounded-md border px-3 py-2 font-mono text-sm text-primary underline-offset-2 hover:underline"
+					>
+						{joinUrl}
+					</a>
+					<Button variant="outline" size="sm" onclick={copyJoinLink}>
+						{linkCopied ? m.host_link_copied() : m.host_copy_link()}
+					</Button>
+				</div>
 			</Card.Content>
 			<Card.Footer>
 				<Button onclick={() => client.startRound()}>{m.host_start_round()}</Button>
@@ -172,14 +213,21 @@
 	{:else}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>{m.host_reveal_title()}</Card.Title>
-				<Card.Description>{m.leaderboard_top5()}</Card.Description>
+				<Card.Title>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title>
+				{#if !isFinalRound}
+					<Card.Description>{m.leaderboard_top5()}</Card.Description>
+				{/if}
 			</Card.Header>
-			<Card.Content>
+			<Card.Content class="flex flex-col gap-4">
+				{#if isFinalRound}
+					<Podium entries={top3} />
+				{/if}
 				<Leaderboard entries={leaders} />
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
-				<Button variant="outline" onclick={() => client.giveFeedback()}>{m.host_give_feedback()}</Button>
+				<Button variant="outline" onclick={() => client.giveFeedback()}
+					>{m.host_give_feedback()}</Button
+				>
 				{#if hasNextRound}
 					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
 				{:else}

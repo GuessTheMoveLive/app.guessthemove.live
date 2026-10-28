@@ -6,7 +6,8 @@ runs the event. See `GLOSSARY.md` for domain vocabulary and `AGENTS.md` for how 
 repo is organized (issue tracker, domain docs).
 
 SvelteKit + Cloudflare Workers (Durable Objects for session state). Deployed to
-`preview.app.guessthemove.live` from the `preview` branch.
+`app.guessthemove.live` from `main`, `preview.app.guessthemove.live` from `preview`,
+and `demo.app.guessthemove.live` from `demo`.
 
 ## Developing
 

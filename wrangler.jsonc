@@ -1,12 +1,12 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
-	"name": "web",
+	"name": "app-guessthemove-live",
 	"compatibility_date": "2026-10-27",
 	"compatibility_flags": [
 		"nodejs_als"
 	],
 	"main": "src/worker-entry.ts",
-	"routes": [{ "pattern": "preview.app.guessthemove.live", "custom_domain": true }],
+	"routes": [{ "pattern": "app.guessthemove.live", "custom_domain": true }],
 	"assets": {
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
@@ -27,16 +27,47 @@
 	],
 	"workers_dev": true,
 	"preview_urls": true,
-	// Cloudflare's Git-integrated Workers Builds CI hardcodes its deploy command to
-	// `wrangler deploy --env preview` for this project (dashboard-configured, not
-	// something we control from the repo) - without a matching named environment,
-	// wrangler warns and falls back to the top-level config regardless, but we mirror
-	// it explicitly so `--env preview` deploys to the exact same Worker ("web"), same
-	// route, same bindings, rather than silently drifting.
+	// Cloudflare's Git-integrated Workers Builds CI hardcodes each branch's deploy command
+	// to `wrangler deploy --env <name>` (dashboard-configured per branch, not something we
+	// control from the repo) - without a matching named environment, wrangler errors out.
+	// We mirror all three branch builds here explicitly so each deploys to its own Worker
+	// (same bindings, different name/route) rather than failing or silently drifting.
 	"env": {
+		"production": {
+			"name": "app-guessthemove-live",
+			"routes": [{ "pattern": "app.guessthemove.live", "custom_domain": true }],
+			"assets": {
+				"binding": "ASSETS",
+				"directory": ".svelte-kit/cloudflare"
+			},
+			"durable_objects": {
+				"bindings": [
+					{
+						"name": "SESSION_ROOM",
+						"class_name": "SessionRoom"
+					}
+				]
+			}
+		},
 		"preview": {
-			"name": "web",
+			"name": "app-guessthemove-live-preview",
 			"routes": [{ "pattern": "preview.app.guessthemove.live", "custom_domain": true }],
+			"assets": {
+				"binding": "ASSETS",
+				"directory": ".svelte-kit/cloudflare"
+			},
+			"durable_objects": {
+				"bindings": [
+					{
+						"name": "SESSION_ROOM",
+						"class_name": "SessionRoom"
+					}
+				]
+			}
+		},
+		"demo": {
+			"name": "app-guessthemove-live-demo",
+			"routes": [{ "pattern": "demo.app.guessthemove.live", "custom_domain": true }],
 			"assets": {
 				"binding": "ASSETS",
 				"directory": ".svelte-kit/cloudflare"

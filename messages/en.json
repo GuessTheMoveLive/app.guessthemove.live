@@ -58,7 +58,7 @@
 	"play_moves_so_far": "Moves so far",
 	"play_reveal_title": "Reveal",
 	"play_closed_title": "Round closed",
-	"play_running_score": "Your running score",
+	"play_round_score": "Your score for this move",
 	"play_feedback_your_move": "Your move",
 	"play_feedback_played": "Played",
 	"play_feedback_continuation": "Continuation",

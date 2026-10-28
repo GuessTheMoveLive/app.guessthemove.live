@@ -105,6 +105,26 @@ function sanPieceType(san: string): PieceType {
 	return SAN_LETTER_TO_TYPE[san[0]] ?? 'p';
 }
 
+/** The disambiguation fragment of a SAN — the file, rank, or full square inserted
+ *  between the piece letter and the destination when two of the mover's pieces could
+ *  reach the same square (e.g. "Nbd2"'s "b", "N1d2"'s "1", or a full "Nb1d2"'s "b1").
+ *  Empty when the SAN carries no disambiguation. */
+function sanDisambiguation(san: string): string {
+	let rest = SAN_LETTER_TO_TYPE[san[0]] ? san.slice(1) : san;
+	rest = rest.replace('x', '');
+	return rest.slice(0, rest.length - 2);
+}
+
+/** Whether a (possibly disambiguated) SAN could have been played from `from` — true
+ *  when the SAN carries no disambiguation (nothing to check) or its file/rank/square
+ *  fragment matches `from`. */
+function sanMatchesOrigin(san: string, from: string): boolean {
+	const disambiguation = sanDisambiguation(san);
+	if (!disambiguation) return true;
+	if (disambiguation.length === 2) return disambiguation === from;
+	return disambiguation === from[0] || disambiguation === from[1];
+}
+
 function fallbackSan(piece: Piece, from: string, to: string, capture: boolean): string {
 	if (piece.type === 'p') {
 		return capture ? `${from[0]}x${to}` : to;
@@ -148,9 +168,17 @@ export function resolveTapMove(
 	if (piece.type === 'k' && Math.abs(fileIndex(to) - fileIndex(from)) === 2) {
 		san = fileIndex(to) > fileIndex(from) ? 'O-O' : 'O-O-O';
 	} else {
-		const matches = candidateSans.filter(
+		const destMatches = candidateSans.filter(
 			(candidate) => sanPieceType(candidate) === piece.type && sanDestination(candidate) === to
 		);
+		// Two of the mover's pieces can both reach `to` (e.g. knights on b1 and f3 both
+		// eyeing d2), so the answer key disambiguates each SAN by file/rank/square — use
+		// that to pick the one actually tapped, instead of always falling back to the
+		// unscored generic SAN whenever more than one candidate lands on the square.
+		const matches =
+			destMatches.length > 1
+				? destMatches.filter((candidate) => sanMatchesOrigin(candidate, from))
+				: destMatches;
 		san = matches.length === 1 ? matches[0] : fallbackSan(piece, from, to, capture);
 	}
 

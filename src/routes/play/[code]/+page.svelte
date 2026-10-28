@@ -219,9 +219,7 @@
 					<div class="flex">
 						<div class="w-5"></div>
 						{#each FILES as file (file)}
-							<div
-								class="flex-1 text-center font-mono text-xs text-muted-foreground"
-							>
+							<div class="flex-1 text-center font-mono text-xs text-muted-foreground">
 								{file}
 							</div>
 						{/each}
@@ -250,7 +248,7 @@
 
 				{#if history.length}
 					<div>
-						<h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+						<h2 class="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
 							{m.play_moves_so_far()}
 						</h2>
 						<ScoreSheet
@@ -267,13 +265,18 @@
 	{:else}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title>
-				<Card.Description>{m.play_running_score()}</Card.Description>
+				<Card.Title>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title
+				>
+				<Card.Description>{m.play_round_score()}</Card.Description>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-4">
 				<div class="text-center">
 					<div class="font-mono text-5xl tabular-nums">
-						{myTotal > 0 ? '+' : ''}{myTotal}
+						{#if feedback}
+							{feedback.score > 0 ? '+' : ''}{feedback.score}
+						{:else}
+							{myTotal > 0 ? '+' : ''}{myTotal}
+						{/if}
 					</div>
 					<p class="mt-2 text-sm text-muted-foreground">{me}</p>
 				</div>
@@ -294,7 +297,9 @@
 						</div>
 						{#if feedback.variant && feedback.variant.continuation.length}
 							<div class="flex flex-col gap-0.5">
-								<span class="text-xs uppercase tracking-wide text-muted-foreground">{m.play_feedback_continuation()}</span>
+								<span class="text-xs tracking-wide text-muted-foreground uppercase"
+									>{m.play_feedback_continuation()}</span
+								>
 								<span class="font-mono text-sm">
 									{feedback.variant.continuation.map(sanToGlyph).join(' ')}
 									{#if feedback.variant.endEval != null}
@@ -307,15 +312,17 @@
 						{/if}
 					</div>
 				{/if}
-				{#if leaders.length}
-					<div>
-						<h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-							{m.leaderboard_title()}
-						</h2>
-						<Leaderboard entries={leaders} highlightId={me} />
-					</div>
-				{/if}
 			</Card.Content>
 		</Card.Root>
+		{#if leaders.length}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>{m.leaderboard_title()}</Card.Title>
+				</Card.Header>
+				<Card.Content>
+					<Leaderboard entries={leaders} highlightId={me} />
+				</Card.Content>
+			</Card.Root>
+		{/if}
 	{/if}
 </main>

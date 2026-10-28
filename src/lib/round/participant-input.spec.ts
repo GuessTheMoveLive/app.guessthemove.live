@@ -98,6 +98,15 @@ describe('resolveTapMove', () => {
 		expect(move?.glyph).toBe('♞bd2');
 	});
 
+	it('resolves the tapped knight when two candidates land on the same square', () => {
+		// Both the b1 and f3 knights can reach d2 — the tap on b1 must resolve to
+		// Nbd2, not fall through to the generic (unscored) "Nd2".
+		const fen = 'rnbqkb1r/pppppppp/5n2/8/8/5N2/PPP1PPPP/RNBQKB1R w KQkq - 0 1';
+		const candidates = ['Nbd2', 'Nfd2'];
+		expect(resolveTapMove(fen, 'b1', 'd2', candidates)?.san).toBe('Nbd2');
+		expect(resolveTapMove(fen, 'f3', 'd2', candidates)?.san).toBe('Nfd2');
+	});
+
 	it('flags a capture when the destination is occupied by the opponent', () => {
 		const move = resolveTapMove(QUIZ_FEN, 'b5', 'c6', candidates);
 		expect(move).toMatchObject({ capture: true, san: 'Bxc6', glyph: '♝xc6' });

@@ -11,7 +11,12 @@
 
 	// Human-readable labels for the manual switcher; chess move notation is never
 	// translated, but the language names themselves are shown in their own language.
-	const LOCALE_NAMES: Record<Locale, string> = { en: 'English', de: 'Deutsch' };
+	const LOCALE_NAMES: Record<Locale, string> = {
+		en: 'English',
+		de: 'Deutsch',
+		fr: 'Français',
+		es: 'Español'
+	};
 
 	// Browser-language auto-detect happens via the `preferredLanguage` strategy; this
 	// manual override (#41) writes the `cookie` strategy's value (which takes precedence)
@@ -29,8 +34,10 @@
 
 {@render children()}
 
-<div class="pointer-events-none fixed bottom-2 right-2 z-50">
-	<label class="pointer-events-auto flex items-center gap-1 rounded-md border bg-background/90 px-2 py-1 text-xs shadow-sm backdrop-blur">
+<div class="pointer-events-none fixed right-2 bottom-2 z-50">
+	<label
+		class="pointer-events-auto flex items-center gap-1 rounded-md border bg-background/90 px-2 py-1 text-xs shadow-sm backdrop-blur"
+	>
 		<span class="sr-only">{m.locale_label()}</span>
 		<select
 			class="bg-transparent text-foreground focus:outline-none"

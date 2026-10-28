@@ -5,7 +5,9 @@
   "scripts": {
     "sandcastle": "npx tsx .sandcastle/main.mts",
     "typecheck": "npm run check --prefix web",
-    "test": "npm run test --prefix web"
+    "test": "npm run test --prefix web",
+    "build": "npm run build --prefix web",
+    "deploy": "npx wrangler deploy --config web/wrangler.jsonc"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.12.0"

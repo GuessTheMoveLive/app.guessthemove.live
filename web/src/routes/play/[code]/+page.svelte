@@ -2,18 +2,18 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/env';
 	import { page } from '$app/state';
-	import { SessionClient } from '$lib/round/session-client.svelte';
-	import { remainingMs, formatCountdown, topLeaderboard } from '$lib/host/host-view';
-	import { getGameData, quizSteps } from '$lib/round/game-data';
+	import { SessionClient } from '#lib/round/session-client.svelte.js';
+	import { remainingMs, formatCountdown, topLeaderboard } from '#lib/host/host-view.js';
+	import { getGameData, quizSteps } from '#lib/round/game-data.js';
 	import {
 		FILES,
 		DISPLAY_RANKS,
 		resolveTapMove,
 		buildMoveHistory,
 		type ResolvedMove
-	} from '$lib/round/participant-input';
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
+	} from '#lib/round/participant-input.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();

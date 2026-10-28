@@ -1,4 +1,4 @@
-import type { ParticipantState } from '$lib/round/round-machine';
+import type { ParticipantState } from '#lib/round/round-machine.js';
 
 // Pure derivations for the v1 Host control screen (#34). The Host screen consumes
 // the broadcast round snapshot from SessionRoom and never shows more than a

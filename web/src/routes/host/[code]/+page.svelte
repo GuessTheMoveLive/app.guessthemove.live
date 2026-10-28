@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { SessionClient } from '$lib/round/session-client.svelte';
+	import { SessionClient } from '#lib/round/session-client.svelte.js';
 	import {
 		topLeaderboard,
 		submissionProgress,
 		everyoneAnswered,
 		remainingMs,
 		formatCountdown
-	} from '$lib/host/host-view';
-	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
+	} from '#lib/host/host-view.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();

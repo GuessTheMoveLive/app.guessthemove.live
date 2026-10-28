@@ -1,7 +1,7 @@
 // @ts-nocheck - re-exports @sveltejs/adapter-cloudflare's generated worker, which doesn't
 // exist until `vite build` has run and isn't meant to be typechecked by consumers.
 import svelteKitWorker from '../.svelte-kit/cloudflare/_worker.js';
-export { SessionRoom } from '$lib/server/session-room';
+export { SessionRoom } from '#lib/server/session-room.js';
 
 // WebSocket upgrades for session rooms are routed here directly rather than through a
 // SvelteKit +server.ts route: SvelteKit's response layer doesn't preserve the special

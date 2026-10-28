@@ -6,7 +6,7 @@ import {
 	remainingMs,
 	formatCountdown
 } from './host-view';
-import type { ParticipantState } from '$lib/round/round-machine';
+import type { ParticipantState } from '#lib/round/round-machine.js';
 
 describe('topLeaderboard', () => {
 	it('returns participants ordered by running total, highest first', () => {

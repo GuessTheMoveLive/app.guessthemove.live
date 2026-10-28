@@ -1,8 +1,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { createActor, type Actor, type Snapshot } from 'xstate';
-import { roundMachine, type RoundEvent } from '$lib/round/round-machine';
-import type { RoundSnapshot } from '$lib/round/snapshot';
-import { quizSteps } from '$lib/round/game-data';
+import { roundMachine, type RoundEvent } from '#lib/round/round-machine.js';
+import type { RoundSnapshot } from '#lib/round/snapshot.js';
+import { quizSteps } from '#lib/round/game-data.js';
 
 type ClientMessage =
 	| { type: 'join'; participantId: string }

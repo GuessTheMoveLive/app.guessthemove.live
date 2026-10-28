@@ -7,12 +7,7 @@
 			"node",
 			"./worker-configuration.d.ts"
 		],
-		"ignoreDeprecations": "6.0",
-		"baseUrl": ".",
-		"paths": {
-			"$lib": ["./src/lib"],
-			"$lib/*": ["./src/lib/*"]
-		}
+		"ignoreDeprecations": "6.0"
 	},
 	"include": ["src", "vite.config.ts"],
 	"exclude": ["src/lib/paraglide", "src/worker-entry.ts"]

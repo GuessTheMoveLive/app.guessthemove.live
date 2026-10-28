@@ -1,24 +1,29 @@
-name = "app-guessthemove-live"
+# DEAD — do not deploy from this config.
+#
+# This file and `src/index.js` are the throwaway single-player prototype that
+# validated the guess/score/reveal loop before the real multiplayer app was
+# built. The real app lives in `web/` (SvelteKit + Durable Objects), deployed
+# from `web/wrangler.jsonc`. This root config has no `npm run deploy*` script
+# wired to it anymore (removed from package.json) specifically so it can't be
+# run by accident; the custom-domain routes below have also been stripped so
+# that even a stray manual `wrangler deploy` from repo root cannot overwrite
+# the production/preview/demo custom domains, which are owned by `web/`.
+#
+# Recommended follow-up: delete this file along with `src/` and
+# `scripts/build-vendor.mjs` (the prototype's vendored chess.js server route) —
+# they were kept only as a historical reference pending that decision.
+name = "app-guessthemove-live-prototype-dead"
 main = "src/index.js"
 compatibility_date = "2026-10-22"
 
 [env.production]
-name = "app-guessthemove-live"
-routes = [
-  { pattern = "app.guessthemove.live", custom_domain = true }
-]
+name = "app-guessthemove-live-prototype-dead"
 vars = { ENVIRONMENT = "production" }
 
 [env.preview]
-name = "app-guessthemove-live-preview"
-routes = [
-  { pattern = "preview.app.guessthemove.live", custom_domain = true }
-]
+name = "app-guessthemove-live-prototype-dead-preview"
 vars = { ENVIRONMENT = "preview" }
 
 [env.demo]
-name = "app-guessthemove-live-demo"
-routes = [
-  { pattern = "demo.app.guessthemove.live", custom_domain = true }
-]
+name = "app-guessthemove-live-prototype-dead-demo"
 vars = { ENVIRONMENT = "demo" }

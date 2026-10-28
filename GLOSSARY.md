@@ -21,7 +21,11 @@ A phone joined to a Session via its Room Code, identified by a free-typed displa
 _Avoid_: Player, user
 
 **Room Code**:
-The short code (with accompanying URL) a Session's Host Display shows so Participants can join.
+The short code (with accompanying URL/QR) a Session's Host Display shows so Participants can join. Grants Participant entry only — never Host control (see Host Token).
+_Avoid_: using this interchangeably with Host Token; they're different credentials with different privileges.
+
+**Host Token**:
+The secret credential, embedded only in the Host's own Session URL, that proves control of a Session. Never shown on the shared/QR view. Distinct from the Room Code, which anyone can see and use to join as a Participant.
 
 **Plenum Selection Phase**:
 The Session's opening phase: the Host enters moves on the Host Display's board as the room verbally agrees on a position, with no Participant device interaction or scoring. Once a position is reached, it's used to search for a Candidate Game.
@@ -83,6 +87,13 @@ The Host-triggered moment a Round's Guesses and Analysis Trees become visible to
 
 **Leaderboard**:
 The running total of Round Scores per Participant, shown after each Reveal alongside that Round's Momentum Highlight. The shared/Host view shows only the top 5; a Participant's own phone always additionally shows their own current score, even outside the top 5.
+
+**Feedback**:
+A Host-triggered, per-Participant explanation of their Guess Score for the Round just revealed — a short qualitative note plus a textual Variant with an end evaluation, personalized to that Participant's own Guess. Delivered to each Participant's own phone, distinct from the shared Leaderboard. The Host chooses either Feedback or advancing straight to the next Round; they're alternatives, not sequential steps.
+_Avoid_: conflating with Reveal (Reveal is the shared score-becomes-visible moment; Feedback is the optional, personalized follow-up explaining why).
+
+**Variant** (Feedback):
+A short precomputed continuation of moves (with an end Evaluation) attached to an answer-key alternative, authored offline alongside the rest of the answer key and surfaced to a Participant as part of their Feedback. Unrelated to the Analysis Tree's Participant-authored branches — this Variant comes from the answer key itself, not from anything a Participant wrote.
 
 **Momentum Highlight**:
 The Participant with the largest Round Score gain in the Round just revealed.

@@ -49,12 +49,14 @@ function tokenize(text) {
 
 const tokens = tokenize(movetext);
 
-// --- parse a variation's token slice: first SAN (the alternative move) + its comment ---
+// --- parse a variation's token slice: first SAN (the alternative move) + its comment,
+// then the rest of the slice is a precomputed continuation (Feedback's Variant, #36) -
+// alternating replies with no further comments, just SAN (and the odd MOVENUM) tokens.
 function parseAlternative(slice) {
   let idx = 0;
   if (slice[idx]?.type === "MOVENUM") idx++;
   const sanTok = slice[idx]; idx++;
-  const commentTok = slice[idx];
+  const commentTok = slice[idx]; idx++;
   if (!sanTok || sanTok.type !== "SAN" || !commentTok || commentTok.type !== "COMMENT") {
     throw new Error("Malformed variation: " + JSON.stringify(slice.slice(0, 4)));
   }
@@ -63,12 +65,17 @@ function parseAlternative(slice) {
   const evalField = fields.find((f) => /^[+-]?\d+\.\d+$/.test(f));
   const materialField = fields.find((f) => /^[+-]\d+p$/.test(f));
   const assessment = fields[fields.length - 1];
+  const continuation = slice
+    .slice(idx)
+    .filter((tok) => tok.type === "SAN")
+    .map((tok) => tok.value);
   return {
     san: sanTok.value,
     tier,
     eval: evalField ? parseFloat(evalField) : null,
     material: materialField || null,
     assessment,
+    continuation,
   };
 }
 

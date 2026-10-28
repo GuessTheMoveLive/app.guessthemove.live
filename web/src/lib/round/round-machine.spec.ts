@@ -21,8 +21,8 @@ const answerKey: AnswerKeyStep = {
 	san: 'd4',
 	playedComment: { eval: 0.85 },
 	alternatives: [
-		{ san: 'h3', tier: '+2', eval: 0.64 },
-		{ san: 'Nd4', tier: 'blunder', eval: -9.13 }
+		{ san: 'h3', tier: '+2', eval: 0.64, continuation: [] },
+		{ san: 'Nd4', tier: 'blunder', eval: -9.13, continuation: [] }
 	]
 };
 

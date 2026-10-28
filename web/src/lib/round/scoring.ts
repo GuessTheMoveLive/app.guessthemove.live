@@ -11,6 +11,10 @@ export interface AnswerKeyAlternative {
 	san: string;
 	tier: Tier;
 	eval: number | null;
+	/** The precomputed continuation (Feedback's Variant, #36): the SANs played after this
+	 *  alternative, authored offline alongside the rest of the answer key. Empty when the
+	 *  PGN's variation carried no further moves. */
+	continuation: string[];
 }
 
 /**

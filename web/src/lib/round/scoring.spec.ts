@@ -9,12 +9,12 @@ const step: AnswerKeyStep = {
 	san: 'd4',
 	playedComment: { eval: 0.85 },
 	alternatives: [
-		{ san: 'h3', tier: '+2', eval: 0.64 },
-		{ san: 'Qe2', tier: '+1', eval: 0.29 },
-		{ san: 'g3', tier: '0', eval: -0.39 },
-		{ san: 'Bxh7', tier: 'blunder', eval: -4.0 }, // best 0.85 - (-4.0) = 4.85 => -1
-		{ san: 'Ba6', tier: 'blunder', eval: -6.77 }, // best 0.85 - (-6.77) = 7.62 => -2
-		{ san: 'Nd4', tier: 'blunder', eval: -9.13 } // best 0.85 - (-9.13) = 9.98 => -3
+		{ san: 'h3', tier: '+2', eval: 0.64, continuation: [] },
+		{ san: 'Qe2', tier: '+1', eval: 0.29, continuation: [] },
+		{ san: 'g3', tier: '0', eval: -0.39, continuation: [] },
+		{ san: 'Bxh7', tier: 'blunder', eval: -4.0, continuation: [] }, // best 0.85 - (-4.0) = 4.85 => -1
+		{ san: 'Ba6', tier: 'blunder', eval: -6.77, continuation: [] }, // best 0.85 - (-6.77) = 7.62 => -2
+		{ san: 'Nd4', tier: 'blunder', eval: -9.13, continuation: [] } // best 0.85 - (-9.13) = 9.98 => -3
 	]
 };
 

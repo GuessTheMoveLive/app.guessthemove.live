@@ -108,6 +108,48 @@ describe('roundMachine', () => {
 	});
 });
 
+describe('roundMachine KICK (Host removes a disruptive Participant)', () => {
+	it('drops the participant from the roster without changing the round state', () => {
+		const actor = actorWith(['alice', 'bob']);
+		actor.send({ type: 'START_ROUND' });
+
+		actor.send({ type: 'KICK', participantId: 'bob' });
+
+		expect(actor.getSnapshot().value).toBe('active');
+		expect(actor.getSnapshot().context.participants).toEqual({
+			alice: { status: 'pending' }
+		});
+	});
+
+	it('is a no-op if the participant is already gone', () => {
+		const actor = actorWith(['alice']);
+
+		actor.send({ type: 'KICK', participantId: 'ghost' });
+
+		expect(actor.getSnapshot().context.participants).toEqual({ alice: { status: 'pending' } });
+	});
+
+	it('scrubs a kicked participant out of scores/totals/priorTotals too, once a round has closed', () => {
+		const actor = actorWithInput({
+			participantIds: ['alice', 'bob'],
+			answerKey,
+			isScoringRound: true,
+			priorTotals: { alice: 5, bob: 2 }
+		});
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' });
+		actor.send({ type: 'ROUND_TIMEOUT' });
+
+		actor.send({ type: 'KICK', participantId: 'bob' });
+
+		const ctx = actor.getSnapshot().context;
+		expect(Object.keys(ctx.participants)).toEqual(['alice']);
+		expect(Object.keys(ctx.scores)).toEqual(['alice']);
+		expect(Object.keys(ctx.totals)).toEqual(['alice']);
+		expect(Object.keys(ctx.priorTotals)).toEqual(['alice']);
+	});
+});
+
 describe('roundMachine scoring', () => {
 	it('derives each participant score on close: submitted tier, timeout -3', () => {
 		const actor = actorWithInput({

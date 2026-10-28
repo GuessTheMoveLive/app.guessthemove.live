@@ -10,10 +10,18 @@ type ClientMessage =
 	| { type: 'submit'; guess: string }
 	| { type: 'adjust_round'; deltaMs: number }
 	| { type: 'reveal' }
-	| { type: 'next_round' };
+	| { type: 'next_round' }
+	| { type: 'kick'; participantId: string };
+
+/** WebSocket close code used when the Host removes a Participant, so the client can tell
+ *  a kick apart from an ordinary dropped connection and show the right message. */
+const KICK_CLOSE_CODE = 4403;
 
 const STORAGE_KEY_SNAPSHOT = 'round-snapshot';
 const STORAGE_KEY_PARTICIPANT_IDS = 'participant-ids';
+/** Participant ids the Host has kicked from this Session — kept so a kick sticks even if
+ *  the same device tries to rejoin under the identical name (#kick). */
+const STORAGE_KEY_KICKED_IDS = 'kicked-participant-ids';
 /** 0-based index into quizSteps() for the Round currently loaded into the actor. */
 const STORAGE_KEY_ROUND_INDEX = 'round-index';
 /** Each participant's cumulative score as of the end of the last closed Round — carried
@@ -37,9 +45,18 @@ export class SessionRoom extends DurableObject {
 
 		const url = new URL(request.url);
 		const isHost = url.searchParams.get('role') === HOST_TAG;
-		const participantId = url.searchParams.get('participantId');
+		// Trimmed so a stray leading/trailing space from a mobile keyboard on a reconnect
+		// can't silently mint a second "ghost" identity with its own score starting at 0.
+		const participantId = url.searchParams.get('participantId')?.trim();
 		if (!isHost && !participantId) {
 			return new Response('Missing participantId', { status: 400 });
+		}
+
+		if (!isHost) {
+			const kicked = (await this.ctx.storage.get<string[]>(STORAGE_KEY_KICKED_IDS)) ?? [];
+			if (kicked.includes(participantId!)) {
+				return new Response('Removed from this Session by the Host', { status: 403 });
+			}
 		}
 
 		const pair = new WebSocketPair();
@@ -114,6 +131,33 @@ export class SessionRoom extends DurableObject {
 				const next = await this.getActor();
 				next.send({ type: 'START_ROUND' });
 				await this.scheduleRoundTimeout();
+				break;
+			}
+			case 'kick': {
+				// Only the Host may kick (#10: the Host's connection is the only one tagged
+				// HOST_TAG — a Participant's own socket can never send this to any effect
+				// beyond their own tag, but we check explicitly rather than rely on that).
+				const [tag] = this.ctx.getTags(ws);
+				if (tag !== HOST_TAG) return;
+
+				actor.send({ type: 'KICK', participantId: message.participantId });
+
+				// Read storage directly rather than `this.participantIds`: that field is only
+				// ever written by registerParticipant, so after a hibernation wake with no
+				// fresh joins this DO instance it would still be its default `[]` and
+				// overwrite the real roster with an empty list.
+				const storedIds = (await this.ctx.storage.get<string[]>(STORAGE_KEY_PARTICIPANT_IDS)) ?? [];
+				this.participantIds = storedIds.filter((id) => id !== message.participantId);
+				await this.ctx.storage.put(STORAGE_KEY_PARTICIPANT_IDS, this.participantIds);
+
+				const kicked = (await this.ctx.storage.get<string[]>(STORAGE_KEY_KICKED_IDS)) ?? [];
+				if (!kicked.includes(message.participantId)) {
+					await this.ctx.storage.put(STORAGE_KEY_KICKED_IDS, [...kicked, message.participantId]);
+				}
+
+				for (const socket of this.ctx.getWebSockets(message.participantId)) {
+					socket.close(KICK_CLOSE_CODE, 'Removed by the Host');
+				}
 				break;
 			}
 		}
@@ -194,7 +238,13 @@ export class SessionRoom extends DurableObject {
 		const serialized = JSON.stringify(payload);
 
 		for (const ws of this.ctx.getWebSockets()) {
-			ws.send(serialized);
+			try {
+				ws.send(serialized);
+			} catch {
+				// A socket that just closed (e.g. the one `kick` closed moments earlier in this
+				// same message handler) can still be returned by getWebSockets() for this tick;
+				// sending to it throws. It's about to be dropped on its own — skip it.
+			}
 		}
 	}
 }

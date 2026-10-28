@@ -27,7 +27,8 @@ export type RoundEvent =
 	| { type: 'START_ROUND' }
 	| { type: 'SUBMIT'; participantId: string; guess: string }
 	| { type: 'ROUND_TIMEOUT' }
-	| { type: 'REVEAL' };
+	| { type: 'REVEAL' }
+	| { type: 'KICK'; participantId: string };
 
 export interface RoundInput {
 	participantIds: string[];
@@ -38,6 +39,11 @@ export interface RoundInput {
 
 function pendingParticipants(participantIds: string[]): Record<string, ParticipantState> {
 	return Object.fromEntries(participantIds.map((id) => [id, { status: 'pending' } as const]));
+}
+
+function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
+	const { [key]: _removed, ...rest } = record;
+	return rest;
 }
 
 /**
@@ -76,6 +82,19 @@ export const roundMachine = setup({
 		totals: {}
 	}),
 	initial: 'lobby',
+	// A root-level handler applies in every child state without changing it (an internal
+	// transition, since no `target` is given) — KICK needs to work from lobby through
+	// reveal alike, and none of the per-state `on` blocks below declare their own KICK.
+	on: {
+		KICK: {
+			actions: assign(({ context, event }) => ({
+				participants: omitKey(context.participants, event.participantId),
+				scores: omitKey(context.scores, event.participantId),
+				totals: omitKey(context.totals, event.participantId),
+				priorTotals: omitKey(context.priorTotals, event.participantId)
+			}))
+		}
+	},
 	states: {
 		lobby: {
 			on: { START_ROUND: 'active' }

@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/env';
 	import { page } from '$app/state';
 	import { SessionClient } from '$lib/round/session-client.svelte';
-	import { remainingMs, formatCountdown } from '$lib/host/host-view';
+	import { remainingMs, formatCountdown, topLeaderboard } from '$lib/host/host-view';
 	import { getGameData, quizSteps } from '$lib/round/game-data';
 	import {
 		FILES,
@@ -18,6 +19,14 @@
 	const client = new SessionClient();
 	const game = getGameData();
 
+	// A rejoin (dropped connection, refresh, closed tab) must land back on the same
+	// identity, or the Participant's whole running total appears to vanish - it's
+	// actually still sitting in SessionRoom under their old name, just unreachable
+	// because nothing remembered what that name was. Persisting it per room code and
+	// auto-rejoining on mount is the fix; the manual join form stays as the fallback
+	// for a first-time join or a different device.
+	const storageKey = `guess-the-move:name:${code}`;
+
 	let name = $state(page.url.searchParams.get('name') ?? '');
 	let joined = $state(false);
 	let now = $state(Date.now());
@@ -30,9 +39,19 @@
 		const id = name.trim();
 		if (!id) return;
 		joined = true;
+		if (browser) localStorage.setItem(storageKey, id);
+		name = id;
 		client.connect({ code, participantId: id });
 		tick = setInterval(() => (now = Date.now()), 250);
 	}
+
+	onMount(() => {
+		const saved = localStorage.getItem(storageKey);
+		if (saved) {
+			name = saved;
+			join();
+		}
+	});
 
 	onDestroy(() => {
 		clearInterval(tick);
@@ -46,6 +65,13 @@
 	const myState = $derived(snapshot?.context.participants[me]);
 	const myTotal = $derived(snapshot?.context.totals[me] ?? 0);
 	const locked = $derived(myState?.status === 'submitted' || myState?.status === 'late');
+	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
+
+	// Once kicked, forget the saved name - a refresh must land back on the Join screen,
+	// not silently retry into a connection the Host has already blocked server-side.
+	$effect(() => {
+		if (client.kicked && browser) localStorage.removeItem(storageKey);
+	});
 
 	// The Host advances Rounds through the Featured Game (#34's Next Round); this screen
 	// follows whichever Round SessionRoom says is current rather than always showing the
@@ -104,7 +130,14 @@
 		</p>
 	</header>
 
-	{#if !joined}
+	{#if client.kicked}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Removed from this Session</Card.Title>
+				<Card.Description>The Host has removed you from this Room Code.</Card.Description>
+			</Card.Header>
+		</Card.Root>
+	{:else if !joined}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Join the room</Card.Title>
@@ -222,13 +255,34 @@
 				<Card.Title>{phase === 'reveal' ? 'Reveal' : 'Round closed'}</Card.Title>
 				<Card.Description>Your running score</Card.Description>
 			</Card.Header>
-			<Card.Content>
+			<Card.Content class="flex flex-col gap-4">
 				<div class="text-center">
 					<div class="font-mono text-5xl tabular-nums">
 						{myTotal > 0 ? '+' : ''}{myTotal}
 					</div>
 					<p class="mt-2 text-sm text-muted-foreground">{me}</p>
 				</div>
+				{#if leaders.length}
+					<div>
+						<h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+							Leaderboard
+						</h2>
+						<ol class="flex flex-col gap-2">
+							{#each leaders as entry, i (entry.participantId)}
+								<li
+									class="flex items-center justify-between rounded-lg border px-3 py-2"
+									class:border-primary={entry.participantId === me}
+								>
+									<span class="flex items-center gap-3">
+										<span class="w-5 text-right font-mono text-muted-foreground">{i + 1}</span>
+										<span class="font-medium">{entry.participantId}</span>
+									</span>
+									<span class="font-mono tabular-nums">{entry.total}</span>
+								</li>
+							{/each}
+						</ol>
+					</div>
+				{/if}
 			</Card.Content>
 		</Card.Root>
 	{/if}

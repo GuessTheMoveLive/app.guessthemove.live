@@ -34,7 +34,8 @@
 	const answered = $derived(everyoneAnswered(participants));
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
 	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
-	const rosterSize = $derived(Object.keys(participants).length);
+	const rosterIds = $derived(Object.keys(participants));
+	const rosterSize = $derived(rosterIds.length);
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
@@ -51,6 +52,31 @@
 			{/if}
 		</p>
 	</header>
+
+	{#if rosterSize > 0}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-sm">Participants ({rosterSize})</Card.Title>
+			</Card.Header>
+			<Card.Content>
+				<ul class="flex flex-wrap gap-2">
+					{#each rosterIds as id (id)}
+						<li class="flex items-center gap-1 rounded-full border py-0.5 pl-3 pr-1 text-sm">
+							{id}
+							<Button
+								variant="destructive"
+								size="icon-xs"
+								aria-label={`Kick ${id}`}
+								onclick={() => client.kick(id)}
+							>
+								&times;
+							</Button>
+						</li>
+					{/each}
+				</ul>
+			</Card.Content>
+		</Card.Root>
+	{/if}
 
 	{#if phase === 'lobby'}
 		<Card.Root>

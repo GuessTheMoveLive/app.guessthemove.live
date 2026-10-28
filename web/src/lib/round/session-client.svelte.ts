@@ -18,9 +18,16 @@ export interface ParticipantConnectOptions {
 
 export type ConnectOptions = HostConnectOptions | ParticipantConnectOptions;
 
+/** The close code SessionRoom uses when the Host kicks a Participant (see session-room.ts). */
+const KICK_CLOSE_CODE = 4403;
+
 export class SessionClient {
 	snapshot = $state<RoundSnapshot | null>(null);
 	connected = $state(false);
+	/** True once the server has closed this connection specifically because the Host
+	 *  kicked this Participant — distinct from an ordinary dropped connection, so the
+	 *  screen can say so instead of just showing "connecting…". */
+	kicked = $state(false);
 	#ws: WebSocket | null = null;
 
 	connect(options: ConnectOptions): void {
@@ -36,7 +43,10 @@ export class SessionClient {
 		this.#ws = ws;
 
 		ws.addEventListener('open', () => (this.connected = true));
-		ws.addEventListener('close', () => (this.connected = false));
+		ws.addEventListener('close', (event) => {
+			this.connected = false;
+			if (event.code === KICK_CLOSE_CODE) this.kicked = true;
+		});
 		ws.addEventListener('message', (event) => {
 			this.snapshot = JSON.parse(event.data as string) as RoundSnapshot;
 		});
@@ -62,6 +72,11 @@ export class SessionClient {
 	/** Host advances from a fully revealed Round into the next one (#22's Host-driven pacing). */
 	nextRound(): void {
 		this.#send({ type: 'next_round' });
+	}
+
+	/** Host removes a disruptive Participant; they cannot rejoin under the same name. */
+	kick(participantId: string): void {
+		this.#send({ type: 'kick', participantId });
 	}
 
 	submit(guess: string): void {

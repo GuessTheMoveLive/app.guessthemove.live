@@ -15,6 +15,7 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
+	import ScoreSheet from '#lib/components/score-sheet.svelte';
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();
@@ -246,13 +247,13 @@
 						<h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							Moves so far
 						</h2>
-						<p class="font-mono text-sm leading-relaxed">
-							{#each history as row (row.number)}
-								<span class="text-muted-foreground">{row.number}.</span>
-								{row.white ?? ''}
-								{row.black ?? ''}
-							{/each}
-						</p>
+						<ScoreSheet
+							rows={history}
+							event={game.headers.Event}
+							date={game.headers.Date}
+							white={game.headers.White}
+							black={game.headers.Black}
+						/>
 					</div>
 				{/if}
 			</Card.Content>

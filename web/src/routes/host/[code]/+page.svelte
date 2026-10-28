@@ -11,13 +11,17 @@
 		remainingMs,
 		formatCountdown
 	} from '#lib/host/host-view.js';
+	import { getGameData, quizSteps } from '#lib/round/game-data.js';
+	import { buildMoveHistory } from '#lib/round/participant-input.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
+	import ScoreSheet from '#lib/components/score-sheet.svelte';
 
 	const code = page.params.code ?? '';
 	const token = page.url.searchParams.get('token') ?? '';
 	const client = new SessionClient();
+	const game = getGameData();
 
 	let now = $state(Date.now());
 	let tick: ReturnType<typeof setInterval>;
@@ -63,6 +67,10 @@
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
+	const quizStep = $derived(quizSteps()[roundIndex]);
+	const history = $derived(
+		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
+	);
 </script>
 
 <main class="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -172,6 +180,23 @@
 					</p>
 				{/if}
 			</Card.Footer>
+		</Card.Root>
+	{/if}
+
+	{#if !client.ended && history.length}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-sm">Score sheet</Card.Title>
+			</Card.Header>
+			<Card.Content>
+				<ScoreSheet
+					rows={history}
+					event={game.headers.Event}
+					date={game.headers.Date}
+					white={game.headers.White}
+					black={game.headers.Black}
+				/>
+			</Card.Content>
 		</Card.Root>
 	{/if}
 

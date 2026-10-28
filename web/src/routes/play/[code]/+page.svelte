@@ -14,6 +14,7 @@
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
 	import { explanationText } from '#lib/round/feedback.js';
+	import { m } from '#lib/paraglide/messages.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
@@ -131,50 +132,50 @@
 
 <main class="mx-auto flex max-w-md flex-col gap-6 p-4">
 	<header class="flex items-baseline justify-between">
-		<h1 class="text-xl font-semibold">Guess the Move</h1>
+		<h1 class="text-xl font-semibold">{m.app_title()}</h1>
 		<p class="text-xs text-muted-foreground">
-			Room <span class="font-mono tracking-widest">{code}</span>
+			{m.room_label()} <span class="font-mono tracking-widest">{code}</span>
 		</p>
 	</header>
 
 	{#if client.ended}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>This session has ended</Card.Title>
-				<Card.Description>The Host has ended this Session.</Card.Description>
+				<Card.Title>{m.session_ended_title()}</Card.Title>
+				<Card.Description>{m.play_session_ended_desc()}</Card.Description>
 			</Card.Header>
 		</Card.Root>
 	{:else if client.kicked}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Removed from this Session</Card.Title>
-				<Card.Description>The Host has removed you from this Room Code.</Card.Description>
+				<Card.Title>{m.play_kicked_title()}</Card.Title>
+				<Card.Description>{m.play_kicked_desc()}</Card.Description>
 			</Card.Header>
 		</Card.Root>
 	{:else if !joined}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Join the room</Card.Title>
-				<Card.Description>Pick a display name — no account needed.</Card.Description>
+				<Card.Title>{m.play_join_title()}</Card.Title>
+				<Card.Description>{m.play_join_desc()}</Card.Description>
 			</Card.Header>
 			<Card.Content>
 				<form class="flex gap-2" onsubmit={(e) => (e.preventDefault(), join())}>
 					<input
 						class="flex-1 rounded-md border px-3 py-2 text-sm"
-						placeholder="Your name"
+						placeholder={m.play_name_placeholder()}
 						bind:value={name}
 						maxlength="24"
 					/>
-					<Button type="submit" disabled={!name.trim()}>Join</Button>
+					<Button type="submit" disabled={!name.trim()}>{m.join_button()}</Button>
 				</form>
 			</Card.Content>
 		</Card.Root>
 	{:else if phase === 'lobby'}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>You're in</Card.Title>
+				<Card.Title>{m.play_lobby_title()}</Card.Title>
 				<Card.Description>
-					Waiting for the Host to start the Round{client.connected ? '' : ' · connecting…'}
+					{m.play_lobby_waiting()}{client.connected ? '' : ` · ${m.status_connecting()}`}
 				</Card.Description>
 			</Card.Header>
 		</Card.Root>
@@ -182,11 +183,11 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title class="flex items-center justify-between">
-					<span>Your guess</span>
+					<span>{m.play_guess_title()}</span>
 					<span class="font-mono text-2xl tabular-nums">{countdown}</span>
 				</Card.Title>
 				<Card.Description>
-					Tap the square your move starts on, then where it lands.
+					{m.play_guess_desc()}
 				</Card.Description>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-4">
@@ -229,28 +230,28 @@
 
 				{#if locked}
 					<p class="text-center text-sm font-medium text-primary">
-						Locked in — waiting for the Reveal.
+						{m.play_locked()}
 					</p>
 				{:else if pending}
 					<div class="flex items-center justify-between rounded-lg border px-3 py-2">
 						<span>
-							Confirm <span class="text-2xl">{pending.glyph}</span>
+							{m.play_confirm()} <span class="text-2xl">{pending.glyph}</span>
 						</span>
 						<span class="flex gap-2">
-							<Button variant="outline" size="sm" onclick={clearPending}>Clear</Button>
-							<Button size="sm" onclick={commit}>Submit</Button>
+							<Button variant="outline" size="sm" onclick={clearPending}>{m.play_clear()}</Button>
+							<Button size="sm" onclick={commit}>{m.play_submit()}</Button>
 						</span>
 					</div>
 				{:else}
 					<p class="text-center text-sm text-muted-foreground">
-						{origin ? `From ${origin} — now tap the destination.` : 'Tap your starting square.'}
+						{origin ? m.play_tap_from({ square: origin }) : m.play_tap_start()}
 					</p>
 				{/if}
 
 				{#if history.length}
 					<div>
 						<h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-							Moves so far
+							{m.play_moves_so_far()}
 						</h2>
 						<ScoreSheet
 							rows={history}
@@ -266,8 +267,8 @@
 	{:else}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>{phase === 'reveal' ? 'Reveal' : 'Round closed'}</Card.Title>
-				<Card.Description>Your running score</Card.Description>
+				<Card.Title>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title>
+				<Card.Description>{m.play_running_score()}</Card.Description>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-4">
 				<div class="text-center">
@@ -282,18 +283,18 @@
 						<div class="flex flex-col gap-1 text-sm">
 							{#if feedback.guessSan}
 								<div class="flex items-baseline justify-between gap-2">
-									<span class="text-muted-foreground">Your move</span>
+									<span class="text-muted-foreground">{m.play_feedback_your_move()}</span>
 									<span class="font-mono text-base">{sanToGlyph(feedback.guessSan)}</span>
 								</div>
 							{/if}
 							<div class="flex items-baseline justify-between gap-2">
-								<span class="text-muted-foreground">Played</span>
+								<span class="text-muted-foreground">{m.play_feedback_played()}</span>
 								<span class="font-mono text-base">{sanToGlyph(feedback.playedSan)}</span>
 							</div>
 						</div>
 						{#if feedback.variant && feedback.variant.continuation.length}
 							<div class="flex flex-col gap-0.5">
-								<span class="text-xs uppercase tracking-wide text-muted-foreground">Continuation</span>
+								<span class="text-xs uppercase tracking-wide text-muted-foreground">{m.play_feedback_continuation()}</span>
 								<span class="font-mono text-sm">
 									{feedback.variant.continuation.map(sanToGlyph).join(' ')}
 									{#if feedback.variant.endEval != null}
@@ -309,7 +310,7 @@
 				{#if leaders.length}
 					<div>
 						<h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-							Leaderboard
+							{m.leaderboard_title()}
 						</h2>
 						<Leaderboard entries={leaders} highlightId={me} />
 					</div>

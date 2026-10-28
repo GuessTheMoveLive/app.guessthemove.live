@@ -19,7 +19,11 @@ export default defineConfig({
 		paraglideVitePlugin({
 			project: './project.inlang',
 			outdir: './src/lib/paraglide',
-			emitTsDeclarations: true
+			emitTsDeclarations: true,
+			// Auto-detect from the browser's Accept-Language by default (#41's Resolution),
+			// but let `cookie` win first so the manual switcher's override persists across
+			// reloads; fall back to the base locale (en) when neither resolves.
+			strategy: ['cookie', 'preferredLanguage', 'baseLocale']
 		})
 	],
 	test: {

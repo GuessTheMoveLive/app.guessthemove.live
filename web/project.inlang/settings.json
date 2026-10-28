@@ -10,7 +10,6 @@
 	"baseLocale": "en",
 	"locales": [
 		"en",
-		"de",
-		"fr"
+		"de"
 	]
 }

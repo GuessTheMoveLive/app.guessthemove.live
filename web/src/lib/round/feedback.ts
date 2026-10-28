@@ -1,5 +1,6 @@
 import type { ParticipantState } from './round-machine';
 import type { AnswerKeyStep } from './scoring';
+import { m } from '#lib/paraglide/messages.js';
 
 // Per-Participant Feedback (#36): a Host-triggered, personalized explanation of a
 // Guess Score, sent as a targeted message to that Participant's own socket - not a
@@ -82,22 +83,23 @@ export function buildParticipantFeedback(
 	return { tier, score, playedSan: step.san, guessSan, variant };
 }
 
-/** Plain qualitative explanation text per tier, no raw numbers (#36's Resolution). */
+/** Plain qualitative explanation text per tier, no raw numbers (#36's Resolution),
+ *  localized via Paraglide (#41) — resolved in the active locale at the call site. */
 export function explanationText(tier: FeedbackTier): string {
 	switch (tier) {
 		case 'best':
-			return 'The best move — exactly what was played.';
+			return m.feedback_best();
 		case 'alternative':
-			return 'A reasonable alternative.';
+			return m.feedback_alternative();
 		case 'playable':
-			return 'Playable, but not among the top choices.';
+			return m.feedback_playable();
 		case 'mistake':
-			return 'A mistake.';
+			return m.feedback_mistake();
 		case 'clearMistake':
-			return 'A clear mistake.';
+			return m.feedback_clear_mistake();
 		case 'blunder':
-			return 'A serious blunder.';
+			return m.feedback_blunder();
 		case 'timeout':
-			return 'No move submitted in time.';
+			return m.feedback_timeout();
 	}
 }

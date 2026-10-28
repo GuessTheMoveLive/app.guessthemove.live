@@ -18,6 +18,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
 	import ScoreSheet from '#lib/components/score-sheet.svelte';
+	import { m } from '#lib/paraglide/messages.js';
 
 	const code = page.params.code ?? '';
 	const token = page.url.searchParams.get('token') ?? '';
@@ -77,18 +78,18 @@
 
 <main class="mx-auto flex max-w-2xl flex-col gap-6 p-6">
 	<header class="flex flex-wrap items-baseline justify-between gap-2">
-		<h1 class="text-2xl font-semibold">Guess the Move — Host</h1>
+		<h1 class="text-2xl font-semibold">{m.host_title()}</h1>
 		<div class="flex items-center gap-3">
 			<p class="text-sm text-muted-foreground">
-				Room <span class="font-mono font-medium tracking-widest">{code}</span>
-				· {client.connected ? 'live' : 'connecting…'}
+				{m.room_label()} <span class="font-mono font-medium tracking-widest">{code}</span>
+				· {client.connected ? m.status_live() : m.status_connecting()}
 				{#if totalRounds > 0}
-					· Round {roundIndex + 1} of {totalRounds}
+					· {m.round_x_of_y({ current: roundIndex + 1, total: totalRounds })}
 				{/if}
 			</p>
-			<Button variant="outline" size="sm" onclick={reset}>Reset</Button>
+			<Button variant="outline" size="sm" onclick={reset}>{m.reset_button()}</Button>
 			<Button variant="destructive" size="sm" onclick={deleteSession}>
-				{confirmingDelete ? 'Click again to confirm' : 'Delete'}
+				{confirmingDelete ? m.delete_confirm() : m.delete_button()}
 			</Button>
 		</div>
 	</header>
@@ -96,45 +97,49 @@
 	{#if client.ended}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>This session has ended</Card.Title>
-				<Card.Description>The Session was deleted. Its Room Code is now free to reuse.</Card.Description>
+				<Card.Title>{m.session_ended_title()}</Card.Title>
+				<Card.Description>{m.host_session_ended_desc()}</Card.Description>
 			</Card.Header>
 		</Card.Root>
 	{:else if phase === 'lobby'}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Lobby</Card.Title>
-				<Card.Description>{rosterSize} player{rosterSize === 1 ? '' : 's'} joined</Card.Description>
+				<Card.Title>{m.host_lobby_title()}</Card.Title>
+				<Card.Description>
+					{rosterSize === 1
+						? m.host_lobby_players_one({ count: rosterSize })
+						: m.host_lobby_players_other({ count: rosterSize })}
+				</Card.Description>
 			</Card.Header>
 			<Card.Content class="flex flex-col items-center gap-3">
 				{#if qrDataUrl}
-					<img src={qrDataUrl} alt={`QR code to join Room ${code}`} class="h-60 w-60" />
+					<img src={qrDataUrl} alt={m.host_qr_alt({ code })} class="h-60 w-60" />
 				{/if}
 				<p class="text-center text-sm text-muted-foreground">
-					Scan to join, or go to <span class="font-mono">/play/{code}</span>
+					{m.host_scan_hint({ path: `/play/${code}` })}
 				</p>
 			</Card.Content>
 			<Card.Footer>
-				<Button onclick={() => client.startRound()}>Start Round</Button>
+				<Button onclick={() => client.startRound()}>{m.host_start_round()}</Button>
 			</Card.Footer>
 		</Card.Root>
 	{:else if phase === 'active'}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Round in progress</Card.Title>
+				<Card.Title>{m.host_active_title()}</Card.Title>
 				<Card.Description>
-					Reveal is always triggered by you — never automatically.
+					{m.host_active_desc()}
 				</Card.Description>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-4">
 				<div class="text-center">
 					<div class="font-mono text-5xl tabular-nums">{countdown}</div>
 					<div class="mt-2 text-sm text-muted-foreground">
-						{progress.submitted}/{progress.total} answered
+						{m.host_answered({ submitted: progress.submitted, total: progress.total })}
 					</div>
 					{#if answered}
 						<p class="mt-2 text-sm font-medium text-primary">
-							Everyone has answered — safe to reveal.
+							{m.host_everyone_answered()}
 						</p>
 					{/if}
 				</div>
@@ -148,38 +153,38 @@
 				</div>
 			</Card.Content>
 			<Card.Footer>
-				<Button onclick={() => client.reveal()}>Reveal</Button>
+				<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
 			</Card.Footer>
 		</Card.Root>
 	{:else if phase === 'closed'}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Round closed</Card.Title>
-				<Card.Description>Top 5 leaderboard</Card.Description>
+				<Card.Title>{m.host_closed_title()}</Card.Title>
+				<Card.Description>{m.leaderboard_top5()}</Card.Description>
 			</Card.Header>
 			<Card.Content>
 				<Leaderboard entries={leaders} />
 			</Card.Content>
 			<Card.Footer>
-				<Button onclick={() => client.reveal()}>Reveal</Button>
+				<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
 			</Card.Footer>
 		</Card.Root>
 	{:else}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Reveal</Card.Title>
-				<Card.Description>Top 5 leaderboard</Card.Description>
+				<Card.Title>{m.host_reveal_title()}</Card.Title>
+				<Card.Description>{m.leaderboard_top5()}</Card.Description>
 			</Card.Header>
 			<Card.Content>
 				<Leaderboard entries={leaders} />
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
-				<Button variant="outline" onclick={() => client.giveFeedback()}>Give Feedback</Button>
+				<Button variant="outline" onclick={() => client.giveFeedback()}>{m.host_give_feedback()}</Button>
 				{#if hasNextRound}
-					<Button onclick={() => client.nextRound()}>Next Round</Button>
+					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
 				{:else}
 					<p class="text-sm font-medium text-muted-foreground">
-						Final Round complete — no Rounds left in the Featured Game.
+						{m.host_final_round()}
 					</p>
 				{/if}
 			</Card.Footer>
@@ -189,7 +194,7 @@
 	{#if !client.ended && history.length}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title class="text-sm">Score sheet</Card.Title>
+				<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
 			</Card.Header>
 			<Card.Content>
 				<ScoreSheet
@@ -206,10 +211,9 @@
 	{#if !client.ended && phase !== 'lobby' && breakdown.length}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title class="text-sm">Answer key — Host only</Card.Title>
+				<Card.Title class="text-sm">{m.host_answer_key_title()}</Card.Title>
 				<Card.Description>
-					The full precomputed breakdown, visible to you throughout the Round — your talking
-					points for the Feedback.
+					{m.host_answer_key_desc()}
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
@@ -238,7 +242,7 @@
 	{#if rosterSize > 0}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title class="text-sm">Scoreboard ({rosterSize})</Card.Title>
+				<Card.Title class="text-sm">{m.host_scoreboard_title({ count: rosterSize })}</Card.Title>
 			</Card.Header>
 			<Card.Content class="max-h-72 overflow-y-auto">
 				<ol class="flex flex-col gap-2">
@@ -254,7 +258,7 @@
 							<Button
 								variant="destructive"
 								size="icon-xs"
-								aria-label={`Kick ${row.participantId}`}
+								aria-label={m.host_kick_label({ name: row.participantId })}
 								onclick={() => client.kick(row.participantId)}
 							>
 								&times;

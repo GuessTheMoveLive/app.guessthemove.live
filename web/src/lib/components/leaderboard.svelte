@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { LeaderboardEntry } from '#lib/host/host-view.js';
+	import { m } from '#lib/paraglide/messages.js';
 
 	// The shared, Kahoot-style Leaderboard rendering shown on both the Host control
 	// screen and the Participant screen (#23, #34) - kept in one place so the two
@@ -12,7 +13,7 @@
 		emptyMessage?: string;
 	}
 
-	const { entries, highlightId, emptyMessage = 'No scores yet.' }: Props = $props();
+	const { entries, highlightId, emptyMessage = m.leaderboard_empty() }: Props = $props();
 </script>
 
 {#if entries.length === 0}

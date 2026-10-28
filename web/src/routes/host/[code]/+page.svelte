@@ -4,6 +4,7 @@
 	import { SessionClient } from '#lib/round/session-client.svelte.js';
 	import {
 		topLeaderboard,
+		scoreboardRows,
 		submissionProgress,
 		everyoneAnswered,
 		remainingMs,
@@ -35,8 +36,10 @@
 	const answered = $derived(everyoneAnswered(participants));
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
 	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
-	const rosterIds = $derived(Object.keys(participants));
-	const rosterSize = $derived(rosterIds.length);
+	const scoreboard = $derived(
+		scoreboardRows(participants, snapshot?.context.totals ?? {}, snapshot?.context.priorTotals ?? {})
+	);
+	const rosterSize = $derived(scoreboard.length);
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
@@ -53,31 +56,6 @@
 			{/if}
 		</p>
 	</header>
-
-	{#if rosterSize > 0}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-sm">Participants ({rosterSize})</Card.Title>
-			</Card.Header>
-			<Card.Content>
-				<ul class="flex flex-wrap gap-2">
-					{#each rosterIds as id (id)}
-						<li class="flex items-center gap-1 rounded-full border py-0.5 pl-3 pr-1 text-sm">
-							{id}
-							<Button
-								variant="destructive"
-								size="icon-xs"
-								aria-label={`Kick ${id}`}
-								onclick={() => client.kick(id)}
-							>
-								&times;
-							</Button>
-						</li>
-					{/each}
-				</ul>
-			</Card.Content>
-		</Card.Root>
-	{/if}
 
 	{#if phase === 'lobby'}
 		<Card.Root>
@@ -153,6 +131,37 @@
 					</p>
 				{/if}
 			</Card.Footer>
+		</Card.Root>
+	{/if}
+
+	{#if rosterSize > 0}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-sm">Scoreboard ({rosterSize})</Card.Title>
+			</Card.Header>
+			<Card.Content class="max-h-72 overflow-y-auto">
+				<ol class="flex flex-col gap-2">
+					{#each scoreboard as row (row.participantId)}
+						<li class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+							<span class="min-w-0 flex-1 truncate font-medium">{row.participantId}</span>
+							{#if phase === 'active' || phase === 'closed'}
+								<span class="w-10 shrink-0 text-center font-mono text-muted-foreground">
+									{row.move ?? '…'}
+								</span>
+							{/if}
+							<span class="w-8 shrink-0 text-right font-mono tabular-nums">{row.score}</span>
+							<Button
+								variant="destructive"
+								size="icon-xs"
+								aria-label={`Kick ${row.participantId}`}
+								onclick={() => client.kick(row.participantId)}
+							>
+								&times;
+							</Button>
+						</li>
+					{/each}
+				</ol>
+			</Card.Content>
 		</Card.Root>
 	{/if}
 </main>

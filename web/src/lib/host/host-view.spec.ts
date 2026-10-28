@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	topLeaderboard,
+	scoreboardRows,
 	submissionProgress,
 	everyoneAnswered,
 	remainingMs,
@@ -48,6 +49,48 @@ const pending: ParticipantState = { status: 'pending' };
 const submitted: ParticipantState = { status: 'submitted', guess: 'e4' };
 const late: ParticipantState = { status: 'late', guess: 'e4' };
 const timedOut: ParticipantState = { status: 'timedOut' };
+
+describe('scoreboardRows', () => {
+	it('orders by running total, highest first, falling back to priorTotals pre-close', () => {
+		const result = scoreboardRows(
+			{ alice: pending, bob: pending },
+			{},
+			{ alice: 2, bob: 7 }
+		);
+
+		expect(result).toEqual([
+			{ participantId: 'bob', score: 7, move: null },
+			{ participantId: 'alice', score: 2, move: null }
+		]);
+	});
+
+	it('prefers totals over priorTotals once the round has closed', () => {
+		const result = scoreboardRows({ alice: submitted }, { alice: 9 }, { alice: 2 });
+
+		expect(result).toEqual([{ participantId: 'alice', score: 9, move: 'e4' }]);
+	});
+
+	it('glyph-renders a submitted or late move, leaves pending/timed-out as null', () => {
+		const result = scoreboardRows(
+			{ alice: submitted, bob: late, carol: pending, dave: timedOut },
+			{},
+			{}
+		);
+
+		expect(result.map((r) => [r.participantId, r.move])).toEqual([
+			['alice', 'e4'],
+			['bob', 'e4'],
+			['carol', null],
+			['dave', null]
+		]);
+	});
+
+	it('breaks score ties by participantId', () => {
+		const result = scoreboardRows({ zoe: pending, amy: pending }, {}, { zoe: 3, amy: 3 });
+
+		expect(result.map((r) => r.participantId)).toEqual(['amy', 'zoe']);
+	});
+});
 
 describe('submissionProgress', () => {
 	it('counts submitted answers against the full roster', () => {

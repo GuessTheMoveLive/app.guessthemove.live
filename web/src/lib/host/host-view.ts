@@ -1,9 +1,11 @@
 import type { ParticipantState } from '#lib/round/round-machine.js';
+import { sanToGlyph } from '#lib/round/participant-input.js';
 
 // Pure derivations for the v1 Host control screen (#34). The Host screen consumes
-// the broadcast round snapshot from SessionRoom and never shows more than a
-// Participant may see during an active Round (#10, #6): only submission *counts*,
-// never who guessed what, until Reveal.
+// the broadcast round snapshot from SessionRoom. Per #35, the non-playing
+// "host-host" Host Display may show each Participant's live submitted move during
+// an active Round — #10's full display-parity rule only protected a Host who was
+// also playing, which v1 doesn't have yet.
 
 export interface LeaderboardEntry {
 	participantId: string;
@@ -29,9 +31,38 @@ export interface SubmissionProgress {
 	total: number;
 }
 
+export interface ScoreboardRow {
+	participantId: string;
+	/** Running total coming into this Round, or through it once scored (#32). */
+	score: number;
+	/** This Round's submitted move, glyph-rendered (#35) — null while still pending. */
+	move: string | null;
+}
+
+/**
+ * The always-visible Host scoreboard: every Participant with their running score
+ * and (once submitted) this Round's move, highest score first, ties broken by
+ * participantId. Unlike {@link topLeaderboard} this is the full roster, not a
+ * top-N, and it's meant to stay on screen across every phase, not just between
+ * Rounds — kick stays available per-row alongside it.
+ */
+export function scoreboardRows(
+	participants: Record<string, ParticipantState>,
+	totals: Record<string, number>,
+	priorTotals: Record<string, number>
+): ScoreboardRow[] {
+	return Object.entries(participants)
+		.map(([participantId, state]) => ({
+			participantId,
+			score: totals[participantId] ?? priorTotals[participantId] ?? 0,
+			move: state.status === 'submitted' || state.status === 'late' ? sanToGlyph(state.guess) : null
+		}))
+		.sort((a, b) => b.score - a.score || a.participantId.localeCompare(b.participantId));
+}
+
 /**
  * How many Participants have locked in an answer vs the full roster — the
- * "3/8 answered" indicator. Content is never exposed, only the count (#6, #10).
+ * "3/8 answered" indicator.
  */
 export function submissionProgress(
 	participants: Record<string, ParticipantState>

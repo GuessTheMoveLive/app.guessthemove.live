@@ -14,6 +14,7 @@
 	} from '#lib/round/participant-input.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import Leaderboard from '#lib/components/leaderboard.svelte';
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();
@@ -267,20 +268,7 @@
 						<h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							Leaderboard
 						</h2>
-						<ol class="flex flex-col gap-2">
-							{#each leaders as entry, i (entry.participantId)}
-								<li
-									class="flex items-center justify-between rounded-lg border px-3 py-2"
-									class:border-primary={entry.participantId === me}
-								>
-									<span class="flex items-center gap-3">
-										<span class="w-5 text-right font-mono text-muted-foreground">{i + 1}</span>
-										<span class="font-medium">{entry.participantId}</span>
-									</span>
-									<span class="font-mono tabular-nums">{entry.total}</span>
-								</li>
-							{/each}
-						</ol>
+						<Leaderboard entries={leaders} highlightId={me} />
 					</div>
 				{/if}
 			</Card.Content>

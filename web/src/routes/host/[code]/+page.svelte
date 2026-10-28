@@ -11,6 +11,7 @@
 	} from '#lib/host/host-view.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import Leaderboard from '#lib/components/leaderboard.svelte';
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();
@@ -128,7 +129,7 @@
 				<Card.Description>Top 5 leaderboard</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				{@render leaderboard()}
+				<Leaderboard entries={leaders} />
 			</Card.Content>
 			<Card.Footer>
 				<Button onclick={() => client.reveal()}>Reveal</Button>
@@ -141,7 +142,7 @@
 				<Card.Description>Top 5 leaderboard</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				{@render leaderboard()}
+				<Leaderboard entries={leaders} />
 			</Card.Content>
 			<Card.Footer>
 				{#if hasNextRound}
@@ -155,21 +156,3 @@
 		</Card.Root>
 	{/if}
 </main>
-
-{#snippet leaderboard()}
-	{#if leaders.length === 0}
-		<p class="text-sm text-muted-foreground">No scores yet.</p>
-	{:else}
-		<ol class="flex flex-col gap-2">
-			{#each leaders as entry, i (entry.participantId)}
-				<li class="flex items-center justify-between rounded-lg border px-3 py-2">
-					<span class="flex items-center gap-3">
-						<span class="w-5 text-right font-mono text-muted-foreground">{i + 1}</span>
-						<span class="font-medium">{entry.participantId}</span>
-					</span>
-					<span class="font-mono tabular-nums">{entry.total}</span>
-				</li>
-			{/each}
-		</ol>
-	{/if}
-{/snippet}

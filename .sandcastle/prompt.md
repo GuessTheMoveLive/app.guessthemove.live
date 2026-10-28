@@ -1,53 +1,133 @@
 # Context
 
-## Open issues
+This run is scoped to exactly two issues — do not pick up any other open issue, even
+if it looks higher-priority or blocked-free. A separate human-directed session is
+handling everything else on the v1 map; working outside this list causes conflicts.
 
-!`gh issue list --state open --limit 100 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`
+## Issue #36 (Feedback phase)
 
-The list above has already been filtered to issues ready for work and is the sole source of truth for what work exists. Do not run your own unfiltered query to find more issues — if the list is empty, there is nothing to do.
+!`gh issue view 36 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-## Recent RALPH commits (last 10)
+Groundwork already landed on this branch (commit 48e04b4): `web/scripts/build-game-data.mjs`'s
+`parseAlternative()` now captures each alternative's full precomputed continuation instead of
+discarding it, `AnswerKeyAlternative` (in `web/src/lib/round/scoring.ts`) carries it as
+`continuation: string[]`, and `web/src/lib/round/feedback.ts` + its spec derive a Participant's
+Feedback tier and Variant from their stored guess. Read that file first — it's already tested and
+should not be redone. What's still missing, per the issue's Resolution comment:
+
+- A `give_feedback` (or similarly named) message in `web/src/lib/server/session-room.ts`'s
+  `webSocketMessage`, Host-only (same tag check pattern as `kick`/`reset`): for every Participant
+  in the current Round's `participants`, compute their `ParticipantFeedback` via
+  `buildParticipantFeedback` and send it as a **targeted message to that Participant's own
+  socket(s)** (`this.ctx.getWebSockets(participantId)`) — not a broadcast. Pick a client message
+  shape distinct from the existing broadcast `RoundSnapshot` (e.g. `{ type: 'feedback', feedback:
+  ParticipantFeedback }`) so `SessionClient`/the Participant screen can tell it apart from a
+  snapshot update.
+- `web/src/lib/round/session-client.svelte.ts`: a `giveFeedback()` sender (Host) and a reactive
+  `feedback` field populated when a `feedback`-typed message arrives (Participant).
+- Host control screen (`web/src/routes/host/[code]/+page.svelte`): a second button next to "Next
+  Round" on the Reveal screen — "Give Feedback" — calling `client.giveFeedback()`. They are
+  alternatives, not sequential steps, per the issue.
+- Participant screen (`web/src/routes/play/[code]/+page.svelte`): render the incoming Feedback
+  (tier copy via `explanationText`, plus the Variant's continuation glyph-rendered the same way as
+  the score sheet — reuse `sanToGlyph` from `participant-input.ts` — and its end evaluation) when
+  present.
+- Host also gets the full answer-key breakdown live, during the active Round, not just after
+  Reveal (the issue's Resolution explains why: the Host already knows the game per the v1 scope
+  decisions, and this gives them talking points). Render every alternative's tier/eval/variant
+  somewhere on the Host control screen, visible during `active` and not gated behind any
+  Participant action.
+
+## Issue #41 (Internationalization)
+
+!`gh issue view 41 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+
+Paraglide JS is already scaffolded in this repo (`web/project.inlang/`, `web/messages/*.json`,
+`web/src/lib/paraglide/`, wired into `web/vite.config.ts`, `web/src/hooks.ts`,
+`web/src/hooks.server.ts`, and `web/src/app.html`) but only carries a placeholder
+`hello_world` message — no real UI strings have been extracted yet. Do not re-scaffold it.
+
+- `web/project.inlang/settings.json` lists locales `["en", "de", "fr"]` — drop `"fr"`; only
+  English and German ship for v1 (`baseLocale` stays `"en"`).
+- Every user-facing string across both Host (`web/src/routes/host/[code]/+page.svelte`,
+  `web/src/lib/host/host-view.ts`) and Participant (`web/src/routes/play/[code]/+page.svelte`,
+  `web/src/lib/round/participant-input.ts`) screens, plus `web/src/routes/+page.svelte` (session
+  create/join) and `web/src/lib/components/leaderboard.svelte` and
+  `web/src/lib/components/score-sheet.svelte` (its "Tournament"/"Date"/"White"/"Black" labels —
+  not the chess notation itself, which stays untranslated per the ticket). If issue #36 has landed
+  by the time you reach this, its Feedback explanation copy (`explanationText` in
+  `web/src/lib/round/feedback.ts`) needs message keys too; if it hasn't, translate what exists and
+  leave a comment on #41 noting the Feedback copy still needs a pass once #36 ships.
+  Semantic keys (e.g. `host.scoreboard.title`), not English-source-keyed.
+- Add both `messages/en.json` and `messages/de.json` entries for every key (German translations
+  are AI-produced — that's expected and accepted for v1, call it out in your closing comment
+  rather than trying to get a native speaker's review you don't have access to).
+- Add a manual locale switcher in the UI (browser-language auto-detect already happens via
+  Paraglide's standard cookie/header detection once `hooks.server.ts`/`hooks.ts` are exercised —
+  confirm it still does once you're using real messages, don't rebuild it) — a visible, simple
+  toggle/select is enough, doesn't need to be fancy. Use `localizeHref`/`locales` from
+  `#lib/paraglide/runtime.js`, the same module `web/src/routes/+layout.svelte` already imports.
+- Chess move notation (SAN/glyphs) is never translated — don't touch `sanToGlyph` or move text.
+
+# Shared ground rules for both issues
+
+- Read `GLOSSARY.md` and issue #1 (`gh issue view 1`) first for full product/domain context if
+  anything above is unclear — don't guess at terminology.
+- Do **not** touch anything related to Analysis Tree, Plenum Selection Phase, or issues #15, #17,
+  #19, #20, #28 — explicitly out of scope, deferred past v1.
+- Already shipped on this branch and NOT your job: #37 (Session join/Host Token), #38
+  (Reset/Delete), #40 (score-sheet layout) — commits 50cecb1, ebfd164. Don't redo or revert them.
+- Run `npm run typecheck` and `npm run test` (repo root — both proxy into `web/`) after each piece
+  and keep both green before committing.
+- Work from the `web/` subdirectory for anything not covered by the root proxy scripts (e.g.
+  `npm run build:data --prefix web` if you touch `scripts/build-game-data.mjs` again, which you
+  shouldn't need to for #41 and already has for #36).
+
+# Recent RALPH commits (last 10)
 
 !`git log --oneline --grep="RALPH" -10`
 
 # Task
 
-You are RALPH — an autonomous coding agent working through issues one at a time.
+You are RALPH, an autonomous coding agent. Work through the two issues above, in order (#36
+first, since #41 should translate its Feedback copy once it exists — but if #36 isn't fully done
+by the time you'd naturally move on, don't block #41 on it; translate what's landed and note the
+gap as described above).
 
-## Priority order
+## Workflow (per issue)
 
-Work on issues in this order:
-
-1. **Bug fixes** — broken behaviour affecting users
-2. **Tracer bullets** — thin end-to-end slices that prove an approach works
-3. **Polish** — improving existing functionality (error messages, UX, docs)
-4. **Refactors** — internal cleanups with no user-visible change
-
-Pick the highest-priority open issue that is not blocked by another open issue.
-
-## Workflow
-
-1. **Explore** — read the issue carefully. Pull in the parent PRD if referenced. Read the relevant source files and tests before writing any code.
-2. **Plan** — decide what to change and why. Keep the change as small as possible.
-3. **Execute** — use RGR (Red → Green → Repeat → Refactor): write a failing test first, then write the implementation to pass it.
-4. **Verify** — run `npm run typecheck` and `npm run test` before committing. Fix any failures before proceeding.
-5. **Commit** — make a single git commit. The message MUST:
+1. **Explore** — read the issue's Resolution comment and the relevant source files/tests before
+   writing any code. The Resolution already answers every open design question; don't re-litigate
+   it.
+2. **Plan** — decide what to change, keep it as small as the issue actually requires.
+3. **Execute** — RGR: write a failing test first where the change is unit-testable (pure
+   functions, the Durable Object's message handling), then implement.
+4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit. Fix
+   failures before proceeding, never commit red.
+5. **Commit** — one commit per logically-complete slice of an issue (not one giant commit per
+   issue). Message MUST:
    - Start with `RALPH:` prefix
-   - Include the task completed and any PRD reference
+   - Reference the issue number
    - List key decisions made
-   - List files changed
    - Note any blockers for the next iteration
-6. **Close** — close the issue with `gh issue close <ID> --comment "Completed by Sandcastle"` explaining what was done.
+6. **Close** — once the issue is fully implemented and verified, close it:
+   `gh issue close <ID> --comment "<what was built, in the same style as this repo's other
+   closing comments — gh issue view 37 or 40 for the tone/format to match>"`. Also append one line
+   to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same pattern as
+   the existing entries there.
 
 ## Rules
 
-- Work on **one issue per iteration**. Do not attempt multiple issues in a single iteration.
-- Do not close an issue until you have committed the fix and verified tests pass.
-- Do not leave commented-out code or TODO comments in committed code.
-- If you are blocked (missing context, failing tests you cannot fix, external dependency), leave a comment on the issue and move on — do not close it.
+- Work on one of the two issues per iteration; don't split attention across both in the same
+  iteration unless finishing #36 naturally unblocks a small #41 piece.
+- Do not close an issue until implemented, tested, and committed.
+- No commented-out code, no TODOs left in committed code.
+- If blocked (missing context, a failing test you can't fix, something that needs a human
+  decision), leave a comment on the issue explaining the blocker and move to the other issue
+  instead of spinning.
 
 # Done
 
-When all actionable issues are complete (or you are blocked on all remaining ones), or the open-issues block at the top of this prompt is empty, output the completion signal:
+When both #36 and #41 are closed (or you are blocked on both), output the completion signal:
 
 <promise>COMPLETE</promise>

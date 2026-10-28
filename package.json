@@ -9,7 +9,7 @@
 		"build:data": "node scripts/build-game-data.mjs",
 		"preview": "wrangler dev --port 4173",
 		"deploy": "npx wrangler deploy",
-		"prepare": "svelte-kit sync || echo ''",
+		"prepare": "(svelte-kit sync || echo '') && npm run build",
 		"check": "node scripts/clean-build-output.mjs && wrangler types --check && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"typecheck": "npm run check",

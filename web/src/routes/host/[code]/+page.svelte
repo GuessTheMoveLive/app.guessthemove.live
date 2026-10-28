@@ -220,7 +220,7 @@
 				<ol class="flex flex-col gap-1.5 text-sm">
 					{#each breakdown as row (row.san)}
 						<li class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2">
-							<span class="w-8 shrink-0 font-mono font-medium tabular-nums">{row.tier}</span>
+							<span class="w-16 shrink-0 font-mono font-medium tabular-nums">{row.tier}</span>
 							<span class="font-mono text-base">{row.glyph}</span>
 							{#if row.eval != null}
 								<span class="font-mono text-xs text-muted-foreground tabular-nums">

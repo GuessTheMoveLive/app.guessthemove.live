@@ -69,6 +69,12 @@
 	const me = $derived(name.trim());
 	const myState = $derived(snapshot?.context.participants[me]);
 	const myTotal = $derived(snapshot?.context.totals[me] ?? 0);
+	// The Round Score, broadcast on every snapshot once the Round closes - shown as
+	// the headline number instead of the running total (#37). Distinct from
+	// `feedback?.score`, which is the same value but only arrives once the Host
+	// triggers "Give Feedback" (#36); reading it off the snapshot means the
+	// headline score is correct immediately on Reveal, before that happens.
+	const myRoundScore = $derived(snapshot?.context.scores[me] ?? 0);
 	const locked = $derived(myState?.status === 'submitted' || myState?.status === 'late');
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
 	const feedback = $derived(client.feedback);
@@ -272,11 +278,7 @@
 			<Card.Content class="flex flex-col gap-4">
 				<div class="text-center">
 					<div class="font-mono text-5xl tabular-nums">
-						{#if feedback}
-							{feedback.score > 0 ? '+' : ''}{feedback.score}
-						{:else}
-							{myTotal > 0 ? '+' : ''}{myTotal}
-						{/if}
+						{myRoundScore > 0 ? '+' : ''}{myRoundScore}
 					</div>
 					<p class="mt-2 text-sm text-muted-foreground">{me}</p>
 				</div>

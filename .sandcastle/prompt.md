@@ -8,14 +8,14 @@ handling everything else on the v1 map; working outside this list causes conflic
 
 !`gh issue view 36 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-Groundwork already landed on this branch (commit 48e04b4): `web/scripts/build-game-data.mjs`'s
+Groundwork already landed on this branch (commit 48e04b4): `scripts/build-game-data.mjs`'s
 `parseAlternative()` now captures each alternative's full precomputed continuation instead of
-discarding it, `AnswerKeyAlternative` (in `web/src/lib/round/scoring.ts`) carries it as
-`continuation: string[]`, and `web/src/lib/round/feedback.ts` + its spec derive a Participant's
+discarding it, `AnswerKeyAlternative` (in `src/lib/round/scoring.ts`) carries it as
+`continuation: string[]`, and `src/lib/round/feedback.ts` + its spec derive a Participant's
 Feedback tier and Variant from their stored guess. Read that file first — it's already tested and
 should not be redone. What's still missing, per the issue's Resolution comment:
 
-- A `give_feedback` (or similarly named) message in `web/src/lib/server/session-room.ts`'s
+- A `give_feedback` (or similarly named) message in `src/lib/server/session-room.ts`'s
   `webSocketMessage`, Host-only (same tag check pattern as `kick`/`reset`): for every Participant
   in the current Round's `participants`, compute their `ParticipantFeedback` via
   `buildParticipantFeedback` and send it as a **targeted message to that Participant's own
@@ -23,12 +23,12 @@ should not be redone. What's still missing, per the issue's Resolution comment:
   shape distinct from the existing broadcast `RoundSnapshot` (e.g. `{ type: 'feedback', feedback:
   ParticipantFeedback }`) so `SessionClient`/the Participant screen can tell it apart from a
   snapshot update.
-- `web/src/lib/round/session-client.svelte.ts`: a `giveFeedback()` sender (Host) and a reactive
+- `src/lib/round/session-client.svelte.ts`: a `giveFeedback()` sender (Host) and a reactive
   `feedback` field populated when a `feedback`-typed message arrives (Participant).
-- Host control screen (`web/src/routes/host/[code]/+page.svelte`): a second button next to "Next
+- Host control screen (`src/routes/host/[code]/+page.svelte`): a second button next to "Next
   Round" on the Reveal screen — "Give Feedback" — calling `client.giveFeedback()`. They are
   alternatives, not sequential steps, per the issue.
-- Participant screen (`web/src/routes/play/[code]/+page.svelte`): render the incoming Feedback
+- Participant screen (`src/routes/play/[code]/+page.svelte`): render the incoming Feedback
   (tier copy via `explanationText`, plus the Variant's continuation glyph-rendered the same way as
   the score sheet — reuse `sanToGlyph` from `participant-input.ts` — and its end evaluation) when
   present.
@@ -42,21 +42,21 @@ should not be redone. What's still missing, per the issue's Resolution comment:
 
 !`gh issue view 41 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-Paraglide JS is already scaffolded in this repo (`web/project.inlang/`, `web/messages/*.json`,
-`web/src/lib/paraglide/`, wired into `web/vite.config.ts`, `web/src/hooks.ts`,
-`web/src/hooks.server.ts`, and `web/src/app.html`) but only carries a placeholder
+Paraglide JS is already scaffolded in this repo (`project.inlang/`, `messages/*.json`,
+`src/lib/paraglide/`, wired into `vite.config.ts`, `src/hooks.ts`,
+`src/hooks.server.ts`, and `src/app.html`) but only carries a placeholder
 `hello_world` message — no real UI strings have been extracted yet. Do not re-scaffold it.
 
-- `web/project.inlang/settings.json` lists locales `["en", "de", "fr"]` — drop `"fr"`; only
+- `project.inlang/settings.json` lists locales `["en", "de", "fr"]` — drop `"fr"`; only
   English and German ship for v1 (`baseLocale` stays `"en"`).
-- Every user-facing string across both Host (`web/src/routes/host/[code]/+page.svelte`,
-  `web/src/lib/host/host-view.ts`) and Participant (`web/src/routes/play/[code]/+page.svelte`,
-  `web/src/lib/round/participant-input.ts`) screens, plus `web/src/routes/+page.svelte` (session
-  create/join) and `web/src/lib/components/leaderboard.svelte` and
-  `web/src/lib/components/score-sheet.svelte` (its "Tournament"/"Date"/"White"/"Black" labels —
+- Every user-facing string across both Host (`src/routes/host/[code]/+page.svelte`,
+  `src/lib/host/host-view.ts`) and Participant (`src/routes/play/[code]/+page.svelte`,
+  `src/lib/round/participant-input.ts`) screens, plus `src/routes/+page.svelte` (session
+  create/join) and `src/lib/components/leaderboard.svelte` and
+  `src/lib/components/score-sheet.svelte` (its "Tournament"/"Date"/"White"/"Black" labels —
   not the chess notation itself, which stays untranslated per the ticket). If issue #36 has landed
   by the time you reach this, its Feedback explanation copy (`explanationText` in
-  `web/src/lib/round/feedback.ts`) needs message keys too; if it hasn't, translate what exists and
+  `src/lib/round/feedback.ts`) needs message keys too; if it hasn't, translate what exists and
   leave a comment on #41 noting the Feedback copy still needs a pass once #36 ships.
   Semantic keys (e.g. `host.scoreboard.title`), not English-source-keyed.
 - Add both `messages/en.json` and `messages/de.json` entries for every key (German translations
@@ -66,7 +66,7 @@ Paraglide JS is already scaffolded in this repo (`web/project.inlang/`, `web/mes
   Paraglide's standard cookie/header detection once `hooks.server.ts`/`hooks.ts` are exercised —
   confirm it still does once you're using real messages, don't rebuild it) — a visible, simple
   toggle/select is enough, doesn't need to be fancy. Use `localizeHref`/`locales` from
-  `#lib/paraglide/runtime.js`, the same module `web/src/routes/+layout.svelte` already imports.
+  `#lib/paraglide/runtime.js`, the same module `src/routes/+layout.svelte` already imports.
 - Chess move notation (SAN/glyphs) is never translated — don't touch `sanToGlyph` or move text.
 
 # Shared ground rules for both issues
@@ -77,11 +77,8 @@ Paraglide JS is already scaffolded in this repo (`web/project.inlang/`, `web/mes
   #19, #20, #28 — explicitly out of scope, deferred past v1.
 - Already shipped on this branch and NOT your job: #37 (Session join/Host Token), #38
   (Reset/Delete), #40 (score-sheet layout) — commits 50cecb1, ebfd164. Don't redo or revert them.
-- Run `npm run typecheck` and `npm run test` (repo root — both proxy into `web/`) after each piece
-  and keep both green before committing.
-- Work from the `web/` subdirectory for anything not covered by the root proxy scripts (e.g.
-  `npm run build:data --prefix web` if you touch `scripts/build-game-data.mjs` again, which you
-  shouldn't need to for #41 and already has for #36).
+- Run `npm run typecheck` and `npm run test` from the repo root after each piece and keep both
+  green before committing.
 
 # Recent RALPH commits (last 10)
 

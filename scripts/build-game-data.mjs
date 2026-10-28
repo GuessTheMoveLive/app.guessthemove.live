@@ -1,10 +1,10 @@
 // Build step: parses the hand-annotated "answer key" PGN into the flat JSON
 // answer-key table the app ships (see src/lib/round/game-data.ts). Run with:
-// npm run build:data --prefix web
+// npm run build:data
 import { readFileSync, writeFileSync } from "node:fs";
 import { Chess } from "chess.js";
 
-const SRC = "../Capablanca - Marshall (Guess-the-Move key).pgn";
+const SRC = "./Capablanca - Marshall (Guess-the-Move key).pgn";
 const OUT = "src/lib/data/capablanca-marshall.json";
 
 const raw = readFileSync(SRC, "utf8");

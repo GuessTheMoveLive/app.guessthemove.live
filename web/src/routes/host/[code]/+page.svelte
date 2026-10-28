@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
+	import QRCode from 'qrcode';
 	import { SessionClient } from '#lib/round/session-client.svelte.js';
 	import {
 		topLeaderboard,
@@ -15,19 +16,38 @@
 	import Leaderboard from '#lib/components/leaderboard.svelte';
 
 	const code = page.params.code ?? '';
+	const token = page.url.searchParams.get('token') ?? '';
 	const client = new SessionClient();
 
 	let now = $state(Date.now());
 	let tick: ReturnType<typeof setInterval>;
+	let qrDataUrl = $state<string | null>(null);
+	let confirmingDelete = $state(false);
 
 	onMount(() => {
-		client.connect({ code, role: 'host' });
+		client.connect({ code, role: 'host', token });
 		tick = setInterval(() => (now = Date.now()), 250);
+		QRCode.toDataURL(`${location.origin}/play/${code}`, { margin: 1, width: 240 }).then(
+			(url) => (qrDataUrl = url)
+		);
 	});
 	onDestroy(() => {
 		clearInterval(tick);
 		client.disconnect();
 	});
+
+	function reset() {
+		client.reset();
+	}
+
+	function deleteSession() {
+		if (!confirmingDelete) {
+			confirmingDelete = true;
+			return;
+		}
+		client.deleteSession();
+		confirmingDelete = false;
+	}
 
 	const snapshot = $derived(client.snapshot);
 	const phase = $derived(snapshot?.value ?? 'lobby');
@@ -46,23 +66,44 @@
 </script>
 
 <main class="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-	<header class="flex items-baseline justify-between">
+	<header class="flex flex-wrap items-baseline justify-between gap-2">
 		<h1 class="text-2xl font-semibold">Guess the Move — Host</h1>
-		<p class="text-sm text-muted-foreground">
-			Room <span class="font-mono font-medium tracking-widest">{code}</span>
-			· {client.connected ? 'live' : 'connecting…'}
-			{#if totalRounds > 0}
-				· Round {roundIndex + 1} of {totalRounds}
-			{/if}
-		</p>
+		<div class="flex items-center gap-3">
+			<p class="text-sm text-muted-foreground">
+				Room <span class="font-mono font-medium tracking-widest">{code}</span>
+				· {client.connected ? 'live' : 'connecting…'}
+				{#if totalRounds > 0}
+					· Round {roundIndex + 1} of {totalRounds}
+				{/if}
+			</p>
+			<Button variant="outline" size="sm" onclick={reset}>Reset</Button>
+			<Button variant="destructive" size="sm" onclick={deleteSession}>
+				{confirmingDelete ? 'Click again to confirm' : 'Delete'}
+			</Button>
+		</div>
 	</header>
 
-	{#if phase === 'lobby'}
+	{#if client.ended}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>This session has ended</Card.Title>
+				<Card.Description>The Session was deleted. Its Room Code is now free to reuse.</Card.Description>
+			</Card.Header>
+		</Card.Root>
+	{:else if phase === 'lobby'}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Lobby</Card.Title>
 				<Card.Description>{rosterSize} player{rosterSize === 1 ? '' : 's'} joined</Card.Description>
 			</Card.Header>
+			<Card.Content class="flex flex-col items-center gap-3">
+				{#if qrDataUrl}
+					<img src={qrDataUrl} alt={`QR code to join Room ${code}`} class="h-60 w-60" />
+				{/if}
+				<p class="text-center text-sm text-muted-foreground">
+					Scan to join, or go to <span class="font-mono">/play/{code}</span>
+				</p>
+			</Card.Content>
 			<Card.Footer>
 				<Button onclick={() => client.startRound()}>Start Round</Button>
 			</Card.Footer>

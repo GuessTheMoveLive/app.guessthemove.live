@@ -4,14 +4,13 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 
 	let code = $state('');
-	let hosting = $state(false);
 
 	const normalized = $derived(code.trim().toUpperCase().replace(/\s+/g, ''));
 
 	function enter(event: SubmitEvent) {
 		event.preventDefault();
 		if (!normalized) return;
-		goto(`${hosting ? '/host' : '/play'}/${encodeURIComponent(normalized)}`);
+		goto(`/play/${encodeURIComponent(normalized)}`);
 	}
 </script>
 
@@ -35,20 +34,16 @@
 					aria-label="Room Code"
 					class="w-full rounded-md border bg-background px-3 py-4 text-center font-mono text-2xl uppercase tracking-[0.3em] placeholder:tracking-normal placeholder:text-muted-foreground/50"
 				/>
-				<Button type="submit" size="lg" disabled={!normalized}>
-					{hosting ? 'Open Host Display' : 'Join'}
-				</Button>
+				<Button type="submit" size="lg" disabled={!normalized}>Join</Button>
 			</form>
 		</Card.Content>
 	</Card.Root>
 
-	<p class="text-center text-sm text-muted-foreground">
-		<button
-			type="button"
-			class="underline underline-offset-4 hover:text-foreground"
-			onclick={() => (hosting = !hosting)}
-		>
-			{hosting ? 'Joining as a player instead' : 'Hosting this session?'}
+	<!-- No typed code for hosting (#37) - the server generates the Room Code and Host
+	     Token together and redirects straight to the Host's own control URL. -->
+	<form method="POST" action="/create-session" class="text-center">
+		<button type="submit" class="text-sm underline underline-offset-4 hover:text-foreground">
+			Hosting this session?
 		</button>
-	</p>
+	</form>
 </main>

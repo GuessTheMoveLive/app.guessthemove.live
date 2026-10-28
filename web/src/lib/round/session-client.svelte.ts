@@ -9,6 +9,8 @@ import type { RoundSnapshot } from './snapshot';
 export interface HostConnectOptions {
 	code: string;
 	role: 'host';
+	/** The Host Token embedded in the Host's own Session URL (#37) - proves control. */
+	token: string;
 }
 
 export interface ParticipantConnectOptions {
@@ -20,6 +22,8 @@ export type ConnectOptions = HostConnectOptions | ParticipantConnectOptions;
 
 /** The close code SessionRoom uses when the Host kicks a Participant (see session-room.ts). */
 const KICK_CLOSE_CODE = 4403;
+/** The close code SessionRoom uses when the Host deletes the whole Session (#38). */
+const DELETE_CLOSE_CODE = 4410;
 
 export class SessionClient {
 	snapshot = $state<RoundSnapshot | null>(null);
@@ -28,6 +32,9 @@ export class SessionClient {
 	 *  kicked this Participant — distinct from an ordinary dropped connection, so the
 	 *  screen can say so instead of just showing "connecting…". */
 	kicked = $state(false);
+	/** True once the Host has deleted this Session entirely (#38) — every connection,
+	 *  Host included, sees "This session has ended" rather than just retrying. */
+	ended = $state(false);
 	#ws: WebSocket | null = null;
 
 	connect(options: ConnectOptions): void {
@@ -35,7 +42,7 @@ export class SessionClient {
 
 		const query =
 			'role' in options
-				? `role=${options.role}`
+				? `role=${options.role}&token=${encodeURIComponent(options.token)}`
 				: `participantId=${encodeURIComponent(options.participantId)}`;
 		const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
 		const code = encodeURIComponent(options.code);
@@ -46,6 +53,7 @@ export class SessionClient {
 		ws.addEventListener('close', (event) => {
 			this.connected = false;
 			if (event.code === KICK_CLOSE_CODE) this.kicked = true;
+			else if (event.code === DELETE_CLOSE_CODE) this.ended = true;
 		});
 		ws.addEventListener('message', (event) => {
 			this.snapshot = JSON.parse(event.data as string) as RoundSnapshot;
@@ -77,6 +85,16 @@ export class SessionClient {
 	/** Host removes a disruptive Participant; they cannot rejoin under the same name. */
 	kick(participantId: string): void {
 		this.#send({ type: 'kick', participantId });
+	}
+
+	/** Host wipes roster/scores back to the Lobby, same Room Code and Featured Game (#38). */
+	reset(): void {
+		this.#send({ type: 'reset' });
+	}
+
+	/** Host permanently destroys the Session and frees its Room Code for reuse (#38). */
+	deleteSession(): void {
+		this.#send({ type: 'delete_session' });
 	}
 
 	submit(guess: string): void {

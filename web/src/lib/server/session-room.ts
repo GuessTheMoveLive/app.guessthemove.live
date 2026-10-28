@@ -3,6 +3,7 @@ import { createActor, type Actor, type Snapshot } from 'xstate';
 import { roundMachine, type RoundEvent } from '#lib/round/round-machine.js';
 import type { RoundSnapshot } from '#lib/round/snapshot.js';
 import { quizSteps } from '#lib/round/game-data.js';
+import { generateHostToken } from '#lib/server/room-code.js';
 
 type ClientMessage =
 	| { type: 'join'; participantId: string }
@@ -11,11 +12,17 @@ type ClientMessage =
 	| { type: 'adjust_round'; deltaMs: number }
 	| { type: 'reveal' }
 	| { type: 'next_round' }
-	| { type: 'kick'; participantId: string };
+	| { type: 'kick'; participantId: string }
+	| { type: 'reset' }
+	| { type: 'delete_session' };
 
 /** WebSocket close code used when the Host removes a Participant, so the client can tell
  *  a kick apart from an ordinary dropped connection and show the right message. */
 const KICK_CLOSE_CODE = 4403;
+/** WebSocket close code used when the Host deletes the whole Session (#38), distinct from
+ *  a kick so every client (Host included) can show "This session has ended" rather than
+ *  just retrying a dead connection. */
+const DELETE_CLOSE_CODE = 4410;
 
 const STORAGE_KEY_SNAPSHOT = 'round-snapshot';
 const STORAGE_KEY_PARTICIPANT_IDS = 'participant-ids';
@@ -32,11 +39,30 @@ const STORAGE_KEY_TOTALS = 'totals';
 const ROUND_DURATION_MS = 180_000;
 /** A Host's control connection never joins as a Participant (#10); it is tagged with this. */
 const HOST_TAG = 'host';
+/** The secret credential proving control of a Session (#37), set once at creation. */
+const STORAGE_KEY_HOST_TOKEN = 'host-token';
 
 export class SessionRoom extends DurableObject {
 	private actor: Actor<typeof roundMachine> | undefined;
 	private participantIds: string[] = [];
 	private roundIndex = 0;
+
+	/**
+	 * Mint this Session into existence: generate and store its Host Token, the secret
+	 * that `fetch` below requires on every `role=host` connection. Called over RPC by the
+	 * Create-Session server action (#37), before any client ever connects. Idempotent in
+	 * the sense that a Session can only ever be created once - a second call (meaning the
+	 * caller's generated Room Code collided with an existing Session) returns null so the
+	 * caller can retry with a fresh code, rather than silently handing out a second token
+	 * for a Session someone else already owns.
+	 */
+	async createSession(): Promise<string | null> {
+		const existing = await this.ctx.storage.get<string>(STORAGE_KEY_HOST_TOKEN);
+		if (existing) return null;
+		const token = generateHostToken();
+		await this.ctx.storage.put(STORAGE_KEY_HOST_TOKEN, token);
+		return token;
+	}
 
 	async fetch(request: Request): Promise<Response> {
 		if (request.headers.get('Upgrade') !== 'websocket') {
@@ -52,7 +78,20 @@ export class SessionRoom extends DurableObject {
 			return new Response('Missing participantId', { status: 400 });
 		}
 
-		if (!isHost) {
+		const hostToken = await this.ctx.storage.get<string>(STORAGE_KEY_HOST_TOKEN);
+		if (!hostToken) {
+			// Nobody has ever called createSession for this Room Code - either it was
+			// mistyped, or the Session was Deleted (#38), which frees the code for reuse.
+			return new Response('Session not found', { status: 404 });
+		}
+
+		if (isHost) {
+			// The Room Code alone never grants Host control (#37) - only a connection whose
+			// token matches the one generated at creation, embedded in the Host's own URL.
+			if (url.searchParams.get('token') !== hostToken) {
+				return new Response('Invalid or missing Host token', { status: 401 });
+			}
+		} else {
 			const kicked = (await this.ctx.storage.get<string[]>(STORAGE_KEY_KICKED_IDS)) ?? [];
 			if (kicked.includes(participantId!)) {
 				return new Response('Removed from this Session by the Host', { status: 403 });
@@ -160,6 +199,48 @@ export class SessionRoom extends DurableObject {
 				}
 				break;
 			}
+			case 'reset': {
+				// Same Room Code, same Featured Game - just wipes roster/scores/kicked-list/
+				// round-index back to the Lobby (#38). Available from any phase, including
+				// aborting an active Round.
+				if (!this.isHostSocket(ws)) return;
+
+				await this.ctx.storage.delete(STORAGE_KEY_SNAPSHOT);
+				await this.ctx.storage.delete(STORAGE_KEY_PARTICIPANT_IDS);
+				await this.ctx.storage.delete(STORAGE_KEY_KICKED_IDS);
+				await this.ctx.storage.delete(STORAGE_KEY_ROUND_INDEX);
+				await this.ctx.storage.delete(STORAGE_KEY_TOTALS);
+				await this.ctx.storage.deleteAlarm();
+				this.actor = undefined;
+				this.participantIds = [];
+				this.roundIndex = 0;
+
+				// Still-open Participant sockets keep their tag across the reset; re-register
+				// them so they reappear in the fresh roster immediately rather than only once
+				// they next submit a Guess.
+				for (const socket of this.ctx.getWebSockets()) {
+					const [tag] = this.ctx.getTags(socket);
+					if (tag && tag !== HOST_TAG) await this.registerParticipant(tag);
+				}
+				break;
+			}
+			case 'delete_session': {
+				// Permanently destroys the Session and frees its Room Code for reuse (#38).
+				// Forcibly disconnects every socket, Host included, with a distinct close
+				// code, then wipes storage - return early so the persistSnapshot/
+				// broadcastSnapshot below doesn't recreate state for a Session that no
+				// longer exists.
+				if (!this.isHostSocket(ws)) return;
+
+				for (const socket of this.ctx.getWebSockets()) {
+					socket.close(DELETE_CLOSE_CODE, 'Session deleted by the Host');
+				}
+				await this.ctx.storage.deleteAll();
+				this.actor = undefined;
+				this.participantIds = [];
+				this.roundIndex = 0;
+				return;
+			}
 		}
 
 		await this.persistSnapshot();
@@ -176,6 +257,11 @@ export class SessionRoom extends DurableObject {
 		actor.send({ type: 'ROUND_TIMEOUT' });
 		await this.persistSnapshot();
 		await this.broadcastSnapshot();
+	}
+
+	private isHostSocket(ws: WebSocket): boolean {
+		const [tag] = this.ctx.getTags(ws);
+		return tag === HOST_TAG;
 	}
 
 	private async registerParticipant(participantId: string): Promise<void> {

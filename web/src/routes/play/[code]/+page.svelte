@@ -131,7 +131,14 @@
 		</p>
 	</header>
 
-	{#if client.kicked}
+	{#if client.ended}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>This session has ended</Card.Title>
+				<Card.Description>The Host has ended this Session.</Card.Description>
+			</Card.Header>
+		</Card.Root>
+	{:else if client.kicked}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Removed from this Session</Card.Title>

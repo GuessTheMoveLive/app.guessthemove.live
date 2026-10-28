@@ -44,6 +44,10 @@ class FakeStorage {
 		this.#values.delete(key);
 	}
 
+	async deleteAll(): Promise<void> {
+		this.#values.clear();
+	}
+
 	async getAlarm(): Promise<number | null> {
 		return this.#alarm;
 	}
@@ -113,15 +117,16 @@ describe('SessionRoom', () => {
 		vi.useRealTimers();
 	});
 
-	function openRoom() {
+	async function openRoom() {
 		const ctx = new FakeDurableObjectState();
 		// @ts-expect-error - fakes stand in for the real DurableObjectState/Env
 		const room = new SessionRoom(ctx, {});
-		return { room, ctx };
+		const token = await room.createSession();
+		return { room, ctx, token: token! };
 	}
 
-	async function joinHost(room: SessionRoom, ctx: FakeDurableObjectState) {
-		const response = await room.fetch(upgradeRequest('ABC', 'role=host'));
+	async function joinHost(room: SessionRoom, ctx: FakeDurableObjectState, token: string) {
+		const response = await room.fetch(upgradeRequest('ABC', `role=host&token=${token}`));
 		const accepted = ctx.getWebSockets('host');
 		return { response, ws: accepted[accepted.length - 1] };
 	}
@@ -133,21 +138,49 @@ describe('SessionRoom', () => {
 	}
 
 	it('rejects a non-websocket request', async () => {
-		const { room } = openRoom();
+		const { room } = await openRoom();
 		const response = await room.fetch(new Request('https://example.com/api/session/ABC'));
 		expect(response.status).toBe(426);
 	});
 
 	it('rejects a participant join with no id', async () => {
-		const { room } = openRoom();
+		const { room } = await openRoom();
 		const response = await room.fetch(
 			new Request('https://example.com/api/session/ABC', { headers: { Upgrade: 'websocket' } })
 		);
 		expect(response.status).toBe(400);
 	});
 
+	it('rejects any connection to a Room Code that was never created', async () => {
+		const ctx = new FakeDurableObjectState();
+		// @ts-expect-error - fakes stand in for the real DurableObjectState/Env
+		const room = new SessionRoom(ctx, {});
+		const response = await room.fetch(upgradeRequest('ABC', 'participantId=alice'));
+		expect(response.status).toBe(404);
+	});
+
+	it('createSession returns null (and keeps the existing token) on a second call', async () => {
+		const { room, token } = await openRoom();
+		await expect(room.createSession()).resolves.toBeNull();
+		expect(token).toBeTruthy();
+	});
+
+	it('rejects a Host connection with a missing or wrong token', async () => {
+		const { room } = await openRoom();
+		const noToken = await room.fetch(upgradeRequest('ABC', 'role=host'));
+		expect(noToken.status).toBe(401);
+		const wrongToken = await room.fetch(upgradeRequest('ABC', 'role=host&token=nope'));
+		expect(wrongToken.status).toBe(401);
+	});
+
+	it('accepts a Host connection whose token matches', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { response } = await joinHost(room, ctx, token);
+		expect(response.status).toBe(101);
+	});
+
 	it('registers a joining participant and broadcasts a lobby snapshot', async () => {
-		const { room, ctx } = openRoom();
+		const { room, ctx } = await openRoom();
 		const { response, ws } = await join(room, ctx, 'alice');
 
 		expect(response.status).toBe(101);
@@ -157,8 +190,8 @@ describe('SessionRoom', () => {
 	});
 
 	it('does not add the Host connection to the participant roster', async () => {
-		const { room, ctx } = openRoom();
-		await room.fetch(upgradeRequest('ABC', 'role=host'));
+		const { room, ctx, token } = await openRoom();
+		await joinHost(room, ctx, token);
 		const { ws } = await join(room, ctx, 'alice');
 
 		const snapshot = ws.lastSnapshot() as { context: { participants: Record<string, unknown> } };
@@ -166,7 +199,7 @@ describe('SessionRoom', () => {
 	});
 
 	it('scores a submitted guess once the Host reveals', async () => {
-		const { room, ctx } = openRoom();
+		const { room, ctx } = await openRoom();
 		const { ws } = await join(room, ctx, 'alice');
 
 		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
@@ -182,8 +215,8 @@ describe('SessionRoom', () => {
 	});
 
 	it('kicks a participant: closes their socket and blocks a rejoin under the same id', async () => {
-		const { room, ctx } = openRoom();
-		const { ws: hostWs } = await joinHost(room, ctx);
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'kick', participantId: 'alice' }));
@@ -195,7 +228,7 @@ describe('SessionRoom', () => {
 	});
 
 	it("ignores a kick attempt from a non-Host connection", async () => {
-		const { room, ctx } = openRoom();
+		const { room, ctx } = await openRoom();
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 		const { ws: bobWs } = await join(room, ctx, 'bob');
 
@@ -207,7 +240,7 @@ describe('SessionRoom', () => {
 	});
 
 	it('refuses to advance past the last Round', async () => {
-		const { room, ctx } = openRoom();
+		const { room, ctx } = await openRoom();
 		const { ws } = await join(room, ctx, 'alice');
 
 		// next_round is a no-op outside the 'reveal' state - confirm the guard
@@ -220,7 +253,7 @@ describe('SessionRoom', () => {
 	});
 
 	it('closes the Round on alarm and penalizes anyone still pending', async () => {
-		const { room, ctx } = openRoom();
+		const { room, ctx } = await openRoom();
 		const { ws } = await join(room, ctx, 'alice');
 
 		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
@@ -233,5 +266,65 @@ describe('SessionRoom', () => {
 		expect(snapshot.value).toBe('closed');
 		expect(snapshot.context.participants.alice.status).toBe('timedOut');
 		expect(snapshot.context.scores.alice).toBe(-3);
+	});
+
+	it('resets: wipes roster/scores/round-index back to lobby, same Room Code', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'submit', guess: 'definitely-not-the-answer' })
+		);
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'reset' }));
+
+		const snapshot = hostWs.lastSnapshot() as {
+			value: string;
+			roundIndex: number;
+			context: { participants: Record<string, { status: string }>; totals: Record<string, number> };
+		};
+		expect(snapshot.value).toBe('lobby');
+		expect(snapshot.roundIndex).toBe(0);
+		expect(snapshot.context.totals).toEqual({});
+		// Alice's socket is still open and re-registers into the fresh roster immediately.
+		expect(snapshot.context.participants).toEqual({ alice: { status: 'pending' } });
+	});
+
+	it('ignores a reset attempt from a non-Host connection', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reset' }));
+
+		const snapshot = aliceWs.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('active');
+	});
+
+	it('deletes: disconnects every socket (Host included) and frees the Room Code for reuse', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'delete_session' }));
+
+		expect(hostWs.closed?.code).toBe(4410);
+		expect(aliceWs.closed?.code).toBe(4410);
+
+		const recreated = await room.createSession();
+		expect(recreated).toBeTruthy();
+	});
+
+	it('ignores a delete attempt from a non-Host connection', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'delete_session' }));
+
+		expect(aliceWs.closed).toBeNull();
+		await expect(room.createSession()).resolves.toBeNull();
 	});
 });

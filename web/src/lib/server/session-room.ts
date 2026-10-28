@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { createActor, type Actor, type Snapshot } from 'xstate';
 import { roundMachine, type RoundEvent } from '#lib/round/round-machine.js';
+import { buildParticipantFeedback } from '#lib/round/feedback.js';
 import type { RoundSnapshot } from '#lib/round/snapshot.js';
 import { quizSteps } from '#lib/round/game-data.js';
 import { generateHostToken } from '#lib/server/room-code.js';
@@ -12,6 +13,7 @@ type ClientMessage =
 	| { type: 'adjust_round'; deltaMs: number }
 	| { type: 'reveal' }
 	| { type: 'next_round' }
+	| { type: 'give_feedback' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
 	| { type: 'delete_session' };
@@ -171,6 +173,36 @@ export class SessionRoom extends DurableObject {
 				next.send({ type: 'START_ROUND' });
 				await this.scheduleRoundTimeout();
 				break;
+			}
+			case 'give_feedback': {
+				// Personalized Feedback (#36): an alternative to Next Round offered on the Reveal
+				// screen. Every Participant's explanation differs - it's scored against their own
+				// Guess - so this is NOT a shared broadcast phase: each Participant's feedback is
+				// computed server-side from their stored Guess + this Round's answer key and sent
+				// as a targeted message to their own socket(s) only. Host-only, same as kick/reset.
+				if (!this.isHostSocket(ws)) return;
+
+				const snapshot = actor.getSnapshot();
+				const step = snapshot.context.answerKey;
+				for (const [participantId, state] of Object.entries(snapshot.context.participants)) {
+					const feedback = buildParticipantFeedback(
+						step,
+						state,
+						snapshot.context.scores[participantId] ?? 0
+					);
+					if (!feedback) continue;
+					const serialized = JSON.stringify({ type: 'feedback', feedback });
+					for (const socket of this.ctx.getWebSockets(participantId)) {
+						try {
+							socket.send(serialized);
+						} catch {
+							// A socket that dropped between getWebSockets() and send() — skip it.
+						}
+					}
+				}
+				// Targeted-only: nothing in the shared round state changed, so there is no
+				// snapshot to persist or broadcast.
+				return;
 			}
 			case 'kick': {
 				// Only the Host may kick (#10: the Host's connection is the only one tagged

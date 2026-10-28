@@ -1,5 +1,13 @@
 import { browser } from '$app/env';
 import type { RoundSnapshot } from './snapshot';
+import type { ParticipantFeedback } from './feedback';
+
+/** A targeted, per-Participant Feedback message (#36) — distinct from the broadcast
+ *  RoundSnapshot by its `type` tag, since it's sent to one Participant's socket only. */
+interface FeedbackMessage {
+	type: 'feedback';
+	feedback: ParticipantFeedback;
+}
 
 // A thin reactive wrapper around the SessionRoom WebSocket (`/api/session/:code`),
 // reusing the transport already smoke-tested in session-room.ts. Holds the latest
@@ -35,6 +43,9 @@ export class SessionClient {
 	/** True once the Host has deleted this Session entirely (#38) — every connection,
 	 *  Host included, sees "This session has ended" rather than just retrying. */
 	ended = $state(false);
+	/** This Participant's personalized Feedback, populated when the Host clicks "Give
+	 *  Feedback" (#36) and the server sends a targeted `feedback` message. Null until then. */
+	feedback = $state<ParticipantFeedback | null>(null);
 	#ws: WebSocket | null = null;
 
 	connect(options: ConnectOptions): void {
@@ -56,7 +67,15 @@ export class SessionClient {
 			else if (event.code === DELETE_CLOSE_CODE) this.ended = true;
 		});
 		ws.addEventListener('message', (event) => {
-			this.snapshot = JSON.parse(event.data as string) as RoundSnapshot;
+			const data = JSON.parse(event.data as string) as RoundSnapshot | FeedbackMessage;
+			// A targeted Feedback message (#36) carries a `type` tag; the broadcast snapshot
+			// never does. Route each to its own reactive field so a Feedback push doesn't
+			// clobber the live round snapshot.
+			if ('type' in data && data.type === 'feedback') {
+				this.feedback = data.feedback;
+			} else {
+				this.snapshot = data as RoundSnapshot;
+			}
 		});
 	}
 
@@ -80,6 +99,12 @@ export class SessionClient {
 	/** Host advances from a fully revealed Round into the next one (#22's Host-driven pacing). */
 	nextRound(): void {
 		this.#send({ type: 'next_round' });
+	}
+
+	/** Host sends every Participant their personalized Feedback (#36) — an alternative to
+	 *  Next Round, offered on the Reveal screen. */
+	giveFeedback(): void {
+		this.#send({ type: 'give_feedback' });
 	}
 
 	/** Host removes a disruptive Participant; they cannot rejoin under the same name. */

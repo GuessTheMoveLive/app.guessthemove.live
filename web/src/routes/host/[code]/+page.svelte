@@ -9,7 +9,8 @@
 		submissionProgress,
 		everyoneAnswered,
 		remainingMs,
-		formatCountdown
+		formatCountdown,
+		answerKeyBreakdown
 	} from '#lib/host/host-view.js';
 	import { getGameData, quizSteps } from '#lib/round/game-data.js';
 	import { buildMoveHistory } from '#lib/round/participant-input.js';
@@ -68,6 +69,7 @@
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
 	const quizStep = $derived(quizSteps()[roundIndex]);
+	const breakdown = $derived(answerKeyBreakdown(quizStep ?? null));
 	const history = $derived(
 		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
 	);
@@ -171,7 +173,8 @@
 			<Card.Content>
 				<Leaderboard entries={leaders} />
 			</Card.Content>
-			<Card.Footer>
+			<Card.Footer class="flex gap-2">
+				<Button variant="outline" onclick={() => client.giveFeedback()}>Give Feedback</Button>
 				{#if hasNextRound}
 					<Button onclick={() => client.nextRound()}>Next Round</Button>
 				{:else}
@@ -196,6 +199,38 @@
 					white={game.headers.White}
 					black={game.headers.Black}
 				/>
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
+	{#if !client.ended && phase !== 'lobby' && breakdown.length}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-sm">Answer key — Host only</Card.Title>
+				<Card.Description>
+					The full precomputed breakdown, visible to you throughout the Round — your talking
+					points for the Feedback.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<ol class="flex flex-col gap-1.5 text-sm">
+					{#each breakdown as row (row.san)}
+						<li class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2">
+							<span class="w-8 shrink-0 font-mono font-medium tabular-nums">{row.tier}</span>
+							<span class="font-mono text-base">{row.glyph}</span>
+							{#if row.eval != null}
+								<span class="font-mono text-xs text-muted-foreground tabular-nums">
+									{row.eval > 0 ? '+' : ''}{row.eval}
+								</span>
+							{/if}
+							{#if row.continuation.length}
+								<span class="w-full font-mono text-xs text-muted-foreground">
+									{row.continuation.join(' ')}
+								</span>
+							{/if}
+						</li>
+					{/each}
+				</ol>
 			</Card.Content>
 		</Card.Root>
 	{/if}

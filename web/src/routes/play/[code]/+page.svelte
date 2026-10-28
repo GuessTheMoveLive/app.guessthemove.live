@@ -10,8 +10,10 @@
 		DISPLAY_RANKS,
 		resolveTapMove,
 		buildMoveHistory,
+		sanToGlyph,
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
+	import { explanationText } from '#lib/round/feedback.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
@@ -68,6 +70,7 @@
 	const myTotal = $derived(snapshot?.context.totals[me] ?? 0);
 	const locked = $derived(myState?.status === 'submitted' || myState?.status === 'late');
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
+	const feedback = $derived(client.feedback);
 
 	// Once kicked, forget the saved name - a refresh must land back on the Join screen,
 	// not silently retry into a connection the Host has already blocked server-side.
@@ -88,11 +91,13 @@
 		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
 	);
 
-	// A new Round means a fresh tap — drop any half-made selection from the last one.
+	// A new Round means a fresh tap — drop any half-made selection, and any Feedback from
+	// the previous Round, so last Round's explanation can't linger into this one.
 	$effect(() => {
 		roundIndex;
 		origin = null;
 		pending = null;
+		client.feedback = null;
 	});
 
 	function tapSquare(square: string) {
@@ -271,6 +276,36 @@
 					</div>
 					<p class="mt-2 text-sm text-muted-foreground">{me}</p>
 				</div>
+				{#if feedback}
+					<div class="flex flex-col gap-2 rounded-lg border px-3 py-3">
+						<p class="text-sm font-medium">{explanationText(feedback.tier)}</p>
+						<div class="flex flex-col gap-1 text-sm">
+							{#if feedback.guessSan}
+								<div class="flex items-baseline justify-between gap-2">
+									<span class="text-muted-foreground">Your move</span>
+									<span class="font-mono text-base">{sanToGlyph(feedback.guessSan)}</span>
+								</div>
+							{/if}
+							<div class="flex items-baseline justify-between gap-2">
+								<span class="text-muted-foreground">Played</span>
+								<span class="font-mono text-base">{sanToGlyph(feedback.playedSan)}</span>
+							</div>
+						</div>
+						{#if feedback.variant && feedback.variant.continuation.length}
+							<div class="flex flex-col gap-0.5">
+								<span class="text-xs uppercase tracking-wide text-muted-foreground">Continuation</span>
+								<span class="font-mono text-sm">
+									{feedback.variant.continuation.map(sanToGlyph).join(' ')}
+									{#if feedback.variant.endEval != null}
+										<span class="text-muted-foreground">
+											({feedback.variant.endEval > 0 ? '+' : ''}{feedback.variant.endEval})
+										</span>
+									{/if}
+								</span>
+							</div>
+						{/if}
+					</div>
+				{/if}
 				{#if leaders.length}
 					<div>
 						<h2 class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">

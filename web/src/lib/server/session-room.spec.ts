@@ -304,6 +304,46 @@ describe('SessionRoom', () => {
 		expect(snapshot.value).toBe('active');
 	});
 
+	it('give_feedback sends a targeted per-participant feedback message, not a broadcast', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'submit', guess: 'definitely-not-the-answer' })
+		);
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'give_feedback' }));
+
+		const feedbackMsg = aliceWs.sent
+			.map((raw) => JSON.parse(raw))
+			.find((m) => m.type === 'feedback');
+		expect(feedbackMsg).toBeTruthy();
+		expect(feedbackMsg.feedback.tier).toBe('playable');
+		expect(feedbackMsg.feedback.score).toBe(0);
+		expect(feedbackMsg.feedback.guessSan).toBe('definitely-not-the-answer');
+
+		// The Host's own control socket is never sent a per-participant feedback message.
+		expect(hostWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'feedback')).toBe(false);
+	});
+
+	it('ignores a give_feedback attempt from a non-Host connection', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'submit', guess: 'definitely-not-the-answer' })
+		);
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'give_feedback' }));
+
+		expect(aliceWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'feedback')).toBe(false);
+	});
+
 	it('deletes: disconnects every socket (Host included) and frees the Room Code for reuse', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);

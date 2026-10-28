@@ -5,9 +5,11 @@ import {
 	submissionProgress,
 	everyoneAnswered,
 	remainingMs,
-	formatCountdown
+	formatCountdown,
+	answerKeyBreakdown
 } from './host-view';
 import type { ParticipantState } from '#lib/round/round-machine.js';
+import type { AnswerKeyStep } from '#lib/round/scoring.js';
 
 describe('topLeaderboard', () => {
 	it('returns participants ordered by running total, highest first', () => {
@@ -148,5 +150,44 @@ describe('formatCountdown', () => {
 
 	it('renders a clean zero at the deadline', () => {
 		expect(formatCountdown(0)).toBe('0:00');
+	});
+});
+
+describe('answerKeyBreakdown', () => {
+	const step: AnswerKeyStep = {
+		san: 'Nf3',
+		playedComment: { eval: 0.85 },
+		alternatives: [
+			{ san: 'Bb5', tier: '+2', eval: 0.64, continuation: ['a6', 'Bxc6'] },
+			{ san: 'Qd4', tier: 'blunder', eval: -9.13, continuation: [] }
+		]
+	};
+
+	it('renders the played move first, glyph-rendered, flagged as the best', () => {
+		const rows = answerKeyBreakdown(step);
+		expect(rows[0]).toEqual({
+			san: 'Nf3',
+			glyph: '♞f3',
+			tier: '+3',
+			eval: 0.85,
+			continuation: []
+		});
+	});
+
+	it('renders each alternative with its tier, eval and glyph-rendered continuation', () => {
+		const rows = answerKeyBreakdown(step);
+		expect(rows[1]).toEqual({
+			san: 'Bb5',
+			glyph: '♝b5',
+			tier: '+2',
+			eval: 0.64,
+			continuation: ['a6', '♝xc6']
+		});
+		expect(rows[2].tier).toBe('blunder');
+		expect(rows[2].continuation).toEqual([]);
+	});
+
+	it('is empty for a Round with no answer key', () => {
+		expect(answerKeyBreakdown(null)).toEqual([]);
 	});
 });

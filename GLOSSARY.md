@@ -83,17 +83,21 @@ Points an Analysis Tree leaf's Assessment Symbol earns against the Evaluation at
 A Participant's total for one Round: Guess Score plus that Round's Analysis Tree contribution, where the contribution is the sum of all Soundness Bonuses and Assessment Bonuses earned, capped at +3 (one shared cap across both bonus types, not split between them). Every bonus is additive-only — floored at 0 per node/leaf, never subtracting — so nothing about the Analysis Tree can make a Round Score worse than Guess Score alone, and a strong Analysis Tree can carry a negative Guess Score to a net positive Round Score. Effective range: -3 (worst Guess, no tree credit) to +6 (best Guess, tree contribution capped).
 
 **Reveal**:
-The Host-triggered moment a Round's Guesses and Analysis Trees become visible to the room and the Leaderboard updates. Nothing is visible to anyone (Participants or the Host Display) before it.
+The Host-triggered moment a Round's Guesses and Analysis Trees become visible to the room and the Leaderboard updates. Nothing is visible to anyone (Participants or the Host Display) before it. Automatically delivers each Participant their own Round Score, whether their Guess matched the Featured Side's actual move, and its Variant explanation — no separate Host step needed. The Host Display instead shows the full Guess Group breakdown (every Guess Group, every name) for the Host alone; the Host may optionally extend that to the room via Share Guess Groups.
+_Avoid_: Feedback (retired as a separate phase — its explanation is now automatic and part of every Participant's Reveal).
 
 **Leaderboard**:
 The running total of Round Scores per Participant, shown after each Reveal alongside that Round's Momentum Highlight. The shared/Host view shows only the top 5; a Participant's own phone always additionally shows their own current score, even outside the top 5.
 
-**Feedback**:
-A Host-triggered, per-Participant explanation of their Guess Score for the Round just revealed — a short qualitative note plus a textual Variant with an end evaluation, personalized to that Participant's own Guess. Delivered to each Participant's own phone, distinct from the shared Leaderboard. The Host chooses either Feedback or advancing straight to the next Round; they're alternatives, not sequential steps.
-_Avoid_: conflating with Reveal (Reveal is the shared score-becomes-visible moment; Feedback is the optional, personalized follow-up explaining why).
-
-**Variant** (Feedback):
-A short precomputed continuation of moves (with an end Evaluation) attached to an answer-key alternative, authored offline alongside the rest of the answer key and surfaced to a Participant as part of their Feedback. Unrelated to the Analysis Tree's Participant-authored branches — this Variant comes from the answer key itself, not from anything a Participant wrote.
+**Variant** (Reveal):
+A short precomputed continuation of moves (with an end Evaluation) attached to an answer-key alternative, authored offline alongside the rest of the answer key and surfaced to a Participant automatically as part of their Reveal. Unrelated to the Analysis Tree's Participant-authored branches — this Variant comes from the answer key itself, not from anything a Participant wrote.
 
 **Momentum Highlight**:
 The Participant with the largest Round Score gain in the Round just revealed.
+
+**Guess Group**:
+All Participants who submitted the exact same move as their Guess in a Round. Scoped to the Guess only — Analysis Trees are never grouped. Every Participant belongs to exactly one Guess Group per Round (their own move, even if no one else chose it).
+_Avoid_: Cluster, category, bucket — those get used loosely in conversation; the canonical term is Guess Group.
+
+**Share Guess Groups**:
+The Host's optional action at Reveal, available instead of advancing straight to the next Round, that pushes the Guess Group breakdown out to every Participant's own phone. Once shared, a Participant sees a bar chart with at most seven bars — one per distinct Round Score from -3 to +3, any score nobody got omitted — plus the names of everyone in their own Guess Group; every other Guess Group shows only its count, never its names. The Host Display already shows the full breakdown, every Guess Group and every name, without needing this action.

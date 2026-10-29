@@ -1,0 +1,7 @@
+# Normalize line endings to LF on checkout, regardless of a developer's
+# core.autocrlf setting. Without this, checking out worker-configuration.d.ts
+# on a Windows machine with autocrlf=true converts it to CRLF, which makes
+# `wrangler types --check` (LF-only comparison) report it as out of date on
+# every fresh checkout/worktree - including the one Sandcastle creates for
+# its sandbox runs.
+* text=auto eol=lf

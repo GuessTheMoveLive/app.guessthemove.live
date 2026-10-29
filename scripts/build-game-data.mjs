@@ -4,7 +4,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { Chess } from "chess.js";
 
-const SRC = "./Capablanca - Marshall (Guess-the-Move key).pgn";
+const SRC = "./games/capablanca-marshall/Capablanca - Marshall (Guess-the-Move key).pgn";
 const OUT = "src/lib/data/capablanca-marshall.json";
 
 const raw = readFileSync(SRC, "utf8");

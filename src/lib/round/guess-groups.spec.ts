@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
 	computeGuessGroupBreakdown,
 	redactBreakdownFor,
+	chartParticipantLabel,
+	chartPointsLabel,
 	type GuessGroupBreakdown
 } from './guess-groups';
 import type { ParticipantState } from './round-machine';
@@ -91,5 +93,32 @@ describe('redactBreakdownFor', () => {
 
 	it('passes the chart buckets through unchanged (counts only, never names)', () => {
 		expect(redactBreakdownFor(breakdown, 'alice').buckets).toEqual(breakdown.buckets);
+	});
+});
+
+describe('chartParticipantLabel', () => {
+	it('is singular for exactly one Participant', () => {
+		expect(chartParticipantLabel(1)).toBe('1 participant');
+	});
+
+	it('is plural for more than one, and for zero', () => {
+		expect(chartParticipantLabel(2)).toBe('2 participants');
+		expect(chartParticipantLabel(0)).toBe('0 participants');
+	});
+});
+
+describe('chartPointsLabel', () => {
+	it('signs a positive score and pluralises above one', () => {
+		expect(chartPointsLabel(3)).toBe('+3 points');
+		expect(chartPointsLabel(1)).toBe('+1 point');
+	});
+
+	it('keeps the minus sign and pluralises a negative score the same way', () => {
+		expect(chartPointsLabel(-1)).toBe('-1 point');
+		expect(chartPointsLabel(-3)).toBe('-3 points');
+	});
+
+	it('shows a plain, plural "0 points" for a zero score', () => {
+		expect(chartPointsLabel(0)).toBe('0 points');
 	});
 });

@@ -1,4 +1,5 @@
 import type { ParticipantState } from './round-machine';
+import { m } from '#lib/paraglide/messages.js';
 
 // Guess Group breakdown at Reveal (#42). A Guess Group is every Participant who
 // submitted the exact same move as their Guess in a Round (GLOSSARY: Guess Group);
@@ -97,6 +98,31 @@ export function computeGuessGroupBreakdown(
 	}
 
 	return { groups, buckets };
+}
+
+/**
+ * The label above a chart bar (#46): how many Participants landed on that Round Score,
+ * pluralised through paraglide so "1 participant" / "2 participants" (and every locale's
+ * own rule) stay out of the Svelte template. Participant terminology per the GLOSSARY,
+ * not the "player" wording of the Guess Group list copy.
+ */
+export function chartParticipantLabel(count: number): string {
+	return count === 1
+		? m.chart_participants_one({ count })
+		: m.chart_participants_other({ count });
+}
+
+/**
+ * The label below a chart bar (#46): the signed Round Score in points, pluralised so
+ * "+1 point" / "-1 point" stay singular while "+2 points", "-3 points" and "0 points"
+ * read plural. The sign is baked into the interpolated value, so every locale keeps the
+ * leading "+"/"-" ahead of its own "point(s)" word.
+ */
+export function chartPointsLabel(score: number): string {
+	const signed = `${score > 0 ? '+' : ''}${score}`;
+	return Math.abs(score) === 1
+		? m.chart_points_one({ score: signed })
+		: m.chart_points_other({ score: signed });
 }
 
 /**

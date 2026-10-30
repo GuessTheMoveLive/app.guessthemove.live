@@ -285,6 +285,8 @@
 			</Card.Content>
 		</Card.Root>
 	{:else}
+		<!-- Three-card Reveal (#46): personal feedback, then the always-visible Ranking, then
+		     how the whole room guessed — each its own Card, in that order. -->
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title
@@ -334,55 +336,61 @@
 						{/if}
 					</div>
 				{/if}
-				{#if sharedGroups}
-					<div class="flex flex-col gap-3 rounded-lg border px-3 py-3">
-						<p class="text-sm font-medium">{m.play_guess_groups_title()}</p>
-						<GuessGroupChart buckets={sharedGroups.buckets} highlightScore={myRoundScore} />
-						<ul class="flex flex-col gap-1.5 text-sm">
-							{#each sharedGroups.groups as group (group.san ?? '\u0000')}
-								<li
-									class="flex flex-col gap-0.5 rounded-lg border px-3 py-1.5"
-									class:border-primary={group.names != null}
-								>
-									<div class="flex items-baseline justify-between gap-2">
-										<span class="font-mono text-base">
-											{group.san ? sanToGlyph(group.san) : m.guess_groups_no_move()}
-										</span>
-										<span class="font-mono text-xs text-muted-foreground tabular-nums">
-											{group.score > 0 ? '+' : ''}{group.score}
-										</span>
-									</div>
-									{#if group.names}
-										<span class="text-xs text-muted-foreground">
-											<span class="font-medium text-foreground"
-												>{m.play_guess_groups_your_group()}:</span
-											>
-											{group.names.join(', ')}
-										</span>
-									{:else}
-										<span class="text-xs text-muted-foreground">
-											{group.count === 1
-												? m.guess_group_players_one({ count: group.count })
-												: m.guess_group_players_other({ count: group.count })}
-										</span>
-									{/if}
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
 			</Card.Content>
 		</Card.Root>
-		{#if leaders.length}
+
+		<!-- Ranking: the shared Leaderboard, always shown to Participants at Reveal — no
+		     gating button (#46). The viewer's own row is highlighted as today's. -->
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
+			</Card.Header>
+			<Card.Content class="flex flex-col gap-4">
+				{#if isFinalRound}
+					<Podium entries={top3} highlightId={me} />
+				{/if}
+				<Leaderboard entries={leaders} highlightId={me} />
+			</Card.Content>
+		</Card.Root>
+
+		{#if sharedGroups}
 			<Card.Root>
 				<Card.Header>
-					<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
+					<Card.Title>{m.play_guess_groups_title()}</Card.Title>
 				</Card.Header>
-				<Card.Content class="flex flex-col gap-4">
-					{#if isFinalRound}
-						<Podium entries={top3} highlightId={me} />
-					{/if}
-					<Leaderboard entries={leaders} highlightId={me} />
+				<Card.Content class="flex flex-col gap-3">
+					<GuessGroupChart buckets={sharedGroups.buckets} highlightScore={myRoundScore} />
+					<ul class="flex flex-col gap-1.5 text-sm">
+						{#each sharedGroups.groups as group (group.san ?? '\u0000')}
+							<li
+								class="flex flex-col gap-0.5 rounded-lg border px-3 py-1.5"
+								class:border-primary={group.names != null}
+							>
+								<div class="flex items-baseline justify-between gap-2">
+									<span class="font-mono text-base">
+										{group.san ? sanToGlyph(group.san) : m.guess_groups_no_move()}
+									</span>
+									<span class="font-mono text-xs text-muted-foreground tabular-nums">
+										{group.score > 0 ? '+' : ''}{group.score}
+									</span>
+								</div>
+								{#if group.names}
+									<span class="text-xs text-muted-foreground">
+										<span class="font-medium text-foreground"
+											>{m.play_guess_groups_your_group()}:</span
+										>
+										{group.names.join(', ')}
+									</span>
+								{:else}
+									<span class="text-xs text-muted-foreground">
+										{group.count === 1
+											? m.guess_group_players_one({ count: group.count })
+											: m.guess_group_players_other({ count: group.count })}
+									</span>
+								{/if}
+							</li>
+						{/each}
+					</ul>
 				</Card.Content>
 			</Card.Root>
 		{/if}

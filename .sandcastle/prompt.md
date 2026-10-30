@@ -3,24 +3,17 @@
 This run is scoped to exactly one issue — do not pick up any other open issue, even if it
 looks higher-priority or blocked-free.
 
-## Issue #43 (Correct, color-aware feedback phrasing with move numbers)
+## Issue #44 (Button hover/cursor and base font-size polish)
 
-!`gh issue view 43 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+!`gh issue view 44 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-Read `src/lib/round/feedback.ts` and `src/lib/round/feedback.spec.ts` first — this is the
-existing feedback-phrase logic you are replacing/extending. Also check
-`src/routes/play/[code]/+page.svelte` for where the feedback text, "Your move" / "Played" /
-"Continuation" strings are rendered, and how move numbers / SAN are currently formatted
-elsewhere in the codebase (reuse existing move-number formatting helpers if any exist, don't
-duplicate chess notation logic). Check `src/lib/paraglide/messages/en.d.ts` and the
-`messages/*.json` sources for how existing copy is keyed for i18n — new strings need message
-keys the same way, not hardcoded English.
-
-The issue requires a deliverable Markdown table of all 98 phrases "for manual review" before
-wiring in. Since this is an unattended autonomous run with no human available to review
-mid-task, produce that table as a committed artifact (e.g. a doc under `docs/` or a code
-comment/fixture referenced by the implementation) in its own commit, then proceed to wire it in
-within the same run — do not block waiting for a review that cannot happen here.
+The shared Button component is `src/lib/components/ui/button/button.svelte` (shadcn-svelte
+style, likely using `tailwind-variants`/`cva` for its class list) — add `cursor-pointer` on
+hover and `cursor-not-allowed` when disabled there so every usage across the app inherits it,
+rather than hand-editing individual call sites. Find the global stylesheet (search for
+`app.css` / `app.pcss` / the Tailwind `@layer base` block, likely under `src/app.css` or
+`src/routes/+layout` imports) to bump the root font-size there (e.g. `html { font-size:
+112.5%; }` to go from 16px to 18px), not by hand-tuning individual text utility classes.
 
 # Shared ground rules
 
@@ -37,26 +30,25 @@ within the same run — do not block waiting for a review that cannot happen her
 
 # Task
 
-You are RALPH, an autonomous coding agent. Implement issue #43 fully.
+You are RALPH, an autonomous coding agent. Implement issue #44 fully.
 
 ## Workflow
 
-1. **Explore** — read the issue body, `GLOSSARY.md`, and the existing feedback implementation
-   listed above before writing any code.
+1. **Explore** — read the issue body and the relevant files listed above before writing any
+   code.
 2. **Plan** — decide what to change, keep it as small as the issue actually requires.
-3. **Execute** — RGR: write a failing test first where the change is unit-testable (pure
-   functions), then implement.
+3. **Execute** — this is a CSS/styling change; a unit test is unlikely to apply — focus on
+   correctness via inspection, but still run the suite to check for regressions.
 4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit.
    Fix failures before proceeding, never commit red.
-5. **Commit** — one commit per logically-complete slice (not one giant commit for the whole
-   issue). Message MUST:
+5. **Commit** — one commit per logically-complete slice. Message MUST:
    - Start with `RALPH:` prefix
-   - Reference issue #43
+   - Reference issue #44
    - List key decisions made
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
-   `gh issue close 43 --comment "<what was built, in the same style as this repo's other
-   closing comments — gh issue view 36 or 40 for the tone/format to match>"`. Also append one
+   `gh issue close 44 --comment "<what was built, in the same style as this repo's other
+   closing comments — gh issue view 42 or 43 for the tone/format to match>"`. Also append one
    line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
    pattern as the existing entries there.
 
@@ -70,6 +62,6 @@ You are RALPH, an autonomous coding agent. Implement issue #43 fully.
 
 # Done
 
-When #43 is closed (or you are blocked on it), output the completion signal:
+When #44 is closed (or you are blocked on it), output the completion signal:
 
 <promise>COMPLETE</promise>

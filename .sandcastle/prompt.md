@@ -3,22 +3,37 @@
 This run is scoped to exactly one issue — do not pick up any other open issue, even if it
 looks higher-priority or blocked-free.
 
-## Issue #49 (Final round shows the full remaining game)
+## Issue #50 (Finished phase: full-screen Podium + rankings)
 
-!`gh issue view 49 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+!`gh issue view 50 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-This extends the Opponent Response phase just shipped in #48
-(`git log --oneline --grep="(#48)"` / `git show 5e8e1f2` for the commit). Read
-`src/lib/round/game-data.ts` (`quizSteps`, `getAnswerKeyStep`, and whatever represents the full
-game's real mainline/moves — you need the actual end of the game here, not just the next ply)
-and wherever #48 added the "single next move" derivation — likely in
-`src/routes/host/[code]/+page.svelte` and `src/routes/play/[code]/+page.svelte` (search for the
-opponent-move `$derived` added in that commit) and/or `src/lib/round/round-machine.ts` /
-`src/lib/server/session-room.ts` if the move was computed server-side. Reuse
-`formatNumberedMove` / `formatContinuation` (from #43, in `src/lib/round/participant-input.ts`)
-for rendering a full move sequence instead of a single move — `formatContinuation` may already
-do exactly this. Determine "final round" generically from the quiz data (e.g. comparing the
-current round's quiz-step index to `quizSteps().length`), not by hardcoding a round number.
+This adds the final, terminal round-machine phase, reached from the final round's
+`opponentResponse` phase (shipped in #48/#49, see
+`git log --oneline --grep="(#48)\|(#49)"`) via the host's "Finish" button (already present and
+currently a no-op/stub on the final round per #49 — see `src/lib/round/game-data.ts` for
+however `isFinalRound` or equivalent is already determined).
+
+Read first: `src/lib/components/podium.svelte` (an existing Podium component — reuse it, don't
+rebuild it; check its props/expected data shape), `src/lib/round/round-machine.ts` (the
+existing phase chain `lobby -> active -> closed -> reveal -> opponentResponse`; you're adding
+a new terminal `finished` state reached from `opponentResponse`), `src/lib/server/session-room.ts`
+(how #48 wired the `opponentResponse` phase's server-driven broadcast — follow the exact same
+pattern for `finished`), `src/lib/round/session-client.svelte.ts` (client wrapper, follow the
+`opponentResponse` client wiring added in #48), and `src/routes/host/[code]/+page.svelte` /
+`src/routes/play/[code]/+page.svelte` (where the "Finish" button currently no-ops and where you
+add the full-screen Finished rendering). Also check `src/lib/host/host-view.ts` and
+`src/lib/components/leaderboard.svelte` for how participant totals/rankings and display names
+(captured at join) are already computed — reuse that logic for the point-gap and "full ranking"
+logic rather than recomputing scores from scratch.
+
+Three distinct renderings to get right, per the issue:
+- Participant in 1st (solo): "You're in the lead!"
+- Participant in 1st (tied with at least one other participant): "You're tied for the lead!"
+- Every other participant: "You are X points behind <name>" where X is the point gap to the
+  next-highest participant immediately above them (not the leader), and `<name>` is that
+  participant's display name.
+- Host: Podium + full ranking list of all participants, no personal message (host has no
+  score).
 
 # Shared ground rules
 
@@ -35,25 +50,26 @@ current round's quiz-step index to `quizSteps().length`), not by hardcoding a ro
 
 # Task
 
-You are RALPH, an autonomous coding agent. Implement issue #49 fully.
+You are RALPH, an autonomous coding agent. Implement issue #50 fully.
 
 ## Workflow
 
-1. **Explore** — read the issue body and the #48 implementation listed above before writing any
-   code.
+1. **Explore** — read the issue body and all files listed above before writing any code. This
+   phase transition must be server-driven and broadcast like existing ones.
 2. **Plan** — decide what to change, keep it as small as the issue actually requires.
 3. **Execute** — RGR: write a failing test first where the change is unit-testable (the
-   "compute remaining mainline for final round" pure function), then wire it into the UI.
+   "points behind next-highest, tie/lead detection" pure function, the round machine's new
+   state/transitions, the Durable Object's new message handling), then implement the Svelte UI.
 4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit.
    Fix failures before proceeding, never commit red.
 5. **Commit** — one commit per logically-complete slice. Message MUST:
    - Start with `RALPH:` prefix
-   - Reference issue #49
+   - Reference issue #50
    - List key decisions made
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
-   `gh issue close 49 --comment "<what was built, in the same style as this repo's other
-   closing comments — gh issue view 47 or 48 for the tone/format to match>"`. Also append one
+   `gh issue close 50 --comment "<what was built, in the same style as this repo's other
+   closing comments — gh issue view 48 or 49 for the tone/format to match>"`. Also append one
    line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
    pattern as the existing entries there.
 
@@ -67,6 +83,6 @@ You are RALPH, an autonomous coding agent. Implement issue #49 fully.
 
 # Done
 
-When #49 is closed (or you are blocked on it), output the completion signal:
+When #50 is closed (or you are blocked on it), output the completion signal:
 
 <promise>COMPLETE</promise>

@@ -2,9 +2,9 @@ import { browser } from '$app/env';
 import type { RoundSnapshot } from './snapshot';
 import type { SharedGuessGroupBreakdown } from './guess-groups';
 
-/** A targeted, per-Participant Share Guess Groups message (#42) — distinct from the
- *  broadcast RoundSnapshot by its `type` tag, since each recipient's copy is redacted
- *  to their own group's names before it's sent to their socket only. */
+/** A targeted, per-Participant Guess Groups message (#45) — distinct from the broadcast
+ *  RoundSnapshot by its `type` tag, since each recipient's copy is redacted to their own
+ *  group's names before it's sent to their socket only. */
 interface GuessGroupsMessage {
 	type: 'guess_groups';
 	breakdown: SharedGuessGroupBreakdown;
@@ -44,11 +44,11 @@ export class SessionClient {
 	/** True once the Host has deleted this Session entirely (#38) — every connection,
 	 *  Host included, sees "This session has ended" rather than just retrying. */
 	ended = $state(false);
-	/** The Guess Group breakdown pushed to this Participant's phone when the Host clicks
-	 *  "Share Guess Groups" (#42), redacted so only their own group's names are present.
-	 *  Null until the Host shares. Distinct from the Round Score and Variant explanation,
-	 *  which are automatic at Reveal and derived from the snapshot — this needs the Host's
-	 *  explicit action. */
+	/** The Guess Group breakdown pushed to this Participant's phone automatically the moment
+	 *  the Round enters Reveal (#45, retiring #42's manual "Share Guess Groups" Host action),
+	 *  redacted so only their own group's names are present. Null until Reveal. Delivered as a
+	 *  targeted message rather than derived from the snapshot (unlike the Round Score and
+	 *  Variant explanation) because each recipient's copy carries only their own group's names. */
 	sharedGroups = $state<SharedGuessGroupBreakdown | null>(null);
 	#ws: WebSocket | null = null;
 
@@ -103,12 +103,6 @@ export class SessionClient {
 	/** Host advances from a fully revealed Round into the next one (#22's Host-driven pacing). */
 	nextRound(): void {
 		this.#send({ type: 'next_round' });
-	}
-
-	/** Host pushes the Guess Group breakdown to every Participant's phone (#42) — the
-	 *  optional action offered at Reveal, in the slot "Give Feedback" used to occupy. */
-	shareGuessGroups(): void {
-		this.#send({ type: 'share_guess_groups' });
 	}
 
 	/** Host removes a disruptive Participant; they cannot rejoin under the same name. */

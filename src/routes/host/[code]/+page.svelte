@@ -233,9 +233,6 @@
 				<Leaderboard entries={leaders} />
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
-				<Button variant="outline" onclick={() => client.shareGuessGroups()}
-					>{m.host_share_guess_groups()}</Button
-				>
 				{#if hasNextRound}
 					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
 				{:else}

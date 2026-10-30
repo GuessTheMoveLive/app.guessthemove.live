@@ -13,7 +13,6 @@ type ClientMessage =
 	| { type: 'adjust_round'; deltaMs: number }
 	| { type: 'reveal' }
 	| { type: 'next_round' }
-	| { type: 'share_guess_groups' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
 	| { type: 'delete_session' };
@@ -155,6 +154,12 @@ export class SessionRoom extends DurableObject {
 				}
 				actor.send({ type: 'REVEAL' });
 				await this.ctx.storage.deleteAlarm();
+				// Guess Groups are delivered automatically the moment the Round enters Reveal
+				// (#45, retiring #42's manual "Share Guess Groups" Host action), alongside the
+				// personal Reveal feedback each Participant already derives from the broadcast
+				// snapshot. The Host Display reads the full breakdown off that snapshot; each
+				// Participant gets their own redacted copy pushed here.
+				this.pushGuessGroups(actor);
 				break;
 			}
 			case 'next_round': {
@@ -173,36 +178,6 @@ export class SessionRoom extends DurableObject {
 				next.send({ type: 'START_ROUND' });
 				await this.scheduleRoundTimeout();
 				break;
-			}
-			case 'share_guess_groups': {
-				// Share Guess Groups (#42): the Host's optional action at Reveal, pushing the
-				// Guess Group breakdown out to every Participant's phone — the slot the retired
-				// "Give Feedback" used to occupy. The chart is broadcast-shaped (the same <=7
-				// buckets for everyone), but names are per-Participant: a recipient sees the
-				// members of their OWN Guess Group only, every other group as a bare count
-				// (GLOSSARY: Share Guess Groups). So the full breakdown is redacted per recipient
-				// and sent as a targeted message to their own socket(s) — never a single
-				// broadcast — so no socket ever receives another group's names. Host-only, same
-				// as kick/reset. (The Host Display already shows the full breakdown, every name,
-				// off the broadcast snapshot; it needs nothing from here.)
-				if (!this.isHostSocket(ws)) return;
-
-				const { participants, scores } = actor.getSnapshot().context;
-				const breakdown = computeGuessGroupBreakdown(participants, scores);
-				for (const participantId of Object.keys(participants)) {
-					const redacted = redactBreakdownFor(breakdown, participantId);
-					const serialized = JSON.stringify({ type: 'guess_groups', breakdown: redacted });
-					for (const socket of this.ctx.getWebSockets(participantId)) {
-						try {
-							socket.send(serialized);
-						} catch {
-							// A socket that dropped between getWebSockets() and send() — skip it.
-						}
-					}
-				}
-				// Targeted-only: nothing in the shared round state changed, so there is no
-				// snapshot to persist or broadcast.
-				return;
 			}
 			case 'kick': {
 				// Only the Host may kick (#10: the Host's connection is the only one tagged
@@ -294,6 +269,32 @@ export class SessionRoom extends DurableObject {
 	private isHostSocket(ws: WebSocket): boolean {
 		const [tag] = this.ctx.getTags(ws);
 		return tag === HOST_TAG;
+	}
+
+	/**
+	 * Push the closed Round's Guess Group breakdown out to every Participant's phone the
+	 * moment it enters Reveal (#45). The chart is broadcast-shaped (the same <=7 buckets
+	 * for everyone), but names are per-Participant: a recipient sees the members of their
+	 * OWN Guess Group only, every other group as a bare count (GLOSSARY: Guess Group). So
+	 * the full breakdown is redacted per recipient and sent as a targeted message to their
+	 * own socket(s) — never a single broadcast — so no socket ever receives another group's
+	 * names. (The Host Display already shows the full breakdown, every name, off the
+	 * broadcast snapshot; it needs nothing from here.)
+	 */
+	private pushGuessGroups(actor: Actor<typeof roundMachine>): void {
+		const { participants, scores } = actor.getSnapshot().context;
+		const breakdown = computeGuessGroupBreakdown(participants, scores);
+		for (const participantId of Object.keys(participants)) {
+			const redacted = redactBreakdownFor(breakdown, participantId);
+			const serialized = JSON.stringify({ type: 'guess_groups', breakdown: redacted });
+			for (const socket of this.ctx.getWebSockets(participantId)) {
+				try {
+					socket.send(serialized);
+				} catch {
+					// A socket that dropped between getWebSockets() and send() — skip it.
+				}
+			}
+		}
 	}
 
 	private async registerParticipant(participantId: string): Promise<void> {

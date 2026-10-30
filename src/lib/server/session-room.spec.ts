@@ -313,7 +313,7 @@ describe('SessionRoom', () => {
 		expect(snapshot.value).toBe('active');
 	});
 
-	it('share_guess_groups sends each Participant a redacted, targeted breakdown', async () => {
+	it('on Reveal, pushes each Participant a redacted, targeted Guess Group breakdown', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
@@ -325,8 +325,8 @@ describe('SessionRoom', () => {
 			JSON.stringify({ type: 'submit', guess: 'wrong' })
 		);
 		await room.webSocketMessage(bobWs as never, JSON.stringify({ type: 'submit', guess: 'wrong' }));
+		// No Host "share" action — simply entering Reveal delivers the breakdown (#45).
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
-		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'share_guess_groups' }));
 
 		// Alice and Bob guessed the same move, so they share one Guess Group — each sees
 		// both names on their own group.
@@ -338,15 +338,16 @@ describe('SessionRoom', () => {
 		expect(aliceGroup.names).toEqual(['alice', 'bob']);
 		expect(aliceGroup.count).toBe(2);
 
-		// The Host's own control socket is never sent a targeted breakdown.
+		// The Host's own control socket is never sent a targeted breakdown — it reads the
+		// full view off the broadcast snapshot instead.
 		expect(hostWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'guess_groups')).toBe(
 			false
 		);
 	});
 
-	it('share_guess_groups never leaks another Guess Group’s names to the wrong socket', async () => {
+	it('the Reveal push never leaks another Guess Group’s names to the wrong socket', async () => {
 		const { room, ctx, token } = await openRoom();
-		const { ws: hostWs } = await joinHost(room, ctx, token);
+		await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 		const { ws: bobWs } = await join(room, ctx, 'bob');
 
@@ -360,7 +361,6 @@ describe('SessionRoom', () => {
 			JSON.stringify({ type: 'submit', guess: 'bobs-move' })
 		);
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
-		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'share_guess_groups' }));
 
 		const forAlice = aliceWs.sent
 			.map((raw) => JSON.parse(raw))
@@ -369,23 +369,6 @@ describe('SessionRoom', () => {
 		// Alice sees Bob's group as a bare count, never his name.
 		expect(bobsGroup.count).toBe(1);
 		expect(bobsGroup.names).toBeNull();
-	});
-
-	it('ignores a share_guess_groups attempt from a non-Host connection', async () => {
-		const { room, ctx } = await openRoom();
-		const { ws: aliceWs } = await join(room, ctx, 'alice');
-
-		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
-		await room.webSocketMessage(
-			aliceWs as never,
-			JSON.stringify({ type: 'submit', guess: 'wrong' })
-		);
-		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
-		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'share_guess_groups' }));
-
-		expect(aliceWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'guess_groups')).toBe(
-			false
-		);
 	});
 
 	it('deletes: disconnects every socket (Host included) and frees the Room Code for reuse', async () => {

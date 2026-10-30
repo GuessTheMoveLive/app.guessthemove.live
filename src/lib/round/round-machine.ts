@@ -30,6 +30,7 @@ export type RoundEvent =
 	| { type: 'REVEAL' }
 	| { type: 'CONTINUE' }
 	| { type: 'BACK' }
+	| { type: 'FINISH' }
 	| { type: 'KICK'; participantId: string };
 
 export interface RoundInput {
@@ -145,7 +146,11 @@ export const roundMachine = setup({
 			on: { CONTINUE: 'opponentResponse' }
 		},
 		opponentResponse: {
-			on: { BACK: 'reveal' }
-		}
+			on: { BACK: 'reveal', FINISH: 'finished' }
+		},
+		// The terminal phase (#50): the Host's "Finish" on the final Round's Opponent
+		// Response lands every client here for good — no event moves a Session on from
+		// it, so a Session that's Finished stays Finished until Reset (#38).
+		finished: {}
 	}
 });

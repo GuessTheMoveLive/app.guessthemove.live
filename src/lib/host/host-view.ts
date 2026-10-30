@@ -13,6 +13,12 @@ export interface LeaderboardEntry {
 	total: number;
 }
 
+function rankedEntries(totals: Record<string, number>): LeaderboardEntry[] {
+	return Object.entries(totals)
+		.map(([participantId, total]) => ({ participantId, total }))
+		.sort((a, b) => b.total - a.total || a.participantId.localeCompare(b.participantId));
+}
+
 /**
  * The shared, Kahoot-style Leaderboard: the top-N Participants by running total,
  * highest first, ties broken by participantId for a stable ordering. Defaults to
@@ -21,10 +27,46 @@ export interface LeaderboardEntry {
  * until the first Round has been scored.
  */
 export function topLeaderboard(totals: Record<string, number>, limit = 5): LeaderboardEntry[] {
-	return Object.entries(totals)
-		.map(([participantId, total]) => ({ participantId, total }))
-		.sort((a, b) => b.total - a.total || a.participantId.localeCompare(b.participantId))
-		.slice(0, limit);
+	return rankedEntries(totals).slice(0, limit);
+}
+
+/**
+ * Every Participant ranked, highest first — the Host's Finished-phase view (#50),
+ * unlike {@link topLeaderboard} which caps at a top-N for the shared/Participant view.
+ */
+export function fullRanking(totals: Record<string, number>): LeaderboardEntry[] {
+	return rankedEntries(totals);
+}
+
+export type FinishedMessage =
+	| { kind: 'lead' }
+	| { kind: 'tiedLead' }
+	| { kind: 'behind'; points: number; name: string };
+
+/**
+ * A Participant's personal message on the Finished phase's full-screen Podium
+ * (#50): whoever shares the top score is told they're (tied for) in the lead;
+ * everyone else is told the point gap to whoever's immediately above them in the
+ * ranking — not the overall leader, the next-highest participant above them — and
+ * that participant's display name (participantId doubles as the display name
+ * captured at join, per GLOSSARY).
+ */
+export function finishedMessageFor(
+	participantId: string,
+	totals: Record<string, number>
+): FinishedMessage {
+	const ranked = rankedEntries(totals);
+	const myTotal = totals[participantId] ?? 0;
+	const maxTotal = ranked[0]?.total ?? 0;
+
+	if (myTotal === maxTotal) {
+		const leaders = ranked.filter((entry) => entry.total === maxTotal);
+		return leaders.length > 1 ? { kind: 'tiedLead' } : { kind: 'lead' };
+	}
+
+	const myIndex = ranked.findIndex((entry) => entry.participantId === participantId);
+	const above = ranked[myIndex - 1];
+	return { kind: 'behind', points: above.total - myTotal, name: above.participantId };
 }
 
 export interface SubmissionProgress {

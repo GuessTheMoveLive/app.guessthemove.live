@@ -110,6 +110,12 @@ export class SessionClient {
 		this.#send({ type: 'back' });
 	}
 
+	/** Host moves every client from the final Round's Opponent Response into the
+	 *  terminal Finished phase (#50). */
+	finish(): void {
+		this.#send({ type: 'finish' });
+	}
+
 	/** Host advances from a fully revealed Round into the next one (#22's Host-driven pacing). */
 	nextRound(): void {
 		this.#send({ type: 'next_round' });

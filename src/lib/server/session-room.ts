@@ -14,6 +14,7 @@ type ClientMessage =
 	| { type: 'reveal' }
 	| { type: 'continue' }
 	| { type: 'back' }
+	| { type: 'finish' }
 	| { type: 'next_round' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
@@ -177,6 +178,16 @@ export class SessionRoom extends DurableObject {
 				// The Host's "Back" on Opponent Response returns everyone to Reveal (#48).
 				if (actor.getSnapshot().value !== 'opponentResponse') return;
 				actor.send({ type: 'BACK' });
+				break;
+			}
+			case 'finish': {
+				// The Host's "Finish" on the final Round's Opponent Response moves every
+				// client into the terminal Finished phase showing the Podium (#50).
+				// Guarded to that exact screen — Finish only ever renders there — so a
+				// stray message from anywhere else is a no-op.
+				if (actor.getSnapshot().value !== 'opponentResponse') return;
+				if (this.roundIndex + 1 < quizSteps().length) return;
+				actor.send({ type: 'FINISH' });
 				break;
 			}
 			case 'next_round': {

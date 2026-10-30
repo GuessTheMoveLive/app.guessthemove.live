@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SessionRoom } from './session-room.js';
+import { quizSteps } from '#lib/round/game-data.js';
 
 // SessionRoom is a Cloudflare Durable Object: its base class and the WebSocket
 // upgrade machinery it uses (WebSocketPair, hibernatable tags, a 101 Response
@@ -268,6 +269,47 @@ describe('SessionRoom', () => {
 		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
 		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
 		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'back' }));
+
+		const snapshot = ws.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('reveal');
+	});
+
+	it('finish moves every client into the Finished phase, only on the Featured Game’s final Round (#50)', async () => {
+		const { room, ctx } = await openRoom();
+		await ctx.storage.put('round-index', quizSteps().length - 1);
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'finish' }));
+
+		const snapshot = ws.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('finished');
+	});
+
+	it('ignores finish before the Featured Game’s final Round (#50)', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'finish' }));
+
+		const snapshot = ws.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('opponentResponse');
+	});
+
+	it('ignores finish outside Opponent Response, even on the final Round (#50)', async () => {
+		const { room, ctx } = await openRoom();
+		await ctx.storage.put('round-index', quizSteps().length - 1);
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'finish' }));
 
 		const snapshot = ws.lastSnapshot() as { value: string };
 		expect(snapshot.value).toBe('reveal');

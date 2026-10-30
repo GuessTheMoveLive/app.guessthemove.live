@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
 	topLeaderboard,
+	fullRanking,
+	finishedMessageFor,
 	scoreboardRows,
 	submissionProgress,
 	everyoneAnswered,
@@ -44,6 +46,55 @@ describe('topLeaderboard', () => {
 		const result = topLeaderboard({ a: 1, b: 2, c: 3 }, 2);
 
 		expect(result.map((e) => e.participantId)).toEqual(['c', 'b']);
+	});
+});
+
+describe('fullRanking', () => {
+	it('ranks every participant, not just the top 5 (#50)', () => {
+		const totals = { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7 };
+
+		const result = fullRanking(totals);
+
+		expect(result.map((e) => e.participantId)).toEqual(['g', 'f', 'e', 'd', 'c', 'b', 'a']);
+	});
+
+	it('breaks ties by participantId, same as topLeaderboard', () => {
+		const result = fullRanking({ zoe: 3, amy: 3 });
+
+		expect(result.map((e) => e.participantId)).toEqual(['amy', 'zoe']);
+	});
+
+	it('is empty with no participants', () => {
+		expect(fullRanking({})).toEqual([]);
+	});
+});
+
+describe('finishedMessageFor (#50)', () => {
+	it('tells the solo leader they are in the lead', () => {
+		expect(finishedMessageFor('alice', { alice: 10, bob: 4 })).toEqual({ kind: 'lead' });
+	});
+
+	it('tells every participant tied for first they are tied for the lead', () => {
+		const totals = { alice: 10, bob: 10, carol: 4 };
+
+		expect(finishedMessageFor('alice', totals)).toEqual({ kind: 'tiedLead' });
+		expect(finishedMessageFor('bob', totals)).toEqual({ kind: 'tiedLead' });
+	});
+
+	it('tells everyone else how far behind the participant immediately above them they are', () => {
+		const totals = { alice: 10, bob: 7, carol: 2 };
+
+		expect(finishedMessageFor('bob', totals)).toEqual({ kind: 'behind', points: 3, name: 'alice' });
+		expect(finishedMessageFor('carol', totals)).toEqual({ kind: 'behind', points: 5, name: 'bob' });
+	});
+
+	it('names the participant immediately above, not the overall leader', () => {
+		// carol is behind bob, not alice - the gap and name are to the next-highest
+		// participant above her, never straight to 1st (GLOSSARY: not a leaderboard
+		// of "how far from first", one of "how far from whoever's just ahead").
+		const totals = { alice: 20, bob: 7, carol: 2 };
+
+		expect(finishedMessageFor('carol', totals)).toEqual({ kind: 'behind', points: 5, name: 'bob' });
 	});
 });
 

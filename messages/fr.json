@@ -103,5 +103,8 @@
 	"feedback_rel_worse": "Moins bon que le coup joué — {your} au lieu de {played}.",
 	"opponent_response_title": "Réponse de l'adversaire",
 	"opponent_response_desc": "Le coup joué dans la partie en réponse.",
-	"back_button": "Retour"
+	"back_button": "Retour",
+	"finished_lead": "Tu es en tête !",
+	"finished_tied_lead": "Tu es à égalité en tête !",
+	"finished_behind": "Tu as {points} points de retard sur {name}"
 }

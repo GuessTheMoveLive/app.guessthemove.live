@@ -103,5 +103,8 @@
 	"feedback_rel_worse": "No tan buena como la jugada realizada — {your} en lugar de {played}.",
 	"opponent_response_title": "Respuesta del rival",
 	"opponent_response_desc": "La jugada realizada en la partida como respuesta.",
-	"back_button": "Atrás"
+	"back_button": "Atrás",
+	"finished_lead": "¡Vas en cabeza!",
+	"finished_tied_lead": "¡Vas empatado en cabeza!",
+	"finished_behind": "Vas {points} puntos por detrás de {name}"
 }

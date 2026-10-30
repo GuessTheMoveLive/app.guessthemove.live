@@ -103,5 +103,8 @@
 	"feedback_rel_worse": "Nicht so gut wie der gespielte Zug — {your} statt {played}.",
 	"opponent_response_title": "Antwort des Gegners",
 	"opponent_response_desc": "Der als Antwort gespielte Zug der Partie.",
-	"back_button": "Zurück"
+	"back_button": "Zurück",
+	"finished_lead": "Du führst!",
+	"finished_tied_lead": "Du liegst punktgleich an der Spitze!",
+	"finished_behind": "Du liegst {points} Punkte hinter {name}"
 }

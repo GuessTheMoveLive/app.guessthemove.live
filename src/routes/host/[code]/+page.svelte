@@ -6,6 +6,7 @@
 	import { SessionClient } from '#lib/round/session-client.svelte.js';
 	import {
 		topLeaderboard,
+		fullRanking,
 		scoreboardRows,
 		submissionProgress,
 		everyoneAnswered,
@@ -93,6 +94,8 @@
 	const answered = $derived(everyoneAnswered(participants));
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
 	const top3 = $derived(topLeaderboard(snapshot?.context.totals ?? {}, 3));
+	// The Finished phase's full ranking (#50): every Participant, not just the top 5.
+	const everyone = $derived(fullRanking(snapshot?.context.totals ?? {}));
 	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
 	const scoreboard = $derived(
 		scoreboardRows(
@@ -262,12 +265,25 @@
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
 				{#if isLastRound}
-					<Button onclick={() => client.back()}>{m.host_finish_button()}</Button>
+					<Button onclick={() => client.finish()}>{m.host_finish_button()}</Button>
 				{:else}
 					<Button variant="outline" onclick={() => client.back()}>{m.back_button()}</Button>
 					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
 				{/if}
 			</Card.Footer>
+		</Card.Root>
+	{:else if phase === 'finished'}
+		<!-- Finished (#50): the terminal, full-screen phase reached from the final Round's
+		     Opponent Response via "Finish". Shows the Podium plus the full ranking of every
+		     Participant — the Host has no score of their own, so no personal message. -->
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>{m.final_results_title()}</Card.Title>
+			</Card.Header>
+			<Card.Content class="flex flex-col gap-4">
+				<Podium entries={top3} />
+				<Leaderboard entries={everyone} />
+			</Card.Content>
 		</Card.Root>
 	{:else}
 		<Card.Root>
@@ -329,7 +345,7 @@
 		</Card.Root>
 	{/if}
 
-	{#if !client.ended && history.length}
+	{#if !client.ended && phase !== 'finished' && history.length}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
@@ -346,7 +362,7 @@
 		</Card.Root>
 	{/if}
 
-	{#if !client.ended && phase !== 'lobby' && breakdown.length}
+	{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title class="text-sm">{m.host_answer_key_title()}</Card.Title>
@@ -377,7 +393,7 @@
 		</Card.Root>
 	{/if}
 
-	{#if rosterSize > 0}
+	{#if rosterSize > 0 && phase !== 'finished'}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title class="text-sm">{m.host_scoreboard_title({ count: rosterSize })}</Card.Title>

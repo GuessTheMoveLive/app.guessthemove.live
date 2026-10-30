@@ -103,5 +103,8 @@
 	"feedback_rel_worse": "Not as good as the move played — {your} instead of {played}.",
 	"opponent_response_title": "Opponent's response",
 	"opponent_response_desc": "The move played in the game in reply.",
-	"back_button": "Back"
+	"back_button": "Back",
+	"finished_lead": "You're in the lead!",
+	"finished_tied_lead": "You're tied for the lead!",
+	"finished_behind": "You are {points} points behind {name}"
 }

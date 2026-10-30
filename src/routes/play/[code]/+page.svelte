@@ -3,7 +3,12 @@
 	import { browser } from '$app/env';
 	import { page } from '$app/state';
 	import { SessionClient } from '#lib/round/session-client.svelte.js';
-	import { remainingMs, formatCountdown, topLeaderboard } from '#lib/host/host-view.js';
+	import {
+		remainingMs,
+		formatCountdown,
+		topLeaderboard,
+		finishedMessageFor
+	} from '#lib/host/host-view.js';
 	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
 	import {
 		FILES,
@@ -81,6 +86,11 @@
 	const top3 = $derived(topLeaderboard(snapshot?.context.totals ?? {}, 3));
 	// The Guess Group breakdown only reaches a Participant's phone if the Host shares it.
 	const sharedGroups = $derived(client.sharedGroups);
+	// The Finished phase's personal message (#50): tells this Participant where they
+	// stand — (tied for) the lead, or the point gap to whoever's immediately above them.
+	const finishedMessage = $derived(
+		snapshot ? finishedMessageFor(me, snapshot.context.totals) : null
+	);
 
 	// Once kicked, forget the saved name - a refresh must land back on the Join screen,
 	// not silently retry into a connection the Host has already blocked server-side.
@@ -315,6 +325,30 @@
 				<div class="text-center font-mono text-5xl tracking-tight tabular-nums">
 					{opponentMove ?? '—'}
 				</div>
+			</Card.Content>
+		</Card.Root>
+	{:else if phase === 'finished'}
+		<!-- Finished (#50): the terminal, full-screen Podium reached from the final Round's
+		     Opponent Response once the Host clicks "Finish". A Participant's personal
+		     message underneath states where they stand — (tied for) the lead, or the gap
+		     to whoever's immediately above them. -->
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>{m.final_results_title()}</Card.Title>
+			</Card.Header>
+			<Card.Content class="flex flex-col items-center gap-4">
+				<Podium entries={top3} highlightId={me} />
+				{#if finishedMessage}
+					<p class="text-center text-base font-medium">
+						{#if finishedMessage.kind === 'lead'}
+							{m.finished_lead()}
+						{:else if finishedMessage.kind === 'tiedLead'}
+							{m.finished_tied_lead()}
+						{:else}
+							{m.finished_behind({ points: finishedMessage.points, name: finishedMessage.name })}
+						{/if}
+					</p>
+				{/if}
 			</Card.Content>
 		</Card.Root>
 	{:else}

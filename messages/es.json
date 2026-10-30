@@ -83,5 +83,15 @@
 	"feedback_mistake": "Un error.",
 	"feedback_clear_mistake": "Un error claro.",
 	"feedback_blunder": "Un error grave.",
-	"feedback_timeout": "No se envió ninguna jugada a tiempo."
+	"feedback_timeout": "No se envió ninguna jugada a tiempo.",
+	"feedback_pos_winning": "una posición ganadora para ti",
+	"feedback_pos_clear": "una clara ventaja para ti",
+	"feedback_pos_edge": "una ligera ventaja para ti",
+	"feedback_pos_equal": "una posición igualada",
+	"feedback_pos_edge_opp": "una ligera ventaja para tu rival",
+	"feedback_pos_clear_opp": "una clara ventaja para tu rival",
+	"feedback_pos_winning_opp": "una posición ganadora para tu rival",
+	"feedback_rel_same": "Igual que la jugada realizada — {pos}.",
+	"feedback_rel_better": "Mejor que la jugada realizada — {your} en lugar de {played}.",
+	"feedback_rel_worse": "No tan buena como la jugada realizada — {your} en lugar de {played}."
 }

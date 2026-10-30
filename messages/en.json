@@ -83,5 +83,15 @@
 	"feedback_mistake": "A mistake.",
 	"feedback_clear_mistake": "A clear mistake.",
 	"feedback_blunder": "A serious blunder.",
-	"feedback_timeout": "No move submitted in time."
+	"feedback_timeout": "No move submitted in time.",
+	"feedback_pos_winning": "a winning position for you",
+	"feedback_pos_clear": "a clear advantage for you",
+	"feedback_pos_edge": "a slight edge for you",
+	"feedback_pos_equal": "an equal position",
+	"feedback_pos_edge_opp": "a slight edge for your opponent",
+	"feedback_pos_clear_opp": "a clear advantage for your opponent",
+	"feedback_pos_winning_opp": "a winning position for your opponent",
+	"feedback_rel_same": "The same as the move played — {pos}.",
+	"feedback_rel_better": "Better than the move played — {your} instead of {played}.",
+	"feedback_rel_worse": "Not as good as the move played — {your} instead of {played}."
 }

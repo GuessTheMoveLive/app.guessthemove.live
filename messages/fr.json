@@ -83,5 +83,15 @@
 	"feedback_mistake": "Une erreur.",
 	"feedback_clear_mistake": "Une erreur nette.",
 	"feedback_blunder": "Une grave bévue.",
-	"feedback_timeout": "Aucun coup soumis à temps."
+	"feedback_timeout": "Aucun coup soumis à temps.",
+	"feedback_pos_winning": "une position gagnante pour toi",
+	"feedback_pos_clear": "un net avantage pour toi",
+	"feedback_pos_edge": "un léger avantage pour toi",
+	"feedback_pos_equal": "une position égale",
+	"feedback_pos_edge_opp": "un léger avantage pour ton adversaire",
+	"feedback_pos_clear_opp": "un net avantage pour ton adversaire",
+	"feedback_pos_winning_opp": "une position gagnante pour ton adversaire",
+	"feedback_rel_same": "Équivalent au coup joué — {pos}.",
+	"feedback_rel_better": "Meilleur que le coup joué — {your} au lieu de {played}.",
+	"feedback_rel_worse": "Moins bon que le coup joué — {your} au lieu de {played}."
 }

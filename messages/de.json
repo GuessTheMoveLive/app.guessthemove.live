@@ -83,5 +83,15 @@
 	"feedback_mistake": "Ein Fehler.",
 	"feedback_clear_mistake": "Ein klarer Fehler.",
 	"feedback_blunder": "Ein schwerer Patzer.",
-	"feedback_timeout": "Kein Zug rechtzeitig abgegeben."
+	"feedback_timeout": "Kein Zug rechtzeitig abgegeben.",
+	"feedback_pos_winning": "eine Gewinnstellung für dich",
+	"feedback_pos_clear": "ein klarer Vorteil für dich",
+	"feedback_pos_edge": "ein leichter Vorteil für dich",
+	"feedback_pos_equal": "eine ausgeglichene Stellung",
+	"feedback_pos_edge_opp": "ein leichter Vorteil für deinen Gegner",
+	"feedback_pos_clear_opp": "ein klarer Vorteil für deinen Gegner",
+	"feedback_pos_winning_opp": "eine Gewinnstellung für deinen Gegner",
+	"feedback_rel_same": "Gleichwertig mit dem gespielten Zug — {pos}.",
+	"feedback_rel_better": "Besser als der gespielte Zug — {your} statt {played}.",
+	"feedback_rel_worse": "Nicht so gut wie der gespielte Zug — {your} statt {played}."
 }

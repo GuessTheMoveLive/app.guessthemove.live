@@ -106,6 +106,32 @@ describe('roundMachine', () => {
 
 		expect(actor.getSnapshot().value).toBe('reveal');
 	});
+
+	it('moves to opponentResponse on CONTINUE, only from reveal (#48)', () => {
+		const actor = actorWith(['alice']);
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'ROUND_TIMEOUT' });
+		// CONTINUE is inert before Reveal — a stray click while still closed is a no-op.
+		actor.send({ type: 'CONTINUE' });
+		expect(actor.getSnapshot().value).toBe('closed');
+
+		actor.send({ type: 'REVEAL' });
+		actor.send({ type: 'CONTINUE' });
+
+		expect(actor.getSnapshot().value).toBe('opponentResponse');
+	});
+
+	it('returns opponentResponse to reveal on BACK (#48)', () => {
+		const actor = actorWith(['alice']);
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'ROUND_TIMEOUT' });
+		actor.send({ type: 'REVEAL' });
+		actor.send({ type: 'CONTINUE' });
+
+		actor.send({ type: 'BACK' });
+
+		expect(actor.getSnapshot().value).toBe('reveal');
+	});
 });
 
 describe('roundMachine KICK (Host removes a disruptive Participant)', () => {

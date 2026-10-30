@@ -100,6 +100,16 @@ export class SessionClient {
 		this.#send({ type: 'reveal' });
 	}
 
+	/** Host moves every client on from Reveal to the Opponent Response screen (#48). */
+	continueRound(): void {
+		this.#send({ type: 'continue' });
+	}
+
+	/** Host returns every client from the Opponent Response screen back to Reveal (#48). */
+	back(): void {
+		this.#send({ type: 'back' });
+	}
+
 	/** Host advances from a fully revealed Round into the next one (#22's Host-driven pacing). */
 	nextRound(): void {
 		this.#send({ type: 'next_round' });

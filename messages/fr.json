@@ -99,5 +99,8 @@
 	"feedback_pos_winning_opp": "une position gagnante pour ton adversaire",
 	"feedback_rel_same": "Équivalent au coup joué — {pos}.",
 	"feedback_rel_better": "Meilleur que le coup joué — {your} au lieu de {played}.",
-	"feedback_rel_worse": "Moins bon que le coup joué — {your} au lieu de {played}."
+	"feedback_rel_worse": "Moins bon que le coup joué — {your} au lieu de {played}.",
+	"opponent_response_title": "Réponse de l'adversaire",
+	"opponent_response_desc": "Le coup joué dans la partie en réponse.",
+	"back_button": "Retour"
 }

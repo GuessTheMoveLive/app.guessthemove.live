@@ -13,8 +13,12 @@
 		formatCountdown,
 		answerKeyBreakdown
 	} from '#lib/host/host-view.js';
-	import { getGameData, quizSteps } from '#lib/round/game-data.js';
-	import { buildMoveHistory, sanToGlyph } from '#lib/round/participant-input.js';
+	import { getGameData, quizSteps, getAnswerKeyStep } from '#lib/round/game-data.js';
+	import {
+		buildMoveHistory,
+		sanToGlyph,
+		formatNumberedMove
+	} from '#lib/round/participant-input.js';
 	import { computeGuessGroupBreakdown } from '#lib/round/guess-groups.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -38,11 +42,6 @@
 	// Inline ranking toggle (#47): the Leaderboard expands/collapses in place on the Reveal
 	// screen, mirroring the participant Ranking card — no dialog/overlay.
 	let showRanking = $state(false);
-
-	// "Continue" is the forward control that will open the Opponent Response phase in #48.
-	// That phase isn't built yet, so for now it's a deliberate no-op stub — the host still
-	// advances the Session with the "Next Round" button alongside it.
-	function continueToNext() {}
 
 	// Absolute join URL (not just the /play/{code} path) so it can be pasted as-is
 	// into WhatsApp or any other share target, as a fallback for the QR code.
@@ -108,6 +107,13 @@
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
 	const isFinalRound = $derived(phase === 'reveal' && !hasNextRound);
 	const quizStep = $derived(quizSteps()[roundIndex]);
+	// The Opponent Response (#48): the single next move actually played in the game after this
+	// Round's Featured move, shown large in numbered notation (e.g. "5...Be7"). Reuses #43's
+	// formatNumberedMove rather than reimplementing move-number formatting.
+	const opponentStep = $derived(quizStep ? getAnswerKeyStep(quizStep.ply + 1) : null);
+	const opponentMove = $derived(
+		opponentStep ? formatNumberedMove(opponentStep.san, opponentStep.ply) : null
+	);
 	const breakdown = $derived(answerKeyBreakdown(quizStep ?? null));
 	// The full Guess Group breakdown (#42): the Host Display shows every Guess Group and
 	// every name automatically at Reveal — no action needed. Reads off the broadcast
@@ -226,6 +232,24 @@
 				<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
 			</Card.Footer>
 		</Card.Root>
+	{:else if phase === 'opponentResponse'}
+		<!-- Opponent Response (#48): the single next move played in the game, large, with the
+		     Host's live Back / Next Round controls. Participants render the same card inert. -->
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>{m.opponent_response_title()}</Card.Title>
+				<Card.Description>{m.opponent_response_desc()}</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<div class="text-center font-mono text-6xl tracking-tight tabular-nums">
+					{opponentMove ?? '—'}
+				</div>
+			</Card.Content>
+			<Card.Footer class="flex gap-2">
+				<Button variant="outline" onclick={() => client.back()}>{m.back_button()}</Button>
+				<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
+			</Card.Footer>
+		</Card.Root>
 	{:else}
 		<Card.Root>
 			<Card.Header>
@@ -251,8 +275,7 @@
 					<Button variant="outline" onclick={() => (showRanking = !showRanking)}>
 						{showRanking ? m.host_hide_ranking() : m.host_show_ranking()}
 					</Button>
-					<Button variant="outline" onclick={continueToNext}>{m.host_continue()}</Button>
-					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
+					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 				{/if}
 			</Card.Footer>
 		</Card.Root>

@@ -99,5 +99,8 @@
 	"feedback_pos_winning_opp": "a winning position for your opponent",
 	"feedback_rel_same": "The same as the move played — {pos}.",
 	"feedback_rel_better": "Better than the move played — {your} instead of {played}.",
-	"feedback_rel_worse": "Not as good as the move played — {your} instead of {played}."
+	"feedback_rel_worse": "Not as good as the move played — {your} instead of {played}.",
+	"opponent_response_title": "Opponent's response",
+	"opponent_response_desc": "The move played in the game in reply.",
+	"back_button": "Back"
 }

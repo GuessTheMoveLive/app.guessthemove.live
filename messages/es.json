@@ -99,5 +99,8 @@
 	"feedback_pos_winning_opp": "una posición ganadora para tu rival",
 	"feedback_rel_same": "Igual que la jugada realizada — {pos}.",
 	"feedback_rel_better": "Mejor que la jugada realizada — {your} en lugar de {played}.",
-	"feedback_rel_worse": "No tan buena como la jugada realizada — {your} en lugar de {played}."
+	"feedback_rel_worse": "No tan buena como la jugada realizada — {your} en lugar de {played}.",
+	"opponent_response_title": "Respuesta del rival",
+	"opponent_response_desc": "La jugada realizada en la partida como respuesta.",
+	"back_button": "Atrás"
 }

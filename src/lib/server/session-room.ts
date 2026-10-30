@@ -12,6 +12,8 @@ type ClientMessage =
 	| { type: 'submit'; guess: string }
 	| { type: 'adjust_round'; deltaMs: number }
 	| { type: 'reveal' }
+	| { type: 'continue' }
+	| { type: 'back' }
 	| { type: 'next_round' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
@@ -162,10 +164,27 @@ export class SessionRoom extends DurableObject {
 				this.pushGuessGroups(actor);
 				break;
 			}
-			case 'next_round': {
-				// Only advance out of a fully revealed Round (#22's Host-driven pacing) — a
-				// stray repeat click from the Host's own network lag is a harmless no-op.
+			case 'continue': {
+				// The Host's "Continue" on Reveal moves every connected client on to the
+				// Opponent Response screen (#48). Server-driven and broadcast like every other
+				// phase transition — never decided per-client. Inert outside Reveal so a stray
+				// repeat click can't jump an already-advanced Session.
 				if (actor.getSnapshot().value !== 'reveal') return;
+				actor.send({ type: 'CONTINUE' });
+				break;
+			}
+			case 'back': {
+				// The Host's "Back" on Opponent Response returns everyone to Reveal (#48).
+				if (actor.getSnapshot().value !== 'opponentResponse') return;
+				actor.send({ type: 'BACK' });
+				break;
+			}
+			case 'next_round': {
+				// Only advance out of a fully revealed Round (#22's Host-driven pacing) — from
+				// Reveal itself or the Opponent Response screen that now follows it (#48). A
+				// stray repeat click from the Host's own network lag is a harmless no-op.
+				const phase = actor.getSnapshot().value;
+				if (phase !== 'reveal' && phase !== 'opponentResponse') return;
 				const nextIndex = this.roundIndex + 1;
 				if (nextIndex >= quizSteps().length) return; // Featured Game has no more Rounds.
 

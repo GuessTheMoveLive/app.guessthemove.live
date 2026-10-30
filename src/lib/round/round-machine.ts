@@ -28,6 +28,8 @@ export type RoundEvent =
 	| { type: 'SUBMIT'; participantId: string; guess: string }
 	| { type: 'ROUND_TIMEOUT' }
 	| { type: 'REVEAL' }
+	| { type: 'CONTINUE' }
+	| { type: 'BACK' }
 	| { type: 'KICK'; participantId: string };
 
 export interface RoundInput {
@@ -136,6 +138,14 @@ export const roundMachine = setup({
 				REVEAL: 'reveal'
 			}
 		},
-		reveal: {}
+		// Reveal is no longer terminal (#48): the Host's "Continue" moves everyone on to the
+		// Opponent Response screen, and "Back" from there returns here. "Next round" is owned
+		// one level up in SessionRoom (it builds the next Round's actor), not by this machine.
+		reveal: {
+			on: { CONTINUE: 'opponentResponse' }
+		},
+		opponentResponse: {
+			on: { BACK: 'reveal' }
+		}
 	}
 });

@@ -99,5 +99,8 @@
 	"feedback_pos_winning_opp": "eine Gewinnstellung für deinen Gegner",
 	"feedback_rel_same": "Gleichwertig mit dem gespielten Zug — {pos}.",
 	"feedback_rel_better": "Besser als der gespielte Zug — {your} statt {played}.",
-	"feedback_rel_worse": "Nicht so gut wie der gespielte Zug — {your} statt {played}."
+	"feedback_rel_worse": "Nicht so gut wie der gespielte Zug — {your} statt {played}.",
+	"opponent_response_title": "Antwort des Gegners",
+	"opponent_response_desc": "Der als Antwort gespielte Zug der Partie.",
+	"back_button": "Zurück"
 }

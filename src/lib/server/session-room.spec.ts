@@ -248,6 +248,45 @@ describe('SessionRoom', () => {
 		expect(Object.keys(snapshot.context.participants)).toEqual(['alice', 'bob']);
 	});
 
+	it('continue moves every client into the Opponent Response phase (#48)', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+
+		const snapshot = ws.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('opponentResponse');
+	});
+
+	it('back returns from Opponent Response to Reveal (#48)', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'back' }));
+
+		const snapshot = ws.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('reveal');
+	});
+
+	it('next_round from Opponent Response advances to the next Round’s active phase (#48)', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'next_round' }));
+
+		const snapshot = ws.lastSnapshot() as { value: string; roundIndex: number };
+		expect(snapshot.value).toBe('active');
+		expect(snapshot.roundIndex).toBe(1);
+	});
+
 	it('refuses to advance past the last Round', async () => {
 		const { room, ctx } = await openRoom();
 		const { ws } = await join(room, ctx, 'alice');

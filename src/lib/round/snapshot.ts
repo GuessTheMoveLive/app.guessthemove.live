@@ -6,7 +6,7 @@ import type { RoundContext } from './round-machine';
 // `cloudflare:workers`.
 
 /** The round lifecycle machine's flat state value. */
-export type RoundStateValue = 'lobby' | 'active' | 'closed' | 'reveal';
+export type RoundStateValue = 'lobby' | 'active' | 'closed' | 'reveal' | 'opponentResponse';
 
 export interface RoundSnapshot {
 	value: RoundStateValue;

@@ -3,17 +3,23 @@
 This run is scoped to exactly one issue — do not pick up any other open issue, even if it
 looks higher-priority or blocked-free.
 
-## Issue #44 (Button hover/cursor and base font-size polish)
+## Issue #45 (Guess Groups shown automatically at Reveal)
 
-!`gh issue view 44 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+!`gh issue view 45 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-The shared Button component is `src/lib/components/ui/button/button.svelte` (shadcn-svelte
-style, likely using `tailwind-variants`/`cva` for its class list) — add `cursor-pointer` on
-hover and `cursor-not-allowed` when disabled there so every usage across the app inherits it,
-rather than hand-editing individual call sites. Find the global stylesheet (search for
-`app.css` / `app.pcss` / the Tailwind `@layer base` block, likely under `src/app.css` or
-`src/routes/+layout` imports) to bump the root font-size there (e.g. `html { font-size:
-112.5%; }` to go from 16px to 18px), not by hand-tuning individual text utility classes.
+This retires the manual "Share Guess Groups" host action added in #42. Read these files first
+— they implement the current manual-trigger version you are making automatic:
+`src/lib/server/session-room.ts` (the `share_guess_groups` message handler and broadcast
+logic), `src/lib/round/session-client.svelte.ts` (the client-side trigger/state), the
+"Share Guess Groups" button in `src/routes/host/[code]/+page.svelte`, and
+`src/lib/round/guess-groups.ts` (the pure breakdown functions, unchanged by this issue). Also
+check `src/lib/server/session-room.spec.ts` for existing coverage of the manual flow that will
+need to change.
+
+The redaction rules (own group shows names, every other group shows only a count) stay exactly
+as they are — only the *trigger* changes, from a host button click to automatic delivery the
+moment the round enters Reveal (alongside whatever already happens automatically at Reveal per
+#42, e.g. personal feedback).
 
 # Shared ground rules
 
@@ -30,24 +36,24 @@ rather than hand-editing individual call sites. Find the global stylesheet (sear
 
 # Task
 
-You are RALPH, an autonomous coding agent. Implement issue #44 fully.
+You are RALPH, an autonomous coding agent. Implement issue #45 fully.
 
 ## Workflow
 
-1. **Explore** — read the issue body and the relevant files listed above before writing any
-   code.
+1. **Explore** — read the issue body and the existing manual-trigger implementation listed
+   above before writing any code.
 2. **Plan** — decide what to change, keep it as small as the issue actually requires.
-3. **Execute** — this is a CSS/styling change; a unit test is unlikely to apply — focus on
-   correctness via inspection, but still run the suite to check for regressions.
+3. **Execute** — RGR: write a failing test first where the change is unit-testable (the Durable
+   Object's phase-transition/broadcast logic), then implement.
 4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit.
    Fix failures before proceeding, never commit red.
 5. **Commit** — one commit per logically-complete slice. Message MUST:
    - Start with `RALPH:` prefix
-   - Reference issue #44
+   - Reference issue #45
    - List key decisions made
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
-   `gh issue close 44 --comment "<what was built, in the same style as this repo's other
+   `gh issue close 45 --comment "<what was built, in the same style as this repo's other
    closing comments — gh issue view 42 or 43 for the tone/format to match>"`. Also append one
    line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
    pattern as the existing entries there.
@@ -62,6 +68,6 @@ You are RALPH, an autonomous coding agent. Implement issue #44 fully.
 
 # Done
 
-When #44 is closed (or you are blocked on it), output the completion signal:
+When #45 is closed (or you are blocked on it), output the completion signal:
 
 <promise>COMPLETE</promise>

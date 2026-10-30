@@ -13,11 +13,11 @@
 		formatCountdown,
 		answerKeyBreakdown
 	} from '#lib/host/host-view.js';
-	import { getGameData, quizSteps, getAnswerKeyStep } from '#lib/round/game-data.js';
+	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
 	import {
 		buildMoveHistory,
 		sanToGlyph,
-		formatNumberedMove
+		formatContinuation
 	} from '#lib/round/participant-input.js';
 	import { computeGuessGroupBreakdown } from '#lib/round/guess-groups.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -105,14 +105,26 @@
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
-	const isFinalRound = $derived(phase === 'reveal' && !hasNextRound);
+	// Round-index only, independent of phase — the Opponent Response screen (#48/#49) needs to
+	// know this while in its own `opponentResponse` phase, not just during `reveal`.
+	const isLastRound = $derived(!hasNextRound);
+	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
 	const quizStep = $derived(quizSteps()[roundIndex]);
 	// The Opponent Response (#48): the single next move actually played in the game after this
-	// Round's Featured move, shown large in numbered notation (e.g. "5...Be7"). Reuses #43's
-	// formatNumberedMove rather than reimplementing move-number formatting.
-	const opponentStep = $derived(quizStep ? getAnswerKeyStep(quizStep.ply + 1) : null);
+	// Round's Featured move, shown large in numbered notation (e.g. "5...Be7") — or, on the
+	// Featured Game's final Round (#49), the entire remaining real mainline to the game's
+	// actual end. Reuses #43's formatContinuation rather than reimplementing move-number
+	// formatting (it also covers the single-move case).
+	const opponentSteps = $derived(
+		quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []
+	);
 	const opponentMove = $derived(
-		opponentStep ? formatNumberedMove(opponentStep.san, opponentStep.ply) : null
+		opponentSteps.length
+			? formatContinuation(
+					opponentSteps.map((s) => s.san),
+					opponentSteps[0].ply
+				)
+			: null
 	);
 	const breakdown = $derived(answerKeyBreakdown(quizStep ?? null));
 	// The full Guess Group breakdown (#42): the Host Display shows every Guess Group and
@@ -233,8 +245,11 @@
 			</Card.Footer>
 		</Card.Root>
 	{:else if phase === 'opponentResponse'}
-		<!-- Opponent Response (#48): the single next move played in the game, large, with the
-		     Host's live Back / Next Round controls. Participants render the same card inert. -->
+		<!-- Opponent Response (#48): the next move(s) played in the game, large, with the
+		     Host's live Back / Next Round controls. Participants render the same card inert.
+		     On the Featured Game's final Round (#49) this shows the entire remaining real
+		     mainline, and the forward control reads "Finish" — there's no next Round to
+		     advance to, so it returns to the final Reveal/Leaderboard instead. -->
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>{m.opponent_response_title()}</Card.Title>
@@ -246,8 +261,12 @@
 				</div>
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
-				<Button variant="outline" onclick={() => client.back()}>{m.back_button()}</Button>
-				<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
+				{#if isLastRound}
+					<Button onclick={() => client.back()}>{m.host_finish_button()}</Button>
+				{:else}
+					<Button variant="outline" onclick={() => client.back()}>{m.back_button()}</Button>
+					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
+				{/if}
 			</Card.Footer>
 		</Card.Root>
 	{:else}
@@ -271,6 +290,7 @@
 					<p class="text-sm font-medium text-muted-foreground">
 						{m.host_final_round()}
 					</p>
+					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 				{:else}
 					<Button variant="outline" onclick={() => (showRanking = !showRanking)}>
 						{showRanking ? m.host_hide_ranking() : m.host_show_ranking()}

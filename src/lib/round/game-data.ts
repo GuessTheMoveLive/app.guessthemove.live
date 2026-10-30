@@ -34,3 +34,16 @@ export function getAnswerKeyStep(ply: number): GameStep | null {
 export function quizSteps(): GameStep[] {
 	return gameData.steps.filter((step) => step.alternatives.length > 0);
 }
+
+/**
+ * The Opponent Response continuation after a Round's Featured move (#48, extended by #49):
+ * just the single next ply on an ordinary Round, or, on the Featured Game's final Round, every
+ * remaining step of the real mainline through the game's actual end — sliced generically from
+ * the full step list rather than assumed to be any fixed length, since annotation coverage
+ * varies between games.
+ */
+export function opponentResponseSteps(afterPly: number, isFinalRound: boolean): GameStep[] {
+	if (isFinalRound) return gameData.steps.filter((step) => step.ply > afterPly);
+	const step = getAnswerKeyStep(afterPly + 1);
+	return step ? [step] : [];
+}

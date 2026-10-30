@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { SessionClient } from '#lib/round/session-client.svelte.js';
 	import { remainingMs, formatCountdown, topLeaderboard } from '#lib/host/host-view.js';
-	import { getGameData, quizSteps, getAnswerKeyStep } from '#lib/round/game-data.js';
+	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
 	import {
 		FILES,
 		DISPLAY_RANKS,
@@ -93,14 +93,26 @@
 	// first one (#27's pre-analysed answer-key table is the position/candidate-move source).
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
-	const isFinalRound = $derived(phase === 'reveal' && roundIndex + 1 >= totalRounds);
+	// Round-index only, independent of phase — the Opponent Response screen (#48/#49) needs to
+	// know this while in its own `opponentResponse` phase, not just during `reveal`.
+	const isLastRound = $derived(roundIndex + 1 >= totalRounds);
+	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
 	const quizStep = $derived(quizSteps()[roundIndex]);
 	// The Opponent Response (#48): the single next move played in the game after this Round's
-	// Featured move, shown large in numbered notation. Participants see the same move the Host
-	// does, with no live controls. Reuses #43's formatNumberedMove.
-	const opponentStep = $derived(quizStep ? getAnswerKeyStep(quizStep.ply + 1) : null);
+	// Featured move, shown large in numbered notation — or, on the Featured Game's final Round
+	// (#49), the entire remaining real mainline to the game's actual end. Participants see the
+	// same move(s) the Host does, with no live controls. Reuses #43's formatContinuation (it
+	// also covers the single-move case).
+	const opponentSteps = $derived(
+		quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []
+	);
 	const opponentMove = $derived(
-		opponentStep ? formatNumberedMove(opponentStep.san, opponentStep.ply) : null
+		opponentSteps.length
+			? formatContinuation(
+					opponentSteps.map((s) => s.san),
+					opponentSteps[0].ply
+				)
+			: null
 	);
 	const fen = $derived(quizStep?.fenBefore ?? game.startFen);
 	const candidateSans = $derived(

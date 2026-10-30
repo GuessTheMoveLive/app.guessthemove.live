@@ -11,6 +11,8 @@
 		resolveTapMove,
 		buildMoveHistory,
 		sanToGlyph,
+		formatNumberedMove,
+		formatContinuation,
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
 	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
@@ -103,7 +105,7 @@
 	// bundled answer key, so it's correct the instant Reveal lands, with no Host action.
 	const feedback = $derived(
 		phase === 'reveal' && myState
-			? buildParticipantFeedback(quizStep ?? null, myState, myRoundScore)
+			? buildParticipantFeedback(quizStep ?? null, myState, myRoundScore, quizStep?.ply ?? 1)
 			: null
 	);
 	const history = $derived(
@@ -298,17 +300,21 @@
 				</div>
 				{#if feedback}
 					<div class="flex flex-col gap-2 rounded-lg border px-3 py-3">
-						<p class="text-sm font-medium">{explanationText(feedback.tier)}</p>
+						<p class="text-sm font-medium">{feedback.phrase ?? explanationText(feedback.tier)}</p>
 						<div class="flex flex-col gap-1 text-sm">
 							{#if feedback.guessSan}
 								<div class="flex items-baseline justify-between gap-2">
 									<span class="text-muted-foreground">{m.play_feedback_your_move()}</span>
-									<span class="font-mono text-base">{sanToGlyph(feedback.guessSan)}</span>
+									<span class="font-mono text-base"
+										>{formatNumberedMove(feedback.guessSan, feedback.ply)}</span
+									>
 								</div>
 							{/if}
 							<div class="flex items-baseline justify-between gap-2">
 								<span class="text-muted-foreground">{m.play_feedback_played()}</span>
-								<span class="font-mono text-base">{sanToGlyph(feedback.playedSan)}</span>
+								<span class="font-mono text-base"
+									>{formatNumberedMove(feedback.playedSan, feedback.ply)}</span
+								>
 							</div>
 						</div>
 						{#if feedback.variant && feedback.variant.continuation.length}
@@ -317,7 +323,7 @@
 									>{m.play_feedback_continuation()}</span
 								>
 								<span class="font-mono text-sm">
-									{feedback.variant.continuation.map(sanToGlyph).join(' ')}
+									{formatContinuation(feedback.variant.continuation, feedback.ply + 1)}
 									{#if feedback.variant.endEval != null}
 										<span class="text-muted-foreground">
 											({feedback.variant.endEval > 0 ? '+' : ''}{feedback.variant.endEval})

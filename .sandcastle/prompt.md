@@ -3,20 +3,19 @@
 This run is scoped to exactly one issue — do not pick up any other open issue, even if it
 looks higher-priority or blocked-free.
 
-## Issue #46 (Participant Reveal screen: three-card layout + bar chart labels)
+## Issue #47 (Host Reveal screen: inline ranking toggle + Continue)
 
-!`gh issue view 46 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+!`gh issue view 47 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-Read `src/routes/play/[code]/+page.svelte` (the participant Reveal rendering you're
-restructuring into three cards), `src/lib/components/leaderboard.svelte` (the shared
-Leaderboard component — reuse it, don't duplicate it), and
-`src/lib/components/guess-group-chart.svelte` (the shared bar chart, used by both host and
-participant views — the label change here must not break the host's rendering of the same
-component, see `src/routes/host/[code]/+page.svelte` for that usage). Check
-`src/lib/components/ui/card` for the shadcn Card component to use for the three sections.
-Check `src/lib/paraglide/messages` for how existing pluralized copy (e.g. elsewhere in the app)
-is keyed, and add new message keys the same way for "N participant(s)" / "+N points" / "-N
-points" rather than hardcoding English or hand-rolling pluralization.
+Read `src/routes/host/[code]/+page.svelte` (the host Reveal rendering you're adding the
+"Show ranking" + "Continue" buttons to) and `src/lib/components/leaderboard.svelte` (the shared
+Leaderboard component). Look at how #46 (just shipped, `git show 201ecfe` or
+`git log --oneline --grep=46`) implemented the equivalent inline expand/collapse Ranking card
+on the participant Reveal screen in `src/routes/play/[code]/+page.svelte` — reuse the same
+pattern (likely a local `$state` boolean toggling visibility of the Leaderboard, no
+dialog/overlay) rather than inventing a new one. "Continue" is a stub/no-op button for this
+ticket only — it becomes the entry point to the Opponent Response phase in #48, which is a
+separate, still-open issue; do not implement #48's phase here.
 
 # Shared ground rules
 
@@ -33,26 +32,26 @@ points" rather than hardcoding English or hand-rolling pluralization.
 
 # Task
 
-You are RALPH, an autonomous coding agent. Implement issue #46 fully.
+You are RALPH, an autonomous coding agent. Implement issue #47 fully.
 
 ## Workflow
 
 1. **Explore** — read the issue body and the relevant files listed above before writing any
    code.
 2. **Plan** — decide what to change, keep it as small as the issue actually requires.
-3. **Execute** — RGR: write a failing test first where the change is unit-testable (e.g. a
-   pluralization/label-formatting helper), then implement the Svelte layout.
+3. **Execute** — mostly a Svelte UI change; write a unit test if any new pure logic is
+   extracted, otherwise rely on typecheck/test for regressions.
 4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit.
    Fix failures before proceeding, never commit red.
 5. **Commit** — one commit per logically-complete slice. Message MUST:
    - Start with `RALPH:` prefix
-   - Reference issue #46
+   - Reference issue #47
    - List key decisions made
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
-   `gh issue close 46 --comment "<what was built, in the same style as this repo's other
-   closing comments — gh issue view 42, 43, or 45 for the tone/format to match>"`. Also append
-   one line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
+   `gh issue close 47 --comment "<what was built, in the same style as this repo's other
+   closing comments — gh issue view 45 or 46 for the tone/format to match>"`. Also append one
+   line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
    pattern as the existing entries there.
 
 ## Rules
@@ -65,6 +64,6 @@ You are RALPH, an autonomous coding agent. Implement issue #46 fully.
 
 # Done
 
-When #46 is closed (or you are blocked on it), output the completion signal:
+When #47 is closed (or you are blocked on it), output the completion signal:
 
 <promise>COMPLETE</promise>

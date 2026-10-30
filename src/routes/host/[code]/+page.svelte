@@ -35,6 +35,14 @@
 	let confirmingDelete = $state(false);
 	let linkCopied = $state(false);
 	let copiedResetTimer: ReturnType<typeof setTimeout>;
+	// Inline ranking toggle (#47): the Leaderboard expands/collapses in place on the Reveal
+	// screen, mirroring the participant Ranking card — no dialog/overlay.
+	let showRanking = $state(false);
+
+	// "Continue" is the forward control that will open the Opponent Response phase in #48.
+	// That phase isn't built yet, so for now it's a deliberate no-op stub — the host still
+	// advances the Session with the "Next Round" button alongside it.
+	function continueToNext() {}
 
 	// Absolute join URL (not just the /play/{code} path) so it can be pasted as-is
 	// into WhatsApp or any other share target, as a fallback for the QR code.
@@ -222,23 +230,29 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title>
-				{#if !isFinalRound}
+				{#if isFinalRound || showRanking}
 					<Card.Description>{m.leaderboard_top5()}</Card.Description>
 				{/if}
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-4">
 				{#if isFinalRound}
 					<Podium entries={top3} />
+					<Leaderboard entries={leaders} />
+				{:else if showRanking}
+					<Leaderboard entries={leaders} />
 				{/if}
-				<Leaderboard entries={leaders} />
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
-				{#if hasNextRound}
-					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
-				{:else}
+				{#if isFinalRound}
 					<p class="text-sm font-medium text-muted-foreground">
 						{m.host_final_round()}
 					</p>
+				{:else}
+					<Button variant="outline" onclick={() => (showRanking = !showRanking)}>
+						{showRanking ? m.host_hide_ranking() : m.host_show_ranking()}
+					</Button>
+					<Button variant="outline" onclick={continueToNext}>{m.host_continue()}</Button>
+					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
 				{/if}
 			</Card.Footer>
 		</Card.Root>

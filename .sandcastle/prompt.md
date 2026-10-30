@@ -3,37 +3,22 @@
 This run is scoped to exactly one issue — do not pick up any other open issue, even if it
 looks higher-priority or blocked-free.
 
-## Issue #48 (Opponent Response phase)
+## Issue #49 (Final round shows the full remaining game)
 
-!`gh issue view 48 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+!`gh issue view 49 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-This is a server-driven phase-transition change, the biggest of this chain so far. Read these
-first:
-
-- `src/lib/round/round-machine.ts` — the per-round XState machine (`lobby` -> `active` ->
-  `closed` -> `reveal`, terminal today). You are almost certainly adding a new terminal-replacing
-  state here (e.g. `opponentResponse`) reached from `reveal`, plus the events/actions for
-  "Back" (-> `reveal`) and "Next round" (-> advances to the *next round's* `active`, which is
-  owned one level up — see below).
-- `src/lib/server/session-room.ts` — the Durable Object that owns round-to-round progression
-  (which round is current, broadcasting state to all connected sockets) and already sends
-  `{ type: 'REVEAL' }` into the round actor (around line 155). This is where you'll likely add
-  the new message handler(s) for the host's "Continue"/"Back"/"Next round" actions and the
-  server-driven broadcast, following the exact same pattern used for existing phase
-  transitions (lobby/active/closed/reveal) — do not let any client decide this phase
-  independently.
-- `src/lib/round/session-client.svelte.ts` — the client-side state/actions wrapper; add
-  whatever's needed here for the new phase, following existing patterns (e.g. how `REVEAL` or
-  the #45 auto-delivery is surfaced to the client today).
-- `src/routes/host/[code]/+page.svelte` — the "Continue" button added in #47 is currently a
-  stub/no-op; wire it to actually trigger this new phase.
-- `src/routes/play/[code]/+page.svelte` — participants need the same new screen rendered, with
-  inert/no controls.
-- Whatever module currently formats a single move in correct numbered notation (see #43's
-  `formatNumberedMove` in `src/lib/round/participant-input.ts`) — reuse it for "show the single
-  next move in the game large on screen", don't reimplement move-number formatting.
-- `src/lib/server/session-room.spec.ts` and `src/lib/round/round-machine` specs for the existing
-  test patterns around phase transitions — follow them for the new phase's tests.
+This extends the Opponent Response phase just shipped in #48
+(`git log --oneline --grep="(#48)"` / `git show 5e8e1f2` for the commit). Read
+`src/lib/round/game-data.ts` (`quizSteps`, `getAnswerKeyStep`, and whatever represents the full
+game's real mainline/moves — you need the actual end of the game here, not just the next ply)
+and wherever #48 added the "single next move" derivation — likely in
+`src/routes/host/[code]/+page.svelte` and `src/routes/play/[code]/+page.svelte` (search for the
+opponent-move `$derived` added in that commit) and/or `src/lib/round/round-machine.ts` /
+`src/lib/server/session-room.ts` if the move was computed server-side. Reuse
+`formatNumberedMove` / `formatContinuation` (from #43, in `src/lib/round/participant-input.ts`)
+for rendering a full move sequence instead of a single move — `formatContinuation` may already
+do exactly this. Determine "final round" generically from the quiz data (e.g. comparing the
+current round's quiz-step index to `quizSteps().length`), not by hardcoding a round number.
 
 # Shared ground rules
 
@@ -50,29 +35,25 @@ first:
 
 # Task
 
-You are RALPH, an autonomous coding agent. Implement issue #48 fully.
+You are RALPH, an autonomous coding agent. Implement issue #49 fully.
 
 ## Workflow
 
-1. **Explore** — read the issue body and all files listed above before writing any code. This
-   phase transition must be server-driven and broadcast like existing ones — understand exactly
-   how `lobby`/`active`/`closed`/`reveal` already propagate from the Durable Object to every
-   connected socket before adding a new one.
+1. **Explore** — read the issue body and the #48 implementation listed above before writing any
+   code.
 2. **Plan** — decide what to change, keep it as small as the issue actually requires.
-3. **Execute** — RGR: write a failing test first where the change is unit-testable (the round
-   machine's new state/transitions, the Durable Object's new message handling), then implement
-   the Svelte UI.
+3. **Execute** — RGR: write a failing test first where the change is unit-testable (the
+   "compute remaining mainline for final round" pure function), then wire it into the UI.
 4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit.
    Fix failures before proceeding, never commit red.
-5. **Commit** — one commit per logically-complete slice (e.g. round-machine state first, then
-   server wiring, then UI). Message MUST:
+5. **Commit** — one commit per logically-complete slice. Message MUST:
    - Start with `RALPH:` prefix
-   - Reference issue #48
+   - Reference issue #49
    - List key decisions made
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
-   `gh issue close 48 --comment "<what was built, in the same style as this repo's other
-   closing comments — gh issue view 46 or 47 for the tone/format to match>"`. Also append one
+   `gh issue close 49 --comment "<what was built, in the same style as this repo's other
+   closing comments — gh issue view 47 or 48 for the tone/format to match>"`. Also append one
    line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
    pattern as the existing entries there.
 
@@ -86,6 +67,6 @@ You are RALPH, an autonomous coding agent. Implement issue #48 fully.
 
 # Done
 
-When #48 is closed (or you are blocked on it), output the completion signal:
+When #49 is closed (or you are blocked on it), output the completion signal:
 
 <promise>COMPLETE</promise>

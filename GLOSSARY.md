@@ -87,7 +87,11 @@ The Host-triggered moment a Round's Guesses and Analysis Trees become visible to
 _Avoid_: Feedback (retired as a separate phase — its explanation is now automatic and part of every Participant's Reveal).
 
 **Leaderboard**:
-The running total of Round Scores per Participant, shown after each Reveal alongside that Round's Momentum Highlight. The shared/Host view shows only the top 5; a Participant's own phone always additionally shows their own current score, even outside the top 5.
+The running total of Round Scores per Participant, shown after each Reveal alongside that Round's Momentum Highlight. The shared/Host view shows only the top 5; a Participant's own phone always additionally shows their own current score, even outside the top 5. On the Host Display it only appears once the Host toggles it open ("Show leaderboard"/"Hide leaderboard"); a Participant's own phone mirrors that same toggle, broadcast in the round snapshot, rather than always showing it at Reveal. Animated: each row counts up from the Participant's total coming into the Round to their post-Reveal total, and place changes animate rather than snap.
+_Avoid_: Ranking, Rangliste-as-"ranking" (use Leaderboard consistently in UI copy) — not to be confused with the Scoreboard.
+
+**Scoreboard** (Host Display):
+The Host's persistently-visible full-roster panel — every Participant, their running score, this Round's submitted move once in, and a Kick control — distinct from the Leaderboard, which is ranked-only and gated behind the Host's toggle. Unlike the Leaderboard it is never hidden and is never shown to Participants.
 
 **Variant** (Reveal):
 A short precomputed continuation of moves (with an end Evaluation) attached to an answer-key alternative, authored offline alongside the rest of the answer key and surfaced to a Participant automatically as part of their Reveal. Unrelated to the Analysis Tree's Participant-authored branches — this Variant comes from the answer key itself, not from anything a Participant wrote.

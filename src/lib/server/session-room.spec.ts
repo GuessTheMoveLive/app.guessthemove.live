@@ -452,6 +452,30 @@ describe('SessionRoom', () => {
 		expect(bobsGroup.names).toBeNull();
 	});
 
+	it('toggle_leaderboard flips the broadcast flag, Host-only, reset by a new Round (#51)', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
+
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'toggle_leaderboard' }));
+		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
+
+		// A Participant's socket can never flip it.
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'toggle_leaderboard' })
+		);
+		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'continue' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'next_round' }));
+		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
+	});
+
 	it('deletes: disconnects every socket (Host included) and frees the Room Code for reuse', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);

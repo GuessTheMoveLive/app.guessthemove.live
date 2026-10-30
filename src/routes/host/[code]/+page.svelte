@@ -17,7 +17,7 @@
 	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
 	import {
 		buildMoveHistory,
-		sanToGlyph,
+		formatNumberedMove,
 		formatContinuation
 	} from '#lib/round/participant-input.js';
 	import { computeGuessGroupBreakdown } from '#lib/round/guess-groups.js';
@@ -40,9 +40,6 @@
 	let confirmingDelete = $state(false);
 	let linkCopied = $state(false);
 	let copiedResetTimer: ReturnType<typeof setTimeout>;
-	// Inline ranking toggle (#47): the Leaderboard expands/collapses in place on the Reveal
-	// screen, mirroring the participant Ranking card — no dialog/overlay.
-	let showRanking = $state(false);
 
 	// Absolute join URL (not just the /play/{code} path) so it can be pasted as-is
 	// into WhatsApp or any other share target, as a fallback for the QR code.
@@ -105,6 +102,9 @@
 		)
 	);
 	const rosterSize = $derived(scoreboard.length);
+	// Broadcast rather than local (#51): synced through the snapshot so a Participant's
+	// phone can gate its own Leaderboard card on the same toggle (see play/[code]).
+	const showLeaderboard = $derived(snapshot?.showLeaderboard ?? false);
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
@@ -129,7 +129,7 @@
 				)
 			: null
 	);
-	const breakdown = $derived(answerKeyBreakdown(quizStep ?? null));
+	const breakdown = $derived(answerKeyBreakdown(quizStep ?? null, quizStep?.ply ?? 1));
 	// The full Guess Group breakdown (#42): the Host Display shows every Guess Group and
 	// every name automatically at Reveal — no action needed. Reads off the broadcast
 	// snapshot's scores, populated once the Round closes.
@@ -289,16 +289,16 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title>
-				{#if isFinalRound || showRanking}
+				{#if isFinalRound || showLeaderboard}
 					<Card.Description>{m.leaderboard_top5()}</Card.Description>
 				{/if}
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-4">
 				{#if isFinalRound}
 					<Podium entries={top3} />
-					<Leaderboard entries={leaders} />
-				{:else if showRanking}
-					<Leaderboard entries={leaders} />
+					<Leaderboard entries={leaders} priorTotals={snapshot?.context.priorTotals ?? {}} />
+				{:else if showLeaderboard}
+					<Leaderboard entries={leaders} priorTotals={snapshot?.context.priorTotals ?? {}} />
 				{/if}
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
@@ -308,8 +308,8 @@
 					</p>
 					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 				{:else}
-					<Button variant="outline" onclick={() => (showRanking = !showRanking)}>
-						{showRanking ? m.host_hide_ranking() : m.host_show_ranking()}
+					<Button variant="outline" onclick={() => client.toggleLeaderboard()}>
+						{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
 					</Button>
 					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 				{/if}
@@ -326,10 +326,17 @@
 				<GuessGroupChart buckets={guessGroups.buckets} />
 				<ul class="flex flex-col gap-2">
 					{#each guessGroups.groups as group (group.san ?? '\u0000')}
-						<li class="flex flex-col gap-1 rounded-lg border px-3 py-2">
+						{@const isGameMove = group.san != null && group.san === quizStep?.san}
+						<li
+							class="flex flex-col gap-1 rounded-lg border px-3 py-2"
+							class:border-2={isGameMove}
+							class:border-amber-400={isGameMove}
+						>
 							<div class="flex items-baseline justify-between gap-2">
 								<span class="font-mono text-base">
-									{group.san ? sanToGlyph(group.san) : m.guess_groups_no_move()}
+									{group.san
+										? formatNumberedMove(group.san, quizStep?.ply ?? 1)
+										: m.guess_groups_no_move()}
 								</span>
 								<span class="font-mono text-sm text-muted-foreground tabular-nums">
 									{group.score > 0 ? '+' : ''}{group.score}
@@ -341,54 +348,6 @@
 						</li>
 					{/each}
 				</ul>
-			</Card.Content>
-		</Card.Root>
-	{/if}
-
-	{#if !client.ended && phase !== 'finished' && history.length}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
-			</Card.Header>
-			<Card.Content>
-				<ScoreSheet
-					rows={history}
-					event={game.headers.Event}
-					date={game.headers.Date}
-					white={game.headers.White}
-					black={game.headers.Black}
-				/>
-			</Card.Content>
-		</Card.Root>
-	{/if}
-
-	{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-sm">{m.host_answer_key_title()}</Card.Title>
-				<Card.Description>
-					{m.host_answer_key_desc()}
-				</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<ol class="flex flex-col gap-1.5 text-sm">
-					{#each breakdown as row (row.san)}
-						<li class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2">
-							<span class="w-16 shrink-0 font-mono font-medium tabular-nums">{row.tier}</span>
-							<span class="font-mono text-base">{row.glyph}</span>
-							{#if row.eval != null}
-								<span class="font-mono text-xs text-muted-foreground tabular-nums">
-									{row.eval > 0 ? '+' : ''}{row.eval}
-								</span>
-							{/if}
-							{#if row.continuation.length}
-								<span class="w-full font-mono text-xs text-muted-foreground">
-									{row.continuation.join(' ')}
-								</span>
-							{/if}
-						</li>
-					{/each}
-				</ol>
 			</Card.Content>
 		</Card.Root>
 	{/if}
@@ -420,6 +379,59 @@
 						</li>
 					{/each}
 				</ol>
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
+	{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-sm">{m.host_answer_key_title()}</Card.Title>
+				<Card.Description>
+					{m.host_answer_key_desc()}
+				</Card.Description>
+			</Card.Header>
+			<Card.Content>
+				<ol class="flex flex-col gap-1.5 text-sm">
+					{#each breakdown as row (row.san)}
+						{@const isGameMove = row.tier === '+3'}
+						<li
+							class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2"
+							class:border-2={isGameMove}
+							class:border-amber-400={isGameMove}
+						>
+							<span class="w-16 shrink-0 font-mono font-medium tabular-nums">{row.tier}</span>
+							<span class="font-mono text-base">{row.glyph}</span>
+							{#if row.eval != null}
+								<span class="font-mono text-xs text-muted-foreground tabular-nums">
+									{row.eval > 0 ? '+' : ''}{row.eval}
+								</span>
+							{/if}
+							{#if row.continuation}
+								<span class="w-full font-mono text-xs text-muted-foreground">
+									{row.continuation}
+								</span>
+							{/if}
+						</li>
+					{/each}
+				</ol>
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
+	{#if !client.ended && phase !== 'finished' && history.length}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
+			</Card.Header>
+			<Card.Content>
+				<ScoreSheet
+					rows={history}
+					event={game.headers.Event}
+					date={game.headers.Date}
+					white={game.headers.White}
+					black={game.headers.Black}
+				/>
 			</Card.Content>
 		</Card.Root>
 	{/if}

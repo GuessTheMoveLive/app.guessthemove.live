@@ -121,6 +121,12 @@ export class SessionClient {
 		this.#send({ type: 'next_round' });
 	}
 
+	/** Host toggles the Leaderboard open/closed on the shared Reveal screen and every
+	 *  Participant's phone (#51) — broadcast via the snapshot's `showLeaderboard`. */
+	toggleLeaderboard(): void {
+		this.#send({ type: 'toggle_leaderboard' });
+	}
+
 	/** Host removes a disruptive Participant; they cannot rejoin under the same name. */
 	kick(participantId: string): void {
 		this.#send({ type: 'kick', participantId });

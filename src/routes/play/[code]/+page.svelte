@@ -15,7 +15,6 @@
 		DISPLAY_RANKS,
 		resolveTapMove,
 		buildMoveHistory,
-		sanToGlyph,
 		formatNumberedMove,
 		formatContinuation,
 		type ResolvedMove
@@ -84,6 +83,9 @@
 	const locked = $derived(myState?.status === 'submitted' || myState?.status === 'late');
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
 	const top3 = $derived(topLeaderboard(snapshot?.context.totals ?? {}, 3));
+	// The Leaderboard only shows once the Host has toggled it open (#51) — gated on the
+	// broadcast snapshot flag rather than shown unconditionally at every Reveal.
+	const showLeaderboard = $derived(snapshot?.showLeaderboard ?? false);
 	// The Guess Group breakdown only reaches a Participant's phone if the Host shares it.
 	const sharedGroups = $derived(client.sharedGroups);
 	// The Finished phase's personal message (#50): tells this Participant where they
@@ -352,8 +354,8 @@
 			</Card.Content>
 		</Card.Root>
 	{:else}
-		<!-- Three-card Reveal (#46): personal feedback, then the always-visible Ranking, then
-		     how the whole room guessed — each its own Card, in that order. -->
+		<!-- Three-card Reveal (#46): personal feedback, then the Leaderboard (gated on the
+		     Host's toggle, #51), then how the whole room guessed — each its own Card. -->
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title
@@ -406,19 +408,26 @@
 			</Card.Content>
 		</Card.Root>
 
-		<!-- Ranking: the shared Leaderboard, always shown to Participants at Reveal — no
-		     gating button (#46). The viewer's own row is highlighted as today's. -->
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
-			</Card.Header>
-			<Card.Content class="flex flex-col gap-4">
-				{#if isFinalRound}
-					<Podium entries={top3} highlightId={me} />
-				{/if}
-				<Leaderboard entries={leaders} highlightId={me} />
-			</Card.Content>
-		</Card.Root>
+		<!-- Leaderboard (#51): only shown once the Host has toggled it open on the shared
+		     Reveal screen, except on the Final Round where it's always shown alongside the
+		     Podium. The viewer's own row is highlighted. -->
+		{#if isFinalRound || showLeaderboard}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
+				</Card.Header>
+				<Card.Content class="flex flex-col gap-4">
+					{#if isFinalRound}
+						<Podium entries={top3} highlightId={me} />
+					{/if}
+					<Leaderboard
+						entries={leaders}
+						highlightId={me}
+						priorTotals={snapshot?.context.priorTotals ?? {}}
+					/>
+				</Card.Content>
+			</Card.Root>
+		{/if}
 
 		{#if sharedGroups}
 			<Card.Root>
@@ -429,13 +438,18 @@
 					<GuessGroupChart buckets={sharedGroups.buckets} highlightScore={myRoundScore} />
 					<ul class="flex flex-col gap-1.5 text-sm">
 						{#each sharedGroups.groups as group (group.san ?? '\u0000')}
+							{@const isGameMove = group.san != null && group.san === quizStep?.san}
 							<li
 								class="flex flex-col gap-0.5 rounded-lg border px-3 py-1.5"
-								class:border-primary={group.names != null}
+								class:border-primary={group.names != null && !isGameMove}
+								class:border-2={isGameMove}
+								class:border-amber-400={isGameMove}
 							>
 								<div class="flex items-baseline justify-between gap-2">
 									<span class="font-mono text-base">
-										{group.san ? sanToGlyph(group.san) : m.guess_groups_no_move()}
+										{group.san
+											? formatNumberedMove(group.san, quizStep?.ply ?? 1)
+											: m.guess_groups_no_move()}
 									</span>
 									<span class="font-mono text-xs text-muted-foreground tabular-nums">
 										{group.score > 0 ? '+' : ''}{group.score}

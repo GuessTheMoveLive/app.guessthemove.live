@@ -12,7 +12,11 @@
 	// points"/"-N points" below it — the points line is a deliberate second channel
 	// beside color, so the red/green split is never the only cue (colorblind-safe).
 	// Both lines are pluralised through paraglide (see chart*Label in guess-groups).
-	// Bar sizing is a first pass, intentionally rough — it'll be iterated on separately.
+	//
+	// Bar height tracks the Round Score's own magnitude (#51), not how many Participants
+	// landed on it: +3 stands three times as tall as +1 (same for -3/-2/-1), and 0 stands
+	// half as tall as +1 — so the chart reads as a points scale at a glance, independent
+	// of how the room happened to split across it.
 
 	interface Props {
 		buckets: ScoreBucket[];
@@ -22,7 +26,12 @@
 
 	const { buckets, highlightScore = null }: Props = $props();
 
-	const maxCount = $derived(Math.max(1, ...buckets.map((b) => b.count)));
+	/** Pixel height of the +1/-1 bar; every other bar scales off this unit. */
+	const UNIT_PX = 24;
+
+	function barHeight(score: number): number {
+		return score === 0 ? UNIT_PX / 2 : Math.abs(score) * UNIT_PX;
+	}
 
 	// Status palette (validated for >=3:1 on both light and dark surfaces, mode-invariant).
 	function barColor(score: number): string {
@@ -47,9 +56,9 @@
 					class:ring-2={bucket.score === highlightScore}
 					class:ring-primary={bucket.score === highlightScore}
 					class:ring-offset-1={bucket.score === highlightScore}
-					style="height: {Math.round(
-						(bucket.count / maxCount) * 80
-					)}px; min-height: 4px; background-color: {barColor(bucket.score)};"
+					style="height: {barHeight(bucket.score)}px; background-color: {barColor(
+						bucket.score
+					)};"
 				></div>
 				<span class="text-center text-xs font-medium tabular-nums">
 					{chartPointsLabel(bucket.score)}

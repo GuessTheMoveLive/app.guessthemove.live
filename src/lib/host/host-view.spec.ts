@@ -214,31 +214,31 @@ describe('answerKeyBreakdown', () => {
 		]
 	};
 
-	it('renders the played move first, glyph-rendered, flagged as the best', () => {
-		const rows = answerKeyBreakdown(step);
+	it('renders the played move first, numbered and glyph-rendered, flagged as the best', () => {
+		const rows = answerKeyBreakdown(step, 9);
 		expect(rows[0]).toEqual({
 			san: 'Nf3',
-			glyph: '♞f3',
+			glyph: '5.♞f3',
 			tier: '+3',
 			eval: 0.85,
-			continuation: []
+			continuation: ''
 		});
 	});
 
-	it('renders each alternative with its tier, eval and glyph-rendered continuation', () => {
-		const rows = answerKeyBreakdown(step);
+	it('renders each alternative with its tier, eval and a numbered, glyph-rendered continuation', () => {
+		const rows = answerKeyBreakdown(step, 9);
 		expect(rows[1]).toEqual({
 			san: 'Bb5',
-			glyph: '♝b5',
+			glyph: '5.♝b5',
 			tier: '+2',
 			eval: 0.64,
-			continuation: ['a6', '♝xc6']
+			continuation: '5...a6 6.♝xc6'
 		});
 		expect(rows[2].tier).toBe('blunder');
-		expect(rows[2].continuation).toEqual([]);
+		expect(rows[2].continuation).toBe('');
 	});
 
 	it('is empty for a Round with no answer key', () => {
-		expect(answerKeyBreakdown(null)).toEqual([]);
+		expect(answerKeyBreakdown(null, 9)).toEqual([]);
 	});
 });

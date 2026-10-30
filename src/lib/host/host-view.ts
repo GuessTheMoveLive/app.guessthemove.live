@@ -1,6 +1,10 @@
 import type { ParticipantState } from '#lib/round/round-machine.js';
 import type { AnswerKeyStep, Tier } from '#lib/round/scoring.js';
-import { sanToGlyph } from '#lib/round/participant-input.js';
+import {
+	sanToGlyph,
+	formatNumberedMove,
+	formatContinuation
+} from '#lib/round/participant-input.js';
 
 // Pure derivations for the v1 Host control screen (#34). The Host screen consumes
 // the broadcast round snapshot from SessionRoom. Per #35, the non-playing
@@ -127,12 +131,14 @@ export function everyoneAnswered(participants: Record<string, ParticipantState>)
 export interface AnswerKeyRow {
 	/** The raw SAN (kept for a stable {#each} key). */
 	san: string;
-	/** The move, glyph-rendered the same way as everywhere else (#24). */
+	/** The move, glyph-rendered and move-number-prefixed the same way as the
+	 *  Participant's Continuation (#43/#51), e.g. "5.Nf3". */
 	glyph: string;
 	tier: Tier;
 	eval: number | null;
-	/** The continuation Variant, glyph-rendered; empty for the move played. */
-	continuation: string[];
+	/** The continuation Variant, glyph-rendered and numbered the same way as the
+	 *  Participant's Continuation (#43/#51); empty for the move played. */
+	continuation: string;
 }
 
 /**
@@ -140,19 +146,27 @@ export interface AnswerKeyRow {
  * actually played first (always the +3 best), then every graded alternative with its
  * tier, eval and continuation Variant. The answer key is precomputed and server-held
  * (#27) and the Host already knows the Featured Game (#22), so there's no reason to
- * withhold it - it gives the Host talking points before anyone's even submitted. All
- * move text is glyph-rendered; chess notation itself is never translated.
+ * withhold it - it gives the Host talking points before anyone's even submitted. Every
+ * move and the continuation Variant are numbered the same way as the Participant's own
+ * Continuation (#51), not shown as loose SANs. All move text is glyph-rendered; chess
+ * notation itself is never translated.
  */
-export function answerKeyBreakdown(step: AnswerKeyStep | null): AnswerKeyRow[] {
+export function answerKeyBreakdown(step: AnswerKeyStep | null, ply: number): AnswerKeyRow[] {
 	if (!step) return [];
 	return [
-		{ san: step.san, glyph: sanToGlyph(step.san), tier: '+3', eval: step.playedComment?.eval ?? null, continuation: [] },
+		{
+			san: step.san,
+			glyph: formatNumberedMove(step.san, ply),
+			tier: '+3',
+			eval: step.playedComment?.eval ?? null,
+			continuation: ''
+		},
 		...step.alternatives.map((alt) => ({
 			san: alt.san,
-			glyph: sanToGlyph(alt.san),
+			glyph: formatNumberedMove(alt.san, ply),
 			tier: alt.tier,
 			eval: alt.eval,
-			continuation: alt.continuation.map(sanToGlyph)
+			continuation: alt.continuation.length ? formatContinuation(alt.continuation, ply + 1) : ''
 		}))
 	];
 }

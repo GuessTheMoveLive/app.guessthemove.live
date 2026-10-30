@@ -21,6 +21,10 @@ export interface RoundSnapshot {
 	deadline: number | null;
 	/** 0-based index of the current Round into the Featured Game's quiz steps. */
 	roundIndex: number;
-	/** Total number of Rounds in the Featured Game, so the UI can show "Round 4 of 35". */
+	/** Total number of Rounds in the Featured Game, so the UI can show "Guess 4 of 35". */
 	totalRounds: number;
+	/** Whether the Host has toggled the Leaderboard open on the current Reveal — a
+	 *  Participant's phone only shows the Leaderboard once this is true (GLOSSARY:
+	 *  Leaderboard). Reset to false whenever a new Round starts. */
+	showLeaderboard: boolean;
 }

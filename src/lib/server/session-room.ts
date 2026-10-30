@@ -16,6 +16,7 @@ type ClientMessage =
 	| { type: 'back' }
 	| { type: 'finish' }
 	| { type: 'next_round' }
+	| { type: 'toggle_leaderboard' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
 	| { type: 'delete_session' };
@@ -39,6 +40,11 @@ const STORAGE_KEY_ROUND_INDEX = 'round-index';
  *  forward as `priorTotals` into the next Round's actor, since a fresh actor per Round
  *  (see advanceToRound) has no memory of earlier ones. */
 const STORAGE_KEY_TOTALS = 'totals';
+/** Whether the Host currently has the Leaderboard open on the Reveal screen - broadcast
+ *  to every client so a Participant's phone only shows the Leaderboard once the Host has
+ *  toggled it on (rather than unconditionally at every Reveal). Reset to false whenever a
+ *  new Round starts. */
+const STORAGE_KEY_SHOW_LEADERBOARD = 'show-leaderboard';
 /** Default visible Round length: 3 minutes (#22), shortenable/extendable by the Host. */
 const ROUND_DURATION_MS = 180_000;
 /** A Host's control connection never joins as a Participant (#10); it is tagged with this. */
@@ -130,6 +136,7 @@ export class SessionRoom extends DurableObject {
 			case 'start_round': {
 				actor.send({ type: 'START_ROUND' });
 				await this.scheduleRoundTimeout();
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, false);
 				break;
 			}
 			case 'submit': {
@@ -207,6 +214,16 @@ export class SessionRoom extends DurableObject {
 				const next = await this.getActor();
 				next.send({ type: 'START_ROUND' });
 				await this.scheduleRoundTimeout();
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, false);
+				break;
+			}
+			case 'toggle_leaderboard': {
+				// Host-only (#51): flips whether the Leaderboard is shown on the shared
+				// Reveal screen and every Participant's phone.
+				if (!this.isHostSocket(ws)) return;
+				const current =
+					(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false;
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, !current);
 				break;
 			}
 			case 'kick': {
@@ -247,6 +264,7 @@ export class SessionRoom extends DurableObject {
 				await this.ctx.storage.delete(STORAGE_KEY_KICKED_IDS);
 				await this.ctx.storage.delete(STORAGE_KEY_ROUND_INDEX);
 				await this.ctx.storage.delete(STORAGE_KEY_TOTALS);
+				await this.ctx.storage.delete(STORAGE_KEY_SHOW_LEADERBOARD);
 				await this.ctx.storage.deleteAlarm();
 				this.actor = undefined;
 				this.participantIds = [];
@@ -383,7 +401,9 @@ export class SessionRoom extends DurableObject {
 			context: snapshot.context,
 			deadline: await this.ctx.storage.getAlarm(),
 			roundIndex: this.roundIndex,
-			totalRounds: quizSteps().length
+			totalRounds: quizSteps().length,
+			showLeaderboard:
+				(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false
 		};
 		const serialized = JSON.stringify(payload);
 

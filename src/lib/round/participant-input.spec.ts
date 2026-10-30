@@ -5,7 +5,11 @@ import {
 	pieceAt,
 	sanToGlyph,
 	resolveTapMove,
-	buildMoveHistory
+	buildMoveHistory,
+	moveNumber,
+	isWhitePly,
+	formatNumberedMove,
+	formatContinuation
 } from './participant-input';
 import type { GameStep } from './game-data';
 
@@ -158,5 +162,35 @@ describe('buildMoveHistory (#24: glyph move list, paired by move number)', () =>
 
 	it('is empty with no moves played yet', () => {
 		expect(buildMoveHistory([])).toEqual([]);
+	});
+});
+
+describe('move numbering (#43: correct move numbers on Reveal strings)', () => {
+	it('derives the move number from the ply, pairing White and Black', () => {
+		expect(moveNumber(1)).toBe(1); // 1.
+		expect(moveNumber(2)).toBe(1); // 1...
+		expect(moveNumber(9)).toBe(5); // White's 5th
+		expect(moveNumber(10)).toBe(5); // Black's 5th
+	});
+
+	it('knows White plies from Black plies', () => {
+		expect(isWhitePly(9)).toBe(true);
+		expect(isWhitePly(10)).toBe(false);
+	});
+
+	it('prefixes a single move: White "5.d4", Black "5...Nc6"', () => {
+		expect(formatNumberedMove('d4', 9)).toBe('5.d4');
+		expect(formatNumberedMove('Nc6', 10)).toBe('5...♞c6');
+	});
+
+	it('numbers a continuation from a Black ply per standard notation', () => {
+		// The played move was White's 5th (ply 9); the continuation opens with Black's reply.
+		expect(formatContinuation(['exd4', 'cxd4', 'a6', 'Bxc6+', 'bxc6', 'h3', 'Bd7'], 10)).toBe(
+			'5...exd4 6.cxd4 a6 7.♝xc6+ bxc6 8.h3 ♝d7'
+		);
+	});
+
+	it('numbers a continuation that opens on a White ply without an ellipsis', () => {
+		expect(formatContinuation(['Qe2', 'a6'], 11)).toBe('6.♛e2 a6');
 	});
 });

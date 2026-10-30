@@ -185,6 +185,44 @@ export function resolveTapMove(
 	return { from, to, piece, capture, san, glyph: sanToGlyph(san) };
 }
 
+/** The 1-based move number a ply belongs to (White's 5th and Black's 5th are both 5). */
+export function moveNumber(ply: number): number {
+	return Math.floor((ply - 1) / 2) + 1;
+}
+
+/** Whether a 1-based ply is a White move (odd) rather than a Black move (even). */
+export function isWhitePly(ply: number): boolean {
+	return ply % 2 === 1;
+}
+
+/**
+ * A single move in standard notation with its move-number prefix and glyph-rendered
+ * SAN: White as "5.d4", Black as "5...Nc6" (#43). The ellipsis on Black mirrors how a
+ * Black move is written when it stands alone, not following its White counterpart.
+ */
+export function formatNumberedMove(san: string, ply: number): string {
+	const prefix = `${moveNumber(ply)}${isWhitePly(ply) ? '.' : '...'}`;
+	return `${prefix}${sanToGlyph(san)}`;
+}
+
+/**
+ * A continuation of SANs starting at `startPly`, each glyph-rendered and numbered per
+ * standard chess notation (#43): every White move carries its "N." number, a Black move
+ * carries "N..." only when it leads the line, otherwise it simply follows its White move.
+ * e.g. ["exd4","cxd4","a6",...] from Black's 5th ply -> "5...exd4 6.cxd4 a6 ...".
+ */
+export function formatContinuation(sans: string[], startPly: number): string {
+	return sans
+		.map((san, i) => {
+			const ply = startPly + i;
+			const glyph = sanToGlyph(san);
+			if (isWhitePly(ply)) return `${moveNumber(ply)}.${glyph}`;
+			if (i === 0) return `${moveNumber(ply)}...${glyph}`;
+			return glyph;
+		})
+		.join(' ');
+}
+
 export interface MoveHistoryRow {
 	number: number;
 	white: string | null;
@@ -199,7 +237,7 @@ export interface MoveHistoryRow {
 export function buildMoveHistory(steps: GameStep[]): MoveHistoryRow[] {
 	const rows: MoveHistoryRow[] = [];
 	for (const step of steps) {
-		const number = Math.floor((step.ply - 1) / 2) + 1;
+		const number = moveNumber(step.ply);
 		let row = rows[rows.length - 1];
 		if (!row || row.number !== number) {
 			row = { number, white: null, black: null };

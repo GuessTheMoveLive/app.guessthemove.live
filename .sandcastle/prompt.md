@@ -3,23 +3,20 @@
 This run is scoped to exactly one issue — do not pick up any other open issue, even if it
 looks higher-priority or blocked-free.
 
-## Issue #45 (Guess Groups shown automatically at Reveal)
+## Issue #46 (Participant Reveal screen: three-card layout + bar chart labels)
 
-!`gh issue view 45 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+!`gh issue view 46 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-This retires the manual "Share Guess Groups" host action added in #42. Read these files first
-— they implement the current manual-trigger version you are making automatic:
-`src/lib/server/session-room.ts` (the `share_guess_groups` message handler and broadcast
-logic), `src/lib/round/session-client.svelte.ts` (the client-side trigger/state), the
-"Share Guess Groups" button in `src/routes/host/[code]/+page.svelte`, and
-`src/lib/round/guess-groups.ts` (the pure breakdown functions, unchanged by this issue). Also
-check `src/lib/server/session-room.spec.ts` for existing coverage of the manual flow that will
-need to change.
-
-The redaction rules (own group shows names, every other group shows only a count) stay exactly
-as they are — only the *trigger* changes, from a host button click to automatic delivery the
-moment the round enters Reveal (alongside whatever already happens automatically at Reveal per
-#42, e.g. personal feedback).
+Read `src/routes/play/[code]/+page.svelte` (the participant Reveal rendering you're
+restructuring into three cards), `src/lib/components/leaderboard.svelte` (the shared
+Leaderboard component — reuse it, don't duplicate it), and
+`src/lib/components/guess-group-chart.svelte` (the shared bar chart, used by both host and
+participant views — the label change here must not break the host's rendering of the same
+component, see `src/routes/host/[code]/+page.svelte` for that usage). Check
+`src/lib/components/ui/card` for the shadcn Card component to use for the three sections.
+Check `src/lib/paraglide/messages` for how existing pluralized copy (e.g. elsewhere in the app)
+is keyed, and add new message keys the same way for "N participant(s)" / "+N points" / "-N
+points" rather than hardcoding English or hand-rolling pluralization.
 
 # Shared ground rules
 
@@ -36,26 +33,26 @@ moment the round enters Reveal (alongside whatever already happens automatically
 
 # Task
 
-You are RALPH, an autonomous coding agent. Implement issue #45 fully.
+You are RALPH, an autonomous coding agent. Implement issue #46 fully.
 
 ## Workflow
 
-1. **Explore** — read the issue body and the existing manual-trigger implementation listed
-   above before writing any code.
+1. **Explore** — read the issue body and the relevant files listed above before writing any
+   code.
 2. **Plan** — decide what to change, keep it as small as the issue actually requires.
-3. **Execute** — RGR: write a failing test first where the change is unit-testable (the Durable
-   Object's phase-transition/broadcast logic), then implement.
+3. **Execute** — RGR: write a failing test first where the change is unit-testable (e.g. a
+   pluralization/label-formatting helper), then implement the Svelte layout.
 4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit.
    Fix failures before proceeding, never commit red.
 5. **Commit** — one commit per logically-complete slice. Message MUST:
    - Start with `RALPH:` prefix
-   - Reference issue #45
+   - Reference issue #46
    - List key decisions made
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
-   `gh issue close 45 --comment "<what was built, in the same style as this repo's other
-   closing comments — gh issue view 42 or 43 for the tone/format to match>"`. Also append one
-   line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
+   `gh issue close 46 --comment "<what was built, in the same style as this repo's other
+   closing comments — gh issue view 42, 43, or 45 for the tone/format to match>"`. Also append
+   one line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
    pattern as the existing entries there.
 
 ## Rules
@@ -68,6 +65,6 @@ You are RALPH, an autonomous coding agent. Implement issue #45 fully.
 
 # Done
 
-When #45 is closed (or you are blocked on it), output the completion signal:
+When #46 is closed (or you are blocked on it), output the completion signal:
 
 <promise>COMPLETE</promise>

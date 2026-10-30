@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { createActor, type Actor, type Snapshot } from 'xstate';
 import { roundMachine, type RoundEvent } from '#lib/round/round-machine.js';
-import { buildParticipantFeedback } from '#lib/round/feedback.js';
+import { computeGuessGroupBreakdown, redactBreakdownFor } from '#lib/round/guess-groups.js';
 import type { RoundSnapshot } from '#lib/round/snapshot.js';
 import { quizSteps } from '#lib/round/game-data.js';
 import { generateHostToken } from '#lib/server/room-code.js';
@@ -13,7 +13,7 @@ type ClientMessage =
 	| { type: 'adjust_round'; deltaMs: number }
 	| { type: 'reveal' }
 	| { type: 'next_round' }
-	| { type: 'give_feedback' }
+	| { type: 'share_guess_groups' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
 	| { type: 'delete_session' };
@@ -174,24 +174,24 @@ export class SessionRoom extends DurableObject {
 				await this.scheduleRoundTimeout();
 				break;
 			}
-			case 'give_feedback': {
-				// Personalized Feedback (#36): an alternative to Next Round offered on the Reveal
-				// screen. Every Participant's explanation differs - it's scored against their own
-				// Guess - so this is NOT a shared broadcast phase: each Participant's feedback is
-				// computed server-side from their stored Guess + this Round's answer key and sent
-				// as a targeted message to their own socket(s) only. Host-only, same as kick/reset.
+			case 'share_guess_groups': {
+				// Share Guess Groups (#42): the Host's optional action at Reveal, pushing the
+				// Guess Group breakdown out to every Participant's phone — the slot the retired
+				// "Give Feedback" used to occupy. The chart is broadcast-shaped (the same <=7
+				// buckets for everyone), but names are per-Participant: a recipient sees the
+				// members of their OWN Guess Group only, every other group as a bare count
+				// (GLOSSARY: Share Guess Groups). So the full breakdown is redacted per recipient
+				// and sent as a targeted message to their own socket(s) — never a single
+				// broadcast — so no socket ever receives another group's names. Host-only, same
+				// as kick/reset. (The Host Display already shows the full breakdown, every name,
+				// off the broadcast snapshot; it needs nothing from here.)
 				if (!this.isHostSocket(ws)) return;
 
-				const snapshot = actor.getSnapshot();
-				const step = snapshot.context.answerKey;
-				for (const [participantId, state] of Object.entries(snapshot.context.participants)) {
-					const feedback = buildParticipantFeedback(
-						step,
-						state,
-						snapshot.context.scores[participantId] ?? 0
-					);
-					if (!feedback) continue;
-					const serialized = JSON.stringify({ type: 'feedback', feedback });
+				const { participants, scores } = actor.getSnapshot().context;
+				const breakdown = computeGuessGroupBreakdown(participants, scores);
+				for (const participantId of Object.keys(participants)) {
+					const redacted = redactBreakdownFor(breakdown, participantId);
+					const serialized = JSON.stringify({ type: 'guess_groups', breakdown: redacted });
 					for (const socket of this.ctx.getWebSockets(participantId)) {
 						try {
 							socket.send(serialized);
@@ -322,7 +322,8 @@ export class SessionRoom extends DurableObject {
 			(await this.ctx.storage.get<string[]>(STORAGE_KEY_PARTICIPANT_IDS)) ?? this.participantIds;
 		this.roundIndex =
 			(await this.ctx.storage.get<number>(STORAGE_KEY_ROUND_INDEX)) ?? this.roundIndex;
-		const priorTotals = (await this.ctx.storage.get<Record<string, number>>(STORAGE_KEY_TOTALS)) ?? {};
+		const priorTotals =
+			(await this.ctx.storage.get<Record<string, number>>(STORAGE_KEY_TOTALS)) ?? {};
 		const snapshot = await this.ctx.storage.get<Snapshot<unknown>>(STORAGE_KEY_SNAPSHOT);
 		const answerKey = quizSteps()[this.roundIndex] ?? null;
 

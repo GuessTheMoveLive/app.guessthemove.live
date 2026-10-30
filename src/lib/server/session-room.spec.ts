@@ -209,7 +209,10 @@ describe('SessionRoom', () => {
 		);
 		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
 
-		const snapshot = ws.lastSnapshot() as { value: string; context: { scores: Record<string, number> } };
+		const snapshot = ws.lastSnapshot() as {
+			value: string;
+			context: { scores: Record<string, number> };
+		};
 		expect(snapshot.value).toBe('reveal');
 		expect(snapshot.context.scores.alice).toBe(0);
 	});
@@ -219,7 +222,10 @@ describe('SessionRoom', () => {
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 
-		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'kick', participantId: 'alice' }));
+		await room.webSocketMessage(
+			hostWs as never,
+			JSON.stringify({ type: 'kick', participantId: 'alice' })
+		);
 
 		expect(aliceWs.closed?.code).toBe(4403);
 
@@ -227,12 +233,15 @@ describe('SessionRoom', () => {
 		expect(rejoin.status).toBe(403);
 	});
 
-	it("ignores a kick attempt from a non-Host connection", async () => {
+	it('ignores a kick attempt from a non-Host connection', async () => {
 		const { room, ctx } = await openRoom();
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 		const { ws: bobWs } = await join(room, ctx, 'bob');
 
-		await room.webSocketMessage(bobWs as never, JSON.stringify({ type: 'kick', participantId: 'alice' }));
+		await room.webSocketMessage(
+			bobWs as never,
+			JSON.stringify({ type: 'kick', participantId: 'alice' })
+		);
 
 		expect(aliceWs.closed).toBeNull();
 		const snapshot = bobWs.lastSnapshot() as { context: { participants: Record<string, unknown> } };
@@ -304,44 +313,79 @@ describe('SessionRoom', () => {
 		expect(snapshot.value).toBe('active');
 	});
 
-	it('give_feedback sends a targeted per-participant feedback message, not a broadcast', async () => {
+	it('share_guess_groups sends each Participant a redacted, targeted breakdown', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
+		const { ws: bobWs } = await join(room, ctx, 'bob');
 
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
 		await room.webSocketMessage(
 			aliceWs as never,
-			JSON.stringify({ type: 'submit', guess: 'definitely-not-the-answer' })
+			JSON.stringify({ type: 'submit', guess: 'wrong' })
 		);
+		await room.webSocketMessage(bobWs as never, JSON.stringify({ type: 'submit', guess: 'wrong' }));
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
-		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'give_feedback' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'share_guess_groups' }));
 
-		const feedbackMsg = aliceWs.sent
+		// Alice and Bob guessed the same move, so they share one Guess Group — each sees
+		// both names on their own group.
+		const forAlice = aliceWs.sent
 			.map((raw) => JSON.parse(raw))
-			.find((m) => m.type === 'feedback');
-		expect(feedbackMsg).toBeTruthy();
-		expect(feedbackMsg.feedback.tier).toBe('playable');
-		expect(feedbackMsg.feedback.score).toBe(0);
-		expect(feedbackMsg.feedback.guessSan).toBe('definitely-not-the-answer');
+			.find((m) => m.type === 'guess_groups');
+		expect(forAlice).toBeTruthy();
+		const aliceGroup = forAlice.breakdown.groups.find((g: { san: string }) => g.san === 'wrong');
+		expect(aliceGroup.names).toEqual(['alice', 'bob']);
+		expect(aliceGroup.count).toBe(2);
 
-		// The Host's own control socket is never sent a per-participant feedback message.
-		expect(hostWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'feedback')).toBe(false);
+		// The Host's own control socket is never sent a targeted breakdown.
+		expect(hostWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'guess_groups')).toBe(
+			false
+		);
 	});
 
-	it('ignores a give_feedback attempt from a non-Host connection', async () => {
+	it('share_guess_groups never leaks another Guess Group’s names to the wrong socket', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+		const { ws: bobWs } = await join(room, ctx, 'bob');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'submit', guess: 'alices-move' })
+		);
+		await room.webSocketMessage(
+			bobWs as never,
+			JSON.stringify({ type: 'submit', guess: 'bobs-move' })
+		);
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'share_guess_groups' }));
+
+		const forAlice = aliceWs.sent
+			.map((raw) => JSON.parse(raw))
+			.find((m) => m.type === 'guess_groups');
+		const bobsGroup = forAlice.breakdown.groups.find((g: { san: string }) => g.san === 'bobs-move');
+		// Alice sees Bob's group as a bare count, never his name.
+		expect(bobsGroup.count).toBe(1);
+		expect(bobsGroup.names).toBeNull();
+	});
+
+	it('ignores a share_guess_groups attempt from a non-Host connection', async () => {
 		const { room, ctx } = await openRoom();
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
 		await room.webSocketMessage(
 			aliceWs as never,
-			JSON.stringify({ type: 'submit', guess: 'definitely-not-the-answer' })
+			JSON.stringify({ type: 'submit', guess: 'wrong' })
 		);
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
-		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'give_feedback' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'share_guess_groups' }));
 
-		expect(aliceWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'feedback')).toBe(false);
+		expect(aliceWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'guess_groups')).toBe(
+			false
+		);
 	});
 
 	it('deletes: disconnects every socket (Host included) and frees the Room Code for reuse', async () => {

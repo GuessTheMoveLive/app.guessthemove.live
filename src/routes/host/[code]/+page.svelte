@@ -14,12 +14,14 @@
 		answerKeyBreakdown
 	} from '#lib/host/host-view.js';
 	import { getGameData, quizSteps } from '#lib/round/game-data.js';
-	import { buildMoveHistory } from '#lib/round/participant-input.js';
+	import { buildMoveHistory, sanToGlyph } from '#lib/round/participant-input.js';
+	import { computeGuessGroupBreakdown } from '#lib/round/guess-groups.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
 	import Podium from '#lib/components/podium.svelte';
 	import ScoreSheet from '#lib/components/score-sheet.svelte';
+	import GuessGroupChart from '#lib/components/guess-group-chart.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 
 	const code = page.params.code ?? '';
@@ -99,6 +101,12 @@
 	const isFinalRound = $derived(phase === 'reveal' && !hasNextRound);
 	const quizStep = $derived(quizSteps()[roundIndex]);
 	const breakdown = $derived(answerKeyBreakdown(quizStep ?? null));
+	// The full Guess Group breakdown (#42): the Host Display shows every Guess Group and
+	// every name automatically at Reveal — no action needed. Reads off the broadcast
+	// snapshot's scores, populated once the Round closes.
+	const guessGroups = $derived(
+		computeGuessGroupBreakdown(participants, snapshot?.context.scores ?? {})
+	);
 	const history = $derived(
 		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
 	);
@@ -225,8 +233,8 @@
 				<Leaderboard entries={leaders} />
 			</Card.Content>
 			<Card.Footer class="flex gap-2">
-				<Button variant="outline" onclick={() => client.giveFeedback()}
-					>{m.host_give_feedback()}</Button
+				<Button variant="outline" onclick={() => client.shareGuessGroups()}
+					>{m.host_share_guess_groups()}</Button
 				>
 				{#if hasNextRound}
 					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
@@ -236,6 +244,34 @@
 					</p>
 				{/if}
 			</Card.Footer>
+		</Card.Root>
+	{/if}
+
+	{#if !client.ended && phase === 'reveal' && guessGroups.groups.length}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-sm">{m.guess_groups_title()}</Card.Title>
+			</Card.Header>
+			<Card.Content class="flex flex-col gap-4">
+				<GuessGroupChart buckets={guessGroups.buckets} />
+				<ul class="flex flex-col gap-2">
+					{#each guessGroups.groups as group (group.san ?? '\u0000')}
+						<li class="flex flex-col gap-1 rounded-lg border px-3 py-2">
+							<div class="flex items-baseline justify-between gap-2">
+								<span class="font-mono text-base">
+									{group.san ? sanToGlyph(group.san) : m.guess_groups_no_move()}
+								</span>
+								<span class="font-mono text-sm text-muted-foreground tabular-nums">
+									{group.score > 0 ? '+' : ''}{group.score}
+								</span>
+							</div>
+							<span class="text-sm text-muted-foreground">
+								{group.participantIds.join(', ')}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</Card.Content>
 		</Card.Root>
 	{/if}
 

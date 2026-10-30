@@ -1,12 +1,13 @@
 import { browser } from '$app/env';
 import type { RoundSnapshot } from './snapshot';
-import type { ParticipantFeedback } from './feedback';
+import type { SharedGuessGroupBreakdown } from './guess-groups';
 
-/** A targeted, per-Participant Feedback message (#36) — distinct from the broadcast
- *  RoundSnapshot by its `type` tag, since it's sent to one Participant's socket only. */
-interface FeedbackMessage {
-	type: 'feedback';
-	feedback: ParticipantFeedback;
+/** A targeted, per-Participant Share Guess Groups message (#42) — distinct from the
+ *  broadcast RoundSnapshot by its `type` tag, since each recipient's copy is redacted
+ *  to their own group's names before it's sent to their socket only. */
+interface GuessGroupsMessage {
+	type: 'guess_groups';
+	breakdown: SharedGuessGroupBreakdown;
 }
 
 // A thin reactive wrapper around the SessionRoom WebSocket (`/api/session/:code`),
@@ -43,9 +44,12 @@ export class SessionClient {
 	/** True once the Host has deleted this Session entirely (#38) — every connection,
 	 *  Host included, sees "This session has ended" rather than just retrying. */
 	ended = $state(false);
-	/** This Participant's personalized Feedback, populated when the Host clicks "Give
-	 *  Feedback" (#36) and the server sends a targeted `feedback` message. Null until then. */
-	feedback = $state<ParticipantFeedback | null>(null);
+	/** The Guess Group breakdown pushed to this Participant's phone when the Host clicks
+	 *  "Share Guess Groups" (#42), redacted so only their own group's names are present.
+	 *  Null until the Host shares. Distinct from the Round Score and Variant explanation,
+	 *  which are automatic at Reveal and derived from the snapshot — this needs the Host's
+	 *  explicit action. */
+	sharedGroups = $state<SharedGuessGroupBreakdown | null>(null);
 	#ws: WebSocket | null = null;
 
 	connect(options: ConnectOptions): void {
@@ -67,12 +71,12 @@ export class SessionClient {
 			else if (event.code === DELETE_CLOSE_CODE) this.ended = true;
 		});
 		ws.addEventListener('message', (event) => {
-			const data = JSON.parse(event.data as string) as RoundSnapshot | FeedbackMessage;
-			// A targeted Feedback message (#36) carries a `type` tag; the broadcast snapshot
-			// never does. Route each to its own reactive field so a Feedback push doesn't
-			// clobber the live round snapshot.
-			if ('type' in data && data.type === 'feedback') {
-				this.feedback = data.feedback;
+			const data = JSON.parse(event.data as string) as RoundSnapshot | GuessGroupsMessage;
+			// A targeted Share Guess Groups message (#42) carries a `type` tag; the broadcast
+			// snapshot never does. Route each to its own reactive field so a shared-breakdown
+			// push doesn't clobber the live round snapshot.
+			if ('type' in data && data.type === 'guess_groups') {
+				this.sharedGroups = data.breakdown;
 			} else {
 				this.snapshot = data as RoundSnapshot;
 			}
@@ -101,10 +105,10 @@ export class SessionClient {
 		this.#send({ type: 'next_round' });
 	}
 
-	/** Host sends every Participant their personalized Feedback (#36) — an alternative to
-	 *  Next Round, offered on the Reveal screen. */
-	giveFeedback(): void {
-		this.#send({ type: 'give_feedback' });
+	/** Host pushes the Guess Group breakdown to every Participant's phone (#42) — the
+	 *  optional action offered at Reveal, in the slot "Give Feedback" used to occupy. */
+	shareGuessGroups(): void {
+		this.#send({ type: 'share_guess_groups' });
 	}
 
 	/** Host removes a disruptive Participant; they cannot rejoin under the same name. */

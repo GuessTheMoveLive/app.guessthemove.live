@@ -13,13 +13,14 @@
 		sanToGlyph,
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
-	import { explanationText } from '#lib/round/feedback.js';
+	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
 	import Podium from '#lib/components/podium.svelte';
 	import ScoreSheet from '#lib/components/score-sheet.svelte';
+	import GuessGroupChart from '#lib/components/guess-group-chart.svelte';
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();
@@ -70,15 +71,14 @@
 	const me = $derived(name.trim());
 	const myState = $derived(snapshot?.context.participants[me]);
 	// The Round Score, broadcast on every snapshot once the Round closes - shown as
-	// the headline number instead of the running total (#37). Distinct from
-	// `feedback?.score`, which is the same value but only arrives once the Host
-	// triggers "Give Feedback" (#36); reading it off the snapshot means the
-	// headline score is correct immediately on Reveal, before that happens.
+	// the headline number instead of the running total (#37), and reused as the
+	// `score` fed into this Participant's automatic Reveal explanation (#42).
 	const myRoundScore = $derived(snapshot?.context.scores[me] ?? 0);
 	const locked = $derived(myState?.status === 'submitted' || myState?.status === 'late');
 	const leaders = $derived(topLeaderboard(snapshot?.context.totals ?? {}));
 	const top3 = $derived(topLeaderboard(snapshot?.context.totals ?? {}, 3));
-	const feedback = $derived(client.feedback);
+	// The Guess Group breakdown only reaches a Participant's phone if the Host shares it.
+	const sharedGroups = $derived(client.sharedGroups);
 
 	// Once kicked, forget the saved name - a refresh must land back on the Join screen,
 	// not silently retry into a connection the Host has already blocked server-side.
@@ -97,17 +97,28 @@
 	const candidateSans = $derived(
 		quizStep ? [quizStep.san, ...quizStep.alternatives.map((a) => a.san)] : []
 	);
+	// Each Participant's Round Score explanation — whether their Guess matched, which
+	// tier, and the Variant — is automatic at Reveal now (#42, retiring #36's separate
+	// Host-triggered Feedback). Derived locally from the snapshot and the client's
+	// bundled answer key, so it's correct the instant Reveal lands, with no Host action.
+	const feedback = $derived(
+		phase === 'reveal' && myState
+			? buildParticipantFeedback(quizStep ?? null, myState, myRoundScore)
+			: null
+	);
 	const history = $derived(
 		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
 	);
 
-	// A new Round means a fresh tap — drop any half-made selection, and any Feedback from
-	// the previous Round, so last Round's explanation can't linger into this one.
+	// A new Round means a fresh tap — drop any half-made selection, and any shared Guess
+	// Group breakdown from the previous Round, so last Round's breakdown can't linger into
+	// this one. (The Reveal explanation is derived from the current snapshot, so it clears
+	// itself.)
 	$effect(() => {
 		roundIndex;
 		origin = null;
 		pending = null;
-		client.feedback = null;
+		client.sharedGroups = null;
 	});
 
 	function tapSquare(square: string) {
@@ -315,6 +326,43 @@
 								</span>
 							</div>
 						{/if}
+					</div>
+				{/if}
+				{#if sharedGroups}
+					<div class="flex flex-col gap-3 rounded-lg border px-3 py-3">
+						<p class="text-sm font-medium">{m.play_guess_groups_title()}</p>
+						<GuessGroupChart buckets={sharedGroups.buckets} highlightScore={myRoundScore} />
+						<ul class="flex flex-col gap-1.5 text-sm">
+							{#each sharedGroups.groups as group (group.san ?? '\u0000')}
+								<li
+									class="flex flex-col gap-0.5 rounded-lg border px-3 py-1.5"
+									class:border-primary={group.names != null}
+								>
+									<div class="flex items-baseline justify-between gap-2">
+										<span class="font-mono text-base">
+											{group.san ? sanToGlyph(group.san) : m.guess_groups_no_move()}
+										</span>
+										<span class="font-mono text-xs text-muted-foreground tabular-nums">
+											{group.score > 0 ? '+' : ''}{group.score}
+										</span>
+									</div>
+									{#if group.names}
+										<span class="text-xs text-muted-foreground">
+											<span class="font-medium text-foreground"
+												>{m.play_guess_groups_your_group()}:</span
+											>
+											{group.names.join(', ')}
+										</span>
+									{:else}
+										<span class="text-xs text-muted-foreground">
+											{group.count === 1
+												? m.guess_group_players_one({ count: group.count })
+												: m.guess_group_players_other({ count: group.count })}
+										</span>
+									{/if}
+								</li>
+							{/each}
+						</ul>
 					</div>
 				{/if}
 			</Card.Content>

@@ -2,20 +2,15 @@ import type { ParticipantState } from './round-machine';
 import type { AnswerKeyStep } from './scoring';
 import { m } from '#lib/paraglide/messages.js';
 
-// Per-Participant Feedback (#36): a Host-triggered, personalized explanation of a
-// Guess Score, sent as a targeted message to that Participant's own socket - not a
-// shared broadcast phase, since every Participant's explanation differs. Computed
-// server-side (SessionRoom) from the Participant's stored guess and the Round's
-// answer key, then rendered on the Participant screen.
+// Per-Participant Reveal explanation: each Participant's Round Score, whether their
+// Guess matched the Featured Side's move, and the Variant backing their tier. Once a
+// Host-triggered Feedback phase (#36); as of #42 it is automatic at Reveal, with no
+// separate Host step. Everything it needs is in the broadcast snapshot (the answer
+// key, the Participant's stored Guess, their Round Score) plus the client's bundled
+// answer key, so the Participant screen derives it locally — no targeted message.
 
 export type FeedbackTier =
-	| 'best'
-	| 'alternative'
-	| 'playable'
-	| 'mistake'
-	| 'clearMistake'
-	| 'blunder'
-	| 'timeout';
+	'best' | 'alternative' | 'playable' | 'mistake' | 'clearMistake' | 'blunder' | 'timeout';
 
 export interface FeedbackVariant {
 	/** The precomputed continuation's SANs, in order (Feedback's Variant, #36). */

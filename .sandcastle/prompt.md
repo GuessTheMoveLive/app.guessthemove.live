@@ -3,46 +3,24 @@
 This run is scoped to exactly one issue — do not pick up any other open issue, even if it
 looks higher-priority or blocked-free.
 
-## Issue #42 (Guess Group breakdown at Reveal; retire Feedback as a separate phase)
+## Issue #43 (Correct, color-aware feedback phrasing with move numbers)
 
-!`gh issue view 42 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+!`gh issue view 43 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
 
-The design question is already resolved — see the Resolution comment above, and read
-`GLOSSARY.md` (Guess Group, Share Guess Groups, the updated Reveal/Variant entries) and
-`docs/adr/0003-merge-feedback-into-reveal.md` before writing any code. Don't re-litigate the
-design; implement it.
+Read `src/lib/round/feedback.ts` and `src/lib/round/feedback.spec.ts` first — this is the
+existing feedback-phrase logic you are replacing/extending. Also check
+`src/routes/play/[code]/+page.svelte` for where the feedback text, "Your move" / "Played" /
+"Continuation" strings are rendered, and how move numbers / SAN are currently formatted
+elsewhere in the codebase (reuse existing move-number formatting helpers if any exist, don't
+duplicate chess notation logic). Check `src/lib/paraglide/messages/en.d.ts` and the
+`messages/*.json` sources for how existing copy is keyed for i18n — new strings need message
+keys the same way, not hardcoded English.
 
-This supersedes issue #36's Feedback phase. The existing Feedback implementation
-(`src/lib/round/feedback.ts`, the `give_feedback` message in
-`src/lib/server/session-room.ts`, `session-client.svelte.ts`'s `giveFeedback()`/`feedback`
-field, and the "Give Feedback" button on the Host Reveal screen) is the thing being replaced,
-not duplicated — read it first, then fold its payload into the automatic Reveal path and
-remove the separate trigger.
-
-What's needed, per the Resolution:
-
-- **Retire the separate Feedback trigger.** Every Participant's Round Score, whether their
-  Guess matched the game move, and the Variant explanation become part of what each
-  Participant automatically receives at Reveal — no Host button, no `give_feedback` message.
-  Remove the "Give Feedback" button from the Host Reveal screen.
-- **Guess Groups**: group the current Round's `participants` by exact-match Guess (SAN).
-  Compute a bounded breakdown — at most 7 buckets, one per Round Score from -3 to +3, any
-  score nobody got omitted entirely (not shown empty).
-- **Host Display at Reveal**: show the full breakdown automatically — every Guess Group,
-  every Participant's name in it — no extra click required.
-- **New Host action, "Share Guess Groups"**: available instead of advancing straight to the
-  next Round (the UI slot "Give Feedback" used to occupy). When triggered, pushes the
-  breakdown to every Participant: the <=7-bucket chart, the names of everyone in *their own*
-  Guess Group, and only a count (never names) for every other Guess Group. This is a
-  broadcast-shaped payload (same breakdown content to everyone), unlike the old Feedback,
-  which needs a per-Participant targeted shape only for the "which names are visible to me"
-  slice — decide the message shape that fits both needs without leaking other groups' names
-  to the wrong socket.
-- **Visual**: Kahoot-style diverging bar chart, green for positive Round Scores, red for
-  negative, is enough for a first pass. Bar sizing/layout beyond that is intentionally
-  unspecified — don't over-invest here, it'll be iterated on separately.
-- **Not in scope**: Analysis Tree grouping, and any i18n beyond matching however #41 already
-  handles existing copy (new strings get message keys the same way, not hardcoded English).
+The issue requires a deliverable Markdown table of all 98 phrases "for manual review" before
+wiring in. Since this is an unattended autonomous run with no human available to review
+mid-task, produce that table as a committed artifact (e.g. a doc under `docs/` or a code
+comment/fixture referenced by the implementation) in its own commit, then proceed to wire it in
+within the same run — do not block waiting for a review that cannot happen here.
 
 # Shared ground rules
 
@@ -59,26 +37,25 @@ What's needed, per the Resolution:
 
 # Task
 
-You are RALPH, an autonomous coding agent. Implement issue #42 fully.
+You are RALPH, an autonomous coding agent. Implement issue #43 fully.
 
 ## Workflow
 
-1. **Explore** — read the issue's Resolution comment, `GLOSSARY.md`, and ADR 0003 before
-   writing any code. They already answer every open design question; don't re-litigate them.
-   Then read the existing Feedback implementation you're replacing (listed above).
+1. **Explore** — read the issue body, `GLOSSARY.md`, and the existing feedback implementation
+   listed above before writing any code.
 2. **Plan** — decide what to change, keep it as small as the issue actually requires.
 3. **Execute** — RGR: write a failing test first where the change is unit-testable (pure
-   functions, the Durable Object's message handling), then implement.
+   functions), then implement.
 4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit.
    Fix failures before proceeding, never commit red.
 5. **Commit** — one commit per logically-complete slice (not one giant commit for the whole
    issue). Message MUST:
    - Start with `RALPH:` prefix
-   - Reference issue #42
+   - Reference issue #43
    - List key decisions made
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
-   `gh issue close 42 --comment "<what was built, in the same style as this repo's other
+   `gh issue close 43 --comment "<what was built, in the same style as this repo's other
    closing comments — gh issue view 36 or 40 for the tone/format to match>"`. Also append one
    line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
    pattern as the existing entries there.
@@ -93,6 +70,6 @@ You are RALPH, an autonomous coding agent. Implement issue #42 fully.
 
 # Done
 
-When #42 is closed (or you are blocked on it), output the completion signal:
+When #43 is closed (or you are blocked on it), output the completion signal:
 
 <promise>COMPLETE</promise>

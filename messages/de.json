@@ -62,7 +62,7 @@
 	"play_submit": "Absenden",
 	"play_tap_from": "Von {square} — tippe jetzt auf das Zielfeld.",
 	"play_tap_start": "Tippe auf dein Startfeld.",
-	"play_moves_so_far": "Bisherige Züge",
+	"play_game_sheet": "Spielbogen",
 	"play_reveal_title": "Auflösung",
 	"play_closed_title": "Runde geschlossen",
 	"play_round_score": "Deine Punkte für diesen Zug",

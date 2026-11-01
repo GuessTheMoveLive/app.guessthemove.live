@@ -62,7 +62,7 @@
 	"play_submit": "Valider",
 	"play_tap_from": "Depuis {square} — touche maintenant la case d'arrivée.",
 	"play_tap_start": "Touche ta case de départ.",
-	"play_moves_so_far": "Coups joués jusqu'ici",
+	"play_game_sheet": "Feuille de jeu",
 	"play_reveal_title": "Révélation",
 	"play_closed_title": "Manche terminée",
 	"play_round_score": "Tes points pour ce coup",

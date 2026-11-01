@@ -62,7 +62,7 @@
 	"play_submit": "Submit",
 	"play_tap_from": "From {square} — now tap the destination.",
 	"play_tap_start": "Tap your starting square.",
-	"play_moves_so_far": "Moves so far",
+	"play_game_sheet": "Game Sheet",
 	"play_reveal_title": "Reveal",
 	"play_closed_title": "Round closed",
 	"play_round_score": "Your score for this move",

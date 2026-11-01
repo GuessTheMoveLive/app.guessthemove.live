@@ -14,12 +14,12 @@
 		FILES,
 		DISPLAY_RANKS,
 		resolveTapMove,
-		buildMoveHistory,
 		formatNumberedMove,
 		formatContinuation,
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
 	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
+	import { buildGameSheet } from '#lib/round/game-sheet.js';
 	import {
 		computeGuessGroupBreakdown,
 		bucketedBreakdownFor,
@@ -31,7 +31,7 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
 	import Podium from '#lib/components/podium.svelte';
-	import ScoreSheet from '#lib/components/score-sheet.svelte';
+	import GameSheet from '#lib/components/game-sheet.svelte';
 	import GuessGroupChart from '#lib/components/guess-group-chart.svelte';
 
 	const code = page.params.code ?? '';
@@ -154,8 +154,16 @@
 			? buildParticipantFeedback(quizStep ?? null, myState, myRoundScore, quizStep?.ply ?? 1)
 			: null
 	);
+	// The Game Sheet (#58): the full move list up to the current Round, each graded
+	// (Featured Side) move decorated with this Participant's own Guess and points from
+	// the Session-lifetime history SessionRoom persists and broadcasts (#52) — not just
+	// the current Round's in-memory state, so it stays correct across a reconnect too.
 	const history = $derived(
-		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
+		buildGameSheet(
+			game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)),
+			snapshot?.guessHistory ?? {},
+			me
+		)
 	);
 
 	// A new Round means a fresh tap — drop any half-made selection. (The Reveal
@@ -314,23 +322,25 @@
 						{origin ? m.play_tap_from({ square: origin }) : m.play_tap_start()}
 					</p>
 				{/if}
-
-				{#if history.length}
-					<div>
-						<h2 class="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-							{m.play_moves_so_far()}
-						</h2>
-						<ScoreSheet
-							rows={history}
-							event={game.headers.Event}
-							date={game.headers.Date}
-							white={game.headers.White}
-							black={game.headers.Black}
-						/>
-					</div>
-				{/if}
 			</Card.Content>
 		</Card.Root>
+
+		{#if history.length}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
+				</Card.Header>
+				<Card.Content>
+					<GameSheet
+						rows={history}
+						event={game.headers.Event}
+						date={game.headers.Date}
+						white={game.headers.White}
+						black={game.headers.Black}
+					/>
+				</Card.Content>
+			</Card.Root>
+		{/if}
 	{:else if phase === 'opponentResponse'}
 		<!-- Opponent Response (#48): the same single next move the Host shows, large, with no
 		     live controls (consistent with the host-only "Next Round" pattern). -->

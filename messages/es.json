@@ -62,7 +62,7 @@
 	"play_submit": "Enviar",
 	"play_tap_from": "Desde {square} — ahora toca la casilla de destino.",
 	"play_tap_start": "Toca tu casilla de salida.",
-	"play_moves_so_far": "Jugadas hasta ahora",
+	"play_game_sheet": "Hoja de partida",
 	"play_reveal_title": "Resolución",
 	"play_closed_title": "Ronda cerrada",
 	"play_round_score": "Tu puntuación de esta jugada",

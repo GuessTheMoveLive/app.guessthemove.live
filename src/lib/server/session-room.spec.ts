@@ -678,4 +678,25 @@ describe('SessionRoom', () => {
 			expect(await ctx.storage.get('session-start-time')).toBeUndefined();
 		});
 	});
+
+	describe('Guess history on the broadcast snapshot (#58: Game Sheet)', () => {
+		it('includes every recorded Round’s Guesses, keyed by Round index then participant id', async () => {
+			const { room, ctx } = await openRoom();
+			const { ws } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'e4' }));
+
+			const snapshot = ws.lastSnapshot() as { guessHistory: Record<number, Record<string, string>> };
+			expect(snapshot.guessHistory).toEqual({ 0: { alice: 'e4' } });
+		});
+
+		it('is an empty object before any Round has recorded a Guess', async () => {
+			const { room, ctx } = await openRoom();
+			const { ws } = await join(room, ctx, 'alice');
+
+			const snapshot = ws.lastSnapshot() as { guessHistory: Record<number, Record<string, string>> };
+			expect(snapshot.guessHistory).toEqual({});
+		});
+	});
 });

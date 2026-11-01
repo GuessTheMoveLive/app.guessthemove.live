@@ -1,4 +1,5 @@
 import type { RoundContext } from './round-machine';
+import type { GuessHistory } from './guess-history';
 
 // The shape SessionRoom broadcasts to every connected client over the WebSocket.
 // Kept server-free (type-only imports) so both the Durable Object and the browser
@@ -26,4 +27,10 @@ export interface RoundSnapshot {
 	 *  Final Results naturally — kept for the PGN export tickets (#59/#60) to flag.
 	 *  Cleared only by Reset. */
 	endedEarly: boolean;
+	/** Every participant's recorded Guess (SAN) for every Round played so far (#52) —
+	 *  the Game Sheet (#58) reconstructs each participant's own per-move Guess/score from
+	 *  this, same unredacted-broadcast pattern as `context.participants`/`context.scores`
+	 *  (each screen derives its own view locally rather than the server pushing a
+	 *  per-client copy). */
+	guessHistory: GuessHistory;
 }

@@ -431,7 +431,8 @@ export class SessionRoom extends DurableObject {
 			roundIndex: this.roundIndex,
 			totalRounds: quizSteps().length,
 			showLeaderboard: (await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false,
-			endedEarly: (await this.ctx.storage.get<boolean>(STORAGE_KEY_ENDED_EARLY)) ?? false
+			endedEarly: (await this.ctx.storage.get<boolean>(STORAGE_KEY_ENDED_EARLY)) ?? false,
+			guessHistory: (await this.ctx.storage.get<GuessHistory>(STORAGE_KEY_GUESS_HISTORY)) ?? {}
 		};
 		const serialized = JSON.stringify(payload);
 

@@ -163,6 +163,63 @@ describe('roundMachine', () => {
 	});
 });
 
+describe('roundMachine END_SESSION (Host ends the Session early, #57)', () => {
+	it('jumps straight to finished from lobby, before any Round has started', () => {
+		const actor = actorWith(['alice']);
+
+		actor.send({ type: 'END_SESSION' });
+
+		expect(actor.getSnapshot().value).toBe('finished');
+	});
+
+	it('jumps to finished from an active Round, falling back to priorTotals since it never closed', () => {
+		const actor = actorWithInput({
+			participantIds: ['alice', 'bob'],
+			answerKey,
+			isScoringRound: true,
+			priorTotals: { alice: 5, bob: 1 }
+		});
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' });
+
+		actor.send({ type: 'END_SESSION' });
+
+		expect(actor.getSnapshot().value).toBe('finished');
+		// The active Round's in-flight guess never closed, so it can't contribute — Final
+		// Results fall back to the totals carried in from the last Round that did close.
+		expect(actor.getSnapshot().context.totals).toEqual({ alice: 5, bob: 1 });
+	});
+
+	it('jumps to finished from a closed/revealed Round, keeping that Round’s own scores', () => {
+		const actor = actorWithInput({
+			participantIds: ['alice', 'bob'],
+			answerKey,
+			isScoringRound: true,
+			priorTotals: { alice: 5, bob: 1 }
+		});
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' }); // +3
+		actor.send({ type: 'ROUND_TIMEOUT' }); // bob times out => -3
+
+		actor.send({ type: 'END_SESSION' });
+
+		expect(actor.getSnapshot().value).toBe('finished');
+		expect(actor.getSnapshot().context.totals).toEqual({ alice: 8, bob: -2 });
+	});
+
+	it('is reachable from opponentResponse too, same as a natural FINISH', () => {
+		const actor = actorWith(['alice']);
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'ROUND_TIMEOUT' });
+		actor.send({ type: 'REVEAL' });
+		actor.send({ type: 'CONTINUE' });
+
+		actor.send({ type: 'END_SESSION' });
+
+		expect(actor.getSnapshot().value).toBe('finished');
+	});
+});
+
 describe('roundMachine KICK (Host removes a disruptive Participant)', () => {
 	it('drops the participant from the roster without changing the round state', () => {
 		const actor = actorWith(['alice', 'bob']);

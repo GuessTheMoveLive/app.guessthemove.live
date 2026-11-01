@@ -19,7 +19,8 @@ type ClientMessage =
 	| { type: 'show_leaderboard' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
-	| { type: 'delete_session' };
+	| { type: 'delete_session' }
+	| { type: 'end_session_early' };
 
 /** WebSocket close code used when the Host removes a Participant, so the client can tell
  *  a kick apart from an ordinary dropped connection and show the right message. */
@@ -52,6 +53,10 @@ const ROUND_DURATION_MS = 180_000;
  *  exports can reconstruct a full per-participant history, long after any one Round's
  *  actor is gone. A participant absent from a round's record timed out that Round. */
 const STORAGE_KEY_GUESS_HISTORY = 'guess-history';
+/** Set once the Host ends the Session early (#57), distinct from it reaching Final
+ *  Results naturally — kept for the PGN export tickets (#59/#60) to flag. Cleared only
+ *  by Reset, same as the other Session-lifetime flags above. */
+const STORAGE_KEY_ENDED_EARLY = 'ended-early';
 /** Captured once, the moment the Host first clicks "Start Round" for Round 1 (#52) —
  *  never earlier (no Plenum Selection in v1) and never overwritten after that. */
 const STORAGE_KEY_SESSION_START_TIME = 'session-start-time';
@@ -281,6 +286,7 @@ export class SessionRoom extends DurableObject {
 				await this.ctx.storage.delete(STORAGE_KEY_SHOW_LEADERBOARD);
 				await this.ctx.storage.delete(STORAGE_KEY_GUESS_HISTORY);
 				await this.ctx.storage.delete(STORAGE_KEY_SESSION_START_TIME);
+				await this.ctx.storage.delete(STORAGE_KEY_ENDED_EARLY);
 				await this.ctx.storage.deleteAlarm();
 				this.actor = undefined;
 				this.participantIds = [];
@@ -293,6 +299,20 @@ export class SessionRoom extends DurableObject {
 					const [tag] = this.ctx.getTags(socket);
 					if (tag && tag !== HOST_TAG) await this.registerParticipant(tag);
 				}
+				break;
+			}
+			case 'end_session_early': {
+				// Host-only, distinct from delete_session (#38): stops further Rounds and
+				// moves everyone straight to Final Results using only the Rounds actually
+				// played, but keeps the Session (and its Room Code) intact for viewing/
+				// downloading afterward (#57). Confirmation happens client-side before this
+				// message is ever sent, since it's irreversible for this Session.
+				if (!this.isHostSocket(ws)) return;
+				if (actor.getSnapshot().value === 'finished') return; // Already there.
+
+				actor.send({ type: 'END_SESSION' });
+				await this.ctx.storage.put(STORAGE_KEY_ENDED_EARLY, true);
+				await this.ctx.storage.deleteAlarm();
 				break;
 			}
 			case 'delete_session': {
@@ -410,7 +430,8 @@ export class SessionRoom extends DurableObject {
 			deadline: await this.ctx.storage.getAlarm(),
 			roundIndex: this.roundIndex,
 			totalRounds: quizSteps().length,
-			showLeaderboard: (await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false
+			showLeaderboard: (await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false,
+			endedEarly: (await this.ctx.storage.get<boolean>(STORAGE_KEY_ENDED_EARLY)) ?? false
 		};
 		const serialized = JSON.stringify(payload);
 

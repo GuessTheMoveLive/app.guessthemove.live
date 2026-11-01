@@ -31,7 +31,8 @@ export type RoundEvent =
 	| { type: 'CONTINUE' }
 	| { type: 'BACK' }
 	| { type: 'FINISH' }
-	| { type: 'KICK'; participantId: string };
+	| { type: 'KICK'; participantId: string }
+	| { type: 'END_SESSION' };
 
 export interface RoundInput {
 	participantIds: string[];
@@ -47,6 +48,17 @@ function pendingParticipants(participantIds: string[]): Record<string, Participa
 function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
 	const { [key]: _removed, ...rest } = record;
 	return rest;
+}
+
+/**
+ * Totals to land on when the Host ends the Session early (#57): if the current Round
+ * already closed (its scores are folded into `totals`), those stand as the final ones
+ * — no different from a natural end. Otherwise the current Round never finished, so it
+ * contributes nothing and the Session's Final Results fall back to `priorTotals`, the
+ * running total through the last Round that actually closed.
+ */
+function earlyEndTotals(context: RoundContext): Record<string, number> {
+	return Object.keys(context.totals).length > 0 ? context.totals : context.priorTotals;
 }
 
 /**
@@ -96,6 +108,13 @@ export const roundMachine = setup({
 				totals: omitKey(context.totals, event.participantId),
 				priorTotals: omitKey(context.priorTotals, event.participantId)
 			}))
+		},
+		// The Host's "End Game" (#57): reachable from any state, including lobby/active/
+		// closed, not just the two Reveal-adjacent states FINISH already covers — so,
+		// unlike FINISH, this is declared here rather than per-state.
+		END_SESSION: {
+			target: '.finished',
+			actions: assign(({ context }) => ({ totals: earlyEndTotals(context) }))
 		}
 	},
 	states: {

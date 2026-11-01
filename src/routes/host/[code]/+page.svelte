@@ -38,6 +38,7 @@
 	let tick: ReturnType<typeof setInterval>;
 	let qrDataUrl = $state<string | null>(null);
 	let confirmingDelete = $state(false);
+	let confirmingEndSession = $state(false);
 	let linkCopied = $state(false);
 	let copiedResetTimer: ReturnType<typeof setTimeout>;
 
@@ -82,6 +83,15 @@
 		}
 		client.deleteSession();
 		confirmingDelete = false;
+	}
+
+	function endSessionEarly() {
+		if (!confirmingEndSession) {
+			confirmingEndSession = true;
+			return;
+		}
+		client.endSessionEarly();
+		confirmingEndSession = false;
 	}
 
 	const snapshot = $derived(client.snapshot);
@@ -151,6 +161,11 @@
 				{/if}
 			</p>
 			<Button variant="outline" size="sm" onclick={reset}>{m.reset_button()}</Button>
+			{#if phase !== 'finished'}
+				<Button variant="destructive" size="sm" onclick={endSessionEarly}>
+					{confirmingEndSession ? m.end_session_confirm() : m.end_session_button()}
+				</Button>
+			{/if}
 			<Button variant="destructive" size="sm" onclick={deleteSession}>
 				{confirmingDelete ? m.delete_confirm() : m.delete_button()}
 			</Button>

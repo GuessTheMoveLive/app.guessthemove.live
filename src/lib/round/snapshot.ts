@@ -7,12 +7,7 @@ import type { RoundContext } from './round-machine';
 
 /** The round lifecycle machine's flat state value. */
 export type RoundStateValue =
-	| 'lobby'
-	| 'active'
-	| 'closed'
-	| 'reveal'
-	| 'opponentResponse'
-	| 'finished';
+	'lobby' | 'active' | 'closed' | 'reveal' | 'opponentResponse' | 'finished';
 
 export interface RoundSnapshot {
 	value: RoundStateValue;
@@ -27,4 +22,8 @@ export interface RoundSnapshot {
 	 *  Participant's phone only shows the Leaderboard once this is true (GLOSSARY:
 	 *  Leaderboard). Reset to false whenever a new Round starts. */
 	showLeaderboard: boolean;
+	/** True once the Host has ended the Session early (#57) rather than it reaching
+	 *  Final Results naturally — kept for the PGN export tickets (#59/#60) to flag.
+	 *  Cleared only by Reset. */
+	endedEarly: boolean;
 }

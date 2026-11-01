@@ -20,6 +20,8 @@
 	"reset_button": "Reset",
 	"delete_button": "Delete",
 	"delete_confirm": "Click again to confirm",
+	"end_session_button": "End Game",
+	"end_session_confirm": "Click again to confirm",
 	"host_lobby_title": "Lobby",
 	"host_lobby_players_one": "{count} player joined",
 	"host_lobby_players_other": "{count} players joined",

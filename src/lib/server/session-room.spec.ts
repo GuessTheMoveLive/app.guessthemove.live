@@ -479,6 +479,72 @@ describe('SessionRoom', () => {
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
 	});
 
+	it('end_session_early: jumps every client straight to Final Results, keeping the Room Code alive (#57)', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'end_session_early' }));
+
+		const snapshot = hostWs.lastSnapshot() as { value: string; endedEarly: boolean };
+		expect(snapshot.value).toBe('finished');
+		expect(snapshot.endedEarly).toBe(true);
+		expect(hostWs.closed).toBeNull();
+		expect(aliceWs.closed).toBeNull();
+
+		// Unlike delete_session, the Room Code is still live - createSession refuses to
+		// mint a second token for a Session that still exists.
+		await expect(room.createSession()).resolves.toBeNull();
+	});
+
+	it('end_session_early uses only the Rounds actually played - an in-flight Round falls back to priorTotals', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'submit', guess: 'definitely-not-the-answer' })
+		);
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'end_session_early' }));
+
+		const snapshot = hostWs.lastSnapshot() as {
+			value: string;
+			context: { totals: Record<string, number> };
+		};
+		expect(snapshot.value).toBe('finished');
+		// The active Round never closed, so its guess can't score - alice's total stays at
+		// the empty priorTotals she came into Round 1 with, not some half-played score.
+		expect(snapshot.context.totals).toEqual({});
+	});
+
+	it('ignores an end_session_early attempt from a non-Host connection', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'end_session_early' }));
+
+		const snapshot = aliceWs.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('active');
+	});
+
+	it('a Reset after an early end clears the ended-early flag so a restarted Session starts clean', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'end_session_early' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'reset' }));
+
+		const snapshot = hostWs.lastSnapshot() as { value: string; endedEarly: boolean };
+		expect(snapshot.value).toBe('lobby');
+		expect(snapshot.endedEarly).toBe(false);
+	});
+
 	it('deletes: disconnects every socket (Host included) and frees the Room Code for reuse', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);

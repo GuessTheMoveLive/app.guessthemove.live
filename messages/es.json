@@ -20,6 +20,8 @@
 	"reset_button": "Reiniciar",
 	"delete_button": "Eliminar",
 	"delete_confirm": "Vuelve a hacer clic para confirmar",
+	"end_session_button": "Terminar la partida",
+	"end_session_confirm": "Vuelve a hacer clic para confirmar",
 	"host_lobby_title": "Sala de espera",
 	"host_lobby_players_one": "{count} jugador se ha unido",
 	"host_lobby_players_other": "{count} jugadores se han unido",

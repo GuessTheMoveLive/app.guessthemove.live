@@ -120,6 +120,13 @@ export class SessionClient {
 		this.#send({ type: 'delete_session' });
 	}
 
+	/** Host stops further Rounds and jumps straight to Final Results using only the
+	 *  Rounds actually played — unlike deleteSession, the Session (and its Room Code)
+	 *  stays intact afterward (#57). */
+	endSessionEarly(): void {
+		this.#send({ type: 'end_session_early' });
+	}
+
 	submit(guess: string): void {
 		this.#send({ type: 'submit', guess });
 	}

@@ -1,88 +1,78 @@
 # Context
 
-This run is scoped to exactly one issue — do not pick up any other open issue, even if it
-looks higher-priority or blocked-free.
+This run works through the repo's `ready-for-agent` backlog, one issue per iteration, lowest
+issue number first. Issue numbers happen to already be in dependency order for the current
+backlog (#51 is an explicit prefactor for #53/#54/#58; #52 feeds #58; #57 is referenced by the
+Final-Results gating in #59/#60; #59's PGN-writing utility is reused by #60) — but always
+re-derive the target from the live label state below rather than assuming a fixed list, since
+issues get closed as the run progresses.
 
-## Issue #50 (Finished phase: full-screen Podium + rankings)
+## This iteration's target issue
 
-!`gh issue view 50 --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'`
+!`N=$(gh issue list --label ready-for-agent --state open --json number --jq 'sort_by(.number) | .[0].number'); if [ -z "$N" ] || [ "$N" = "null" ]; then echo "NO_OPEN_READY_FOR_AGENT_ISSUES"; else gh issue view "$N" --json number,title,body,comments --jq '{number, title, body, comments: [.comments[].body]}'; fi`
 
-This adds the final, terminal round-machine phase, reached from the final round's
-`opponentResponse` phase (shipped in #48/#49, see
-`git log --oneline --grep="(#48)\|(#49)"`) via the host's "Finish" button (already present and
-currently a no-op/stub on the final round per #49 — see `src/lib/round/game-data.ts` for
-however `isFinalRound` or equivalent is already determined).
-
-Read first: `src/lib/components/podium.svelte` (an existing Podium component — reuse it, don't
-rebuild it; check its props/expected data shape), `src/lib/round/round-machine.ts` (the
-existing phase chain `lobby -> active -> closed -> reveal -> opponentResponse`; you're adding
-a new terminal `finished` state reached from `opponentResponse`), `src/lib/server/session-room.ts`
-(how #48 wired the `opponentResponse` phase's server-driven broadcast — follow the exact same
-pattern for `finished`), `src/lib/round/session-client.svelte.ts` (client wrapper, follow the
-`opponentResponse` client wiring added in #48), and `src/routes/host/[code]/+page.svelte` /
-`src/routes/play/[code]/+page.svelte` (where the "Finish" button currently no-ops and where you
-add the full-screen Finished rendering). Also check `src/lib/host/host-view.ts` and
-`src/lib/components/leaderboard.svelte` for how participant totals/rankings and display names
-(captured at join) are already computed — reuse that logic for the point-gap and "full ranking"
-logic rather than recomputing scores from scratch.
-
-Three distinct renderings to get right, per the issue:
-- Participant in 1st (solo): "You're in the lead!"
-- Participant in 1st (tied with at least one other participant): "You're tied for the lead!"
-- Every other participant: "You are X points behind <name>" where X is the point gap to the
-  next-highest participant immediately above them (not the leader), and `<name>` is that
-  participant's display name.
-- Host: Podium + full ranking list of all participants, no personal message (host has no
-  score).
+Work on exactly this one issue this iteration, even if another open issue looks higher-priority
+or easier. If the command above printed `NO_OPEN_READY_FOR_AGENT_ISSUES`, the backlog is empty —
+do nothing and skip straight to the Done section below.
 
 # Shared ground rules
 
 - Read `GLOSSARY.md` and issue #1 (`gh issue view 1`) first for full product/domain context if
-  anything above is unclear — don't guess at terminology.
+  anything in the issue is unclear — don't guess at terminology.
 - Do **not** touch anything related to Analysis Tree, Plenum Selection Phase, or issues #15,
   #17, #19, #20, #28 — explicitly out of scope, deferred past v1.
+- Before implementing, check `git log --oneline --grep="RALPH"` (below) for whether issues this
+  one depends on have already shipped. If a stated prerequisite hasn't landed yet, don't block
+  indefinitely — note the gap in your closing comment and implement as defensively as the issue
+  allows, or flag it as a blocker (see Rules) if it's genuinely not implementable without it.
 - Run `npm run typecheck` and `npm run test` from the repo root after each piece and keep both
   green before committing.
 
-# Recent RALPH commits (last 10)
+# Recent RALPH commits (last 15)
 
-!`git log --oneline --grep="RALPH" -10`
+!`git log --oneline --grep="RALPH" -15`
 
 # Task
 
-You are RALPH, an autonomous coding agent. Implement issue #50 fully.
+You are RALPH, an autonomous coding agent. Implement the issue picked above fully.
 
 ## Workflow
 
-1. **Explore** — read the issue body and all files listed above before writing any code. This
-   phase transition must be server-driven and broadcast like existing ones.
+1. **Explore** — read the issue body and comments above in full. Find and read the relevant
+   source files yourself (grep for the feature/component names mentioned in the issue, follow
+   imports) rather than guessing. Check `src/lib/components/`, `src/lib/round/`,
+   `src/lib/server/`, `src/lib/host/`, and the relevant `src/routes/host|play/[code]/+page.svelte`
+   as starting points — most features in this codebase touch a Svelte component, the round
+   machine or session-room server logic, and the host/participant pages.
 2. **Plan** — decide what to change, keep it as small as the issue actually requires.
-3. **Execute** — RGR: write a failing test first where the change is unit-testable (the
-   "points behind next-highest, tie/lead detection" pure function, the round machine's new
-   state/transitions, the Durable Object's new message handling), then implement the Svelte UI.
-4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit.
-   Fix failures before proceeding, never commit red.
+3. **Execute** — RGR: write a failing test first where the change is unit-testable (pure
+   helpers, round-machine transitions, Durable Object message handling), then implement the
+   Svelte UI.
+4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit. Fix
+   failures before proceeding, never commit red.
 5. **Commit** — one commit per logically-complete slice. Message MUST:
    - Start with `RALPH:` prefix
-   - Reference issue #50
+   - Reference the issue number
    - List key decisions made
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
-   `gh issue close 50 --comment "<what was built, in the same style as this repo's other
-   closing comments — gh issue view 48 or 49 for the tone/format to match>"`. Also append one
-   line to issue #1's "Decisions so far" via `gh issue comment 1` noting it shipped, same
-   pattern as the existing entries there.
+   `gh issue close <N> --comment "<what was built, in the same style as this repo's other
+   closing comments — gh issue view 48, 49, or 50 for the tone/format to match>"`. Also append
+   one line to issue #1's "Decisions so far" via `gh issue comment 1`, same pattern as the
+   existing entries there.
 
 ## Rules
 
 - Do not close the issue until implemented, tested, and committed.
 - No commented-out code, no TODOs left in committed code.
-- If blocked (missing context, a failing test you can't fix, something that needs a human
-  decision), leave a comment on the issue explaining the blocker rather than spinning or
-  guessing at the design.
+- If genuinely blocked (missing context, a failing test you can't fix, something that needs a
+  human decision): leave a comment on the issue explaining the blocker, then
+  `gh issue edit <N> --remove-label ready-for-agent` so the next iteration skips it instead of
+  retrying the same blocker — but leave the issue **open** (do not close a blocked issue).
 
 # Done
 
-When #50 is closed (or you are blocked on it), output the completion signal:
+When this iteration's issue is closed, or blocked and unlabeled, or the backlog was already
+empty, output the completion signal:
 
 <promise>COMPLETE</promise>

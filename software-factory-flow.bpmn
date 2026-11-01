@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_SoftwareFactory"
+                  targetNamespace="http://example.com/software-factory">
+
+  <bpmn:collaboration id="Collaboration_1">
+    <bpmn:participant id="Participant_Factory" name="Software Factory" processRef="Process_Factory" />
+  </bpmn:collaboration>
+
+  <bpmn:process id="Process_Factory" isExecutable="false">
+
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_You" name="You">
+        <bpmn:flowNodeRef>StartEvent_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Notes</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Answers</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RunSandcastle</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Grilling" name="Claude (Grilling / Spec)">
+        <bpmn:flowNodeRef>Task_Grill</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ToSpec</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ToTickets</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Sandcastle" name="Sandcastle (RALPH)">
+        <bpmn:flowNodeRef>Task_Implement</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Review" name="Review &amp; Retro">
+        <bpmn:flowNodeRef>Task_CodeReview</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Findings</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Triage</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Retro</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Requeued</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_Done</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="StartEvent_1" name="Start" />
+
+    <bpmn:task id="Task_Notes" name="Inspect app visually,&#10;take notes" />
+    <bpmn:task id="Task_Grill" name="/grill-with-docs &lt;notes&gt;" />
+    <bpmn:task id="Task_Answers" name="Answer questions" />
+    <bpmn:task id="Task_ToSpec" name="/to-spec" />
+    <bpmn:task id="Task_ToTickets" name="/to-tickets" />
+    <bpmn:task id="Task_RunSandcastle" name="New session:&#10;npm run sandcastle" />
+    <bpmn:task id="Task_Implement" name="RALPH implements each&#10;ticket (/tdd per issue)" />
+    <bpmn:task id="Task_CodeReview" name="/code-review" />
+    <bpmn:exclusiveGateway id="Gateway_Findings" name="Findings?" />
+    <bpmn:task id="Task_Triage" name="/triage &lt;findings&gt;" />
+    <bpmn:task id="Task_Retro" name="/retro" />
+    <bpmn:endEvent id="EndEvent_Requeued" name="Re-queued for&#10;next sandcastle run" />
+    <bpmn:endEvent id="EndEvent_Done" name="Done" />
+
+    <bpmn:dataObject id="DataObject_Notes" />
+    <bpmn:dataObjectReference id="DataObjectRef_Notes" name="Visual testing notes" dataObjectRef="DataObject_Notes" />
+    <bpmn:dataObject id="DataObject_Glossary" />
+    <bpmn:dataObjectReference id="DataObjectRef_Glossary" name="GLOSSARY.md / ADRs" dataObjectRef="DataObject_Glossary" />
+    <bpmn:dataObject id="DataObject_Spec" />
+    <bpmn:dataObjectReference id="DataObjectRef_Spec" name="Spec document" dataObjectRef="DataObject_Spec" />
+    <bpmn:dataObject id="DataObject_Queue" />
+    <bpmn:dataObjectReference id="DataObjectRef_Queue" name="GitHub Issues&#10;(ready-for-agent)" dataObjectRef="DataObject_Queue" />
+    <bpmn:dataObject id="DataObject_Diff" />
+    <bpmn:dataObjectReference id="DataObjectRef_Diff" name="Code diff / commits" dataObjectRef="DataObject_Diff" />
+    <bpmn:dataObject id="DataObject_Env" />
+    <bpmn:dataObjectReference id="DataObjectRef_Env" name="Environment&#10;(standards, checks)" dataObjectRef="DataObject_Env" />
+
+    <bpmn:textAnnotation id="TextAnnotation_Grill">
+      <bpmn:text>/grill-with-docs
+"Login button felt slow on
+mobile; leaderboard reveal
+order unclear after round 3"</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:textAnnotation id="TextAnnotation_SpecTickets">
+      <bpmn:text>/to-spec and /to-tickets
+(no args -- act on this
+session's grilled thread)</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:textAnnotation id="TextAnnotation_Sandcastle">
+      <bpmn:text>npm run sandcastle
+(drains every ready-for-agent
+issue overnight, lowest number
+first, one RALPH iteration each)</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:textAnnotation id="TextAnnotation_CodeReview">
+      <bpmn:text>/code-review
+since main
+(Standards + Spec axes)</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:textAnnotation id="TextAnnotation_Triage">
+      <bpmn:text>/triage
+- File: roundMachine.ts:142
+- [medium] off-by-one in
+  reveal index
+- From ticket #58</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:textAnnotation id="TextAnnotation_Retro">
+      <bpmn:text>/retro
+(point at .sandcastle/logs/*.log
++ this morning's /code-review
+findings)</bpmn:text>
+    </bpmn:textAnnotation>
+
+    <bpmn:sequenceFlow id="Flow1" sourceRef="StartEvent_1" targetRef="Task_Notes" />
+    <bpmn:sequenceFlow id="Flow2" sourceRef="Task_Notes" targetRef="Task_Grill" />
+    <bpmn:sequenceFlow id="Flow3" sourceRef="Task_Grill" targetRef="Task_Answers" />
+    <bpmn:sequenceFlow id="Flow4" sourceRef="Task_Answers" targetRef="Task_ToSpec" />
+    <bpmn:sequenceFlow id="Flow5" sourceRef="Task_ToSpec" targetRef="Task_ToTickets" />
+    <bpmn:sequenceFlow id="Flow6" sourceRef="Task_ToTickets" targetRef="Task_RunSandcastle" />
+    <bpmn:sequenceFlow id="Flow7" sourceRef="Task_RunSandcastle" targetRef="Task_Implement" />
+    <bpmn:sequenceFlow id="Flow8" sourceRef="Task_Implement" targetRef="Task_CodeReview" />
+    <bpmn:sequenceFlow id="Flow9" sourceRef="Task_CodeReview" targetRef="Gateway_Findings" />
+    <bpmn:sequenceFlow id="Flow10" sourceRef="Gateway_Findings" targetRef="Task_Triage" name="yes" />
+    <bpmn:sequenceFlow id="Flow11" sourceRef="Gateway_Findings" targetRef="Task_Retro" name="no" />
+    <bpmn:sequenceFlow id="Flow12" sourceRef="Task_Triage" targetRef="EndEvent_Requeued" />
+    <bpmn:sequenceFlow id="Flow13" sourceRef="Task_Retro" targetRef="EndEvent_Done" />
+
+    <bpmn:association id="Assoc_1" sourceRef="Task_Notes" targetRef="DataObjectRef_Notes" associationDirection="One" />
+    <bpmn:association id="Assoc_2" sourceRef="DataObjectRef_Notes" targetRef="Task_Grill" associationDirection="One" />
+    <bpmn:association id="Assoc_3" sourceRef="Task_Grill" targetRef="DataObjectRef_Glossary" associationDirection="One" />
+    <bpmn:association id="Assoc_4" sourceRef="Task_ToSpec" targetRef="DataObjectRef_Spec" associationDirection="One" />
+    <bpmn:association id="Assoc_5" sourceRef="Task_ToTickets" targetRef="DataObjectRef_Queue" associationDirection="One" />
+    <bpmn:association id="Assoc_6" sourceRef="DataObjectRef_Queue" targetRef="Task_Implement" associationDirection="One" />
+    <bpmn:association id="Assoc_7" sourceRef="Task_Implement" targetRef="DataObjectRef_Diff" associationDirection="One" />
+    <bpmn:association id="Assoc_8" sourceRef="DataObjectRef_Diff" targetRef="Task_CodeReview" associationDirection="One" />
+    <bpmn:association id="Assoc_9" sourceRef="Task_Triage" targetRef="DataObjectRef_Queue" associationDirection="One" />
+    <bpmn:association id="Assoc_10" sourceRef="Task_Retro" targetRef="DataObjectRef_Env" associationDirection="One" />
+
+    <bpmn:association id="AssocTA_1" sourceRef="TextAnnotation_Grill" targetRef="Task_Grill" associationDirection="None" />
+    <bpmn:association id="AssocTA_2a" sourceRef="TextAnnotation_SpecTickets" targetRef="Task_ToSpec" associationDirection="None" />
+    <bpmn:association id="AssocTA_2b" sourceRef="TextAnnotation_SpecTickets" targetRef="Task_ToTickets" associationDirection="None" />
+    <bpmn:association id="AssocTA_3" sourceRef="TextAnnotation_Sandcastle" targetRef="Task_RunSandcastle" associationDirection="None" />
+    <bpmn:association id="AssocTA_4" sourceRef="TextAnnotation_CodeReview" targetRef="Task_CodeReview" associationDirection="None" />
+    <bpmn:association id="AssocTA_5" sourceRef="TextAnnotation_Triage" targetRef="Task_Triage" associationDirection="None" />
+    <bpmn:association id="AssocTA_6" sourceRef="TextAnnotation_Retro" targetRef="Task_Retro" associationDirection="None" />
+
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
+
+      <bpmndi:BPMNShape id="Shape_Participant" bpmnElement="Participant_Factory" isHorizontal="true">
+        <dc:Bounds x="0" y="140" width="2010" height="670" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_You" bpmnElement="Lane_You" isHorizontal="true">
+        <dc:Bounds x="30" y="140" width="1980" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Grilling" bpmnElement="Lane_Grilling" isHorizontal="true">
+        <dc:Bounds x="30" y="290" width="1980" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Sandcastle" bpmnElement="Lane_Sandcastle" isHorizontal="true">
+        <dc:Bounds x="30" y="440" width="1980" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Review" bpmnElement="Lane_Review" isHorizontal="true">
+        <dc:Bounds x="30" y="590" width="1980" height="220" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="StartEvent_1">
+        <dc:Bounds x="160" y="197" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Notes" bpmnElement="Task_Notes">
+        <dc:Bounds x="240" y="175" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Grill" bpmnElement="Task_Grill">
+        <dc:Bounds x="400" y="325" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Answers" bpmnElement="Task_Answers">
+        <dc:Bounds x="560" y="175" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_ToSpec" bpmnElement="Task_ToSpec">
+        <dc:Bounds x="720" y="325" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_ToTickets" bpmnElement="Task_ToTickets">
+        <dc:Bounds x="880" y="325" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_RunSandcastle" bpmnElement="Task_RunSandcastle">
+        <dc:Bounds x="1040" y="175" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Implement" bpmnElement="Task_Implement">
+        <dc:Bounds x="1200" y="475" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_CodeReview" bpmnElement="Task_CodeReview">
+        <dc:Bounds x="1360" y="660" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway" bpmnElement="Gateway_Findings">
+        <dc:Bounds x="1520" y="675" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Triage" bpmnElement="Task_Triage">
+        <dc:Bounds x="1680" y="600" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Retro" bpmnElement="Task_Retro">
+        <dc:Bounds x="1680" y="720" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndRequeued" bpmnElement="EndEvent_Requeued">
+        <dc:Bounds x="1840" y="622" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndDone" bpmnElement="EndEvent_Done">
+        <dc:Bounds x="1840" y="742" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_DO_Notes" bpmnElement="DataObjectRef_Notes">
+        <dc:Bounds x="272" y="850" width="36" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DO_Glossary" bpmnElement="DataObjectRef_Glossary">
+        <dc:Bounds x="432" y="850" width="36" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DO_Spec" bpmnElement="DataObjectRef_Spec">
+        <dc:Bounds x="752" y="850" width="36" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DO_Queue" bpmnElement="DataObjectRef_Queue">
+        <dc:Bounds x="1060" y="850" width="36" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DO_Diff" bpmnElement="DataObjectRef_Diff">
+        <dc:Bounds x="1272" y="850" width="36" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_DO_Env" bpmnElement="DataObjectRef_Env">
+        <dc:Bounds x="1680" y="850" width="36" height="50" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Shape_TA_Grill" bpmnElement="TextAnnotation_Grill">
+        <dc:Bounds x="380" y="10" width="170" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_TA_SpecTickets" bpmnElement="TextAnnotation_SpecTickets">
+        <dc:Bounds x="840" y="10" width="170" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_TA_Sandcastle" bpmnElement="TextAnnotation_Sandcastle">
+        <dc:Bounds x="1020" y="10" width="170" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_TA_CodeReview" bpmnElement="TextAnnotation_CodeReview">
+        <dc:Bounds x="1340" y="10" width="170" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_TA_Triage" bpmnElement="TextAnnotation_Triage">
+        <dc:Bounds x="1600" y="10" width="170" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_TA_Retro" bpmnElement="TextAnnotation_Retro">
+        <dc:Bounds x="1820" y="10" width="170" height="100" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Edge_1" bpmnElement="Flow1"><di:waypoint x="196" y="215" /><di:waypoint x="240" y="215" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_2" bpmnElement="Flow2"><di:waypoint x="340" y="215" /><di:waypoint x="400" y="365" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_3" bpmnElement="Flow3"><di:waypoint x="500" y="365" /><di:waypoint x="560" y="215" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_4" bpmnElement="Flow4"><di:waypoint x="660" y="215" /><di:waypoint x="720" y="365" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_5" bpmnElement="Flow5"><di:waypoint x="820" y="365" /><di:waypoint x="880" y="365" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_6" bpmnElement="Flow6"><di:waypoint x="980" y="365" /><di:waypoint x="1040" y="215" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_7" bpmnElement="Flow7"><di:waypoint x="1140" y="215" /><di:waypoint x="1200" y="515" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_8" bpmnElement="Flow8"><di:waypoint x="1300" y="515" /><di:waypoint x="1360" y="700" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_9" bpmnElement="Flow9"><di:waypoint x="1460" y="700" /><di:waypoint x="1520" y="700" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_10" bpmnElement="Flow10"><di:waypoint x="1570" y="700" /><di:waypoint x="1680" y="640" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_11" bpmnElement="Flow11"><di:waypoint x="1570" y="700" /><di:waypoint x="1680" y="760" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_12" bpmnElement="Flow12"><di:waypoint x="1780" y="640" /><di:waypoint x="1840" y="640" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_13" bpmnElement="Flow13"><di:waypoint x="1780" y="760" /><di:waypoint x="1840" y="760" /></bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_A1" bpmnElement="Assoc_1"><di:waypoint x="290" y="255" /><di:waypoint x="290" y="850" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A2" bpmnElement="Assoc_2"><di:waypoint x="290" y="850" /><di:waypoint x="450" y="405" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A3" bpmnElement="Assoc_3"><di:waypoint x="450" y="405" /><di:waypoint x="450" y="850" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A4" bpmnElement="Assoc_4"><di:waypoint x="770" y="405" /><di:waypoint x="770" y="850" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A5" bpmnElement="Assoc_5"><di:waypoint x="930" y="405" /><di:waypoint x="1078" y="850" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A6" bpmnElement="Assoc_6"><di:waypoint x="1078" y="850" /><di:waypoint x="1250" y="555" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A7" bpmnElement="Assoc_7"><di:waypoint x="1250" y="555" /><di:waypoint x="1290" y="850" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A8" bpmnElement="Assoc_8"><di:waypoint x="1290" y="850" /><di:waypoint x="1410" y="740" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A9" bpmnElement="Assoc_9"><di:waypoint x="1730" y="680" /><di:waypoint x="1078" y="850" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_A10" bpmnElement="Assoc_10"><di:waypoint x="1730" y="800" /><di:waypoint x="1698" y="850" /></bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Edge_TA1" bpmnElement="AssocTA_1"><di:waypoint x="465" y="110" /><di:waypoint x="450" y="325" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_TA2a" bpmnElement="AssocTA_2a"><di:waypoint x="925" y="110" /><di:waypoint x="770" y="325" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_TA2b" bpmnElement="AssocTA_2b"><di:waypoint x="925" y="110" /><di:waypoint x="930" y="325" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_TA3" bpmnElement="AssocTA_3"><di:waypoint x="1105" y="110" /><di:waypoint x="1090" y="175" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_TA4" bpmnElement="AssocTA_4"><di:waypoint x="1425" y="110" /><di:waypoint x="1410" y="660" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_TA5" bpmnElement="AssocTA_5"><di:waypoint x="1685" y="110" /><di:waypoint x="1730" y="600" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_TA6" bpmnElement="AssocTA_6"><di:waypoint x="1905" y="110" /><di:waypoint x="1730" y="720" /></bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

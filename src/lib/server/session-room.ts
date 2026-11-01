@@ -60,6 +60,10 @@ const STORAGE_KEY_ENDED_EARLY = 'ended-early';
 /** Captured once, the moment the Host first clicks "Start Round" for Round 1 (#52) —
  *  never earlier (no Plenum Selection in v1) and never overwritten after that. */
 const STORAGE_KEY_SESSION_START_TIME = 'session-start-time';
+/** Captured once, the moment the Session first reaches the terminal `finished` phase
+ *  (natural end or #57's early end) — the Host PGN export's (#60) total-elapsed-time
+ *  endpoint. Never overwritten after that; cleared only by Reset. */
+const STORAGE_KEY_FINISHED_AT = 'finished-at';
 /** A Host's control connection never joins as a Participant (#10); it is tagged with this. */
 const HOST_TAG = 'host';
 /** The secret credential proving control of a Session (#37), set once at creation. */
@@ -286,6 +290,7 @@ export class SessionRoom extends DurableObject {
 				await this.ctx.storage.delete(STORAGE_KEY_SHOW_LEADERBOARD);
 				await this.ctx.storage.delete(STORAGE_KEY_GUESS_HISTORY);
 				await this.ctx.storage.delete(STORAGE_KEY_SESSION_START_TIME);
+				await this.ctx.storage.delete(STORAGE_KEY_FINISHED_AT);
 				await this.ctx.storage.delete(STORAGE_KEY_ENDED_EARLY);
 				await this.ctx.storage.deleteAlarm();
 				this.actor = undefined;
@@ -334,6 +339,7 @@ export class SessionRoom extends DurableObject {
 			}
 		}
 
+		await this.captureFinishedAt();
 		await this.persistSnapshot();
 		await this.broadcastSnapshot();
 	}
@@ -421,6 +427,24 @@ export class SessionRoom extends DurableObject {
 		await this.ctx.storage.setAlarm(Date.now() + ROUND_DURATION_MS);
 	}
 
+	/**
+	 * Captures the moment the Session first reaches the terminal `finished` phase
+	 * (#60) — via either `finish` (natural end) or `end_session_early` (#57), the
+	 * only two messages that can land the actor there. Only ever set once; a later
+	 * call (e.g. a stray repeat message once already finished) is a no-op. Re-reads
+	 * the actor itself, like `persistSnapshot`/`broadcastSnapshot` below, rather
+	 * than taking it as a parameter — `reset` clears `this.actor` earlier in the
+	 * same message, and a caller-supplied reference would still be the stale,
+	 * pre-reset (still-`finished`) actor, re-adding the timestamp Reset just
+	 * deleted.
+	 */
+	private async captureFinishedAt(): Promise<void> {
+		const actor = await this.getActor();
+		if (actor.getSnapshot().value !== 'finished') return;
+		if ((await this.ctx.storage.get<number>(STORAGE_KEY_FINISHED_AT)) != null) return;
+		await this.ctx.storage.put(STORAGE_KEY_FINISHED_AT, Date.now());
+	}
+
 	private async broadcastSnapshot(): Promise<void> {
 		const actor = await this.getActor();
 		const snapshot = actor.getSnapshot();
@@ -432,7 +456,10 @@ export class SessionRoom extends DurableObject {
 			totalRounds: quizSteps().length,
 			showLeaderboard: (await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false,
 			endedEarly: (await this.ctx.storage.get<boolean>(STORAGE_KEY_ENDED_EARLY)) ?? false,
-			guessHistory: (await this.ctx.storage.get<GuessHistory>(STORAGE_KEY_GUESS_HISTORY)) ?? {}
+			guessHistory: (await this.ctx.storage.get<GuessHistory>(STORAGE_KEY_GUESS_HISTORY)) ?? {},
+			sessionStartTime:
+				(await this.ctx.storage.get<number>(STORAGE_KEY_SESSION_START_TIME)) ?? null,
+			finishedAt: (await this.ctx.storage.get<number>(STORAGE_KEY_FINISHED_AT)) ?? null
 		};
 		const serialized = JSON.stringify(payload);
 

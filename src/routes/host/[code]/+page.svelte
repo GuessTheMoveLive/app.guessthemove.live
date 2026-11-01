@@ -21,6 +21,7 @@
 		formatContinuation
 	} from '#lib/round/participant-input.js';
 	import { computeGuessGroupBreakdown } from '#lib/round/guess-groups.js';
+	import { buildHostPgn, roundsActuallyPlayed } from '#lib/round/pgn.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
@@ -147,6 +148,40 @@
 	const history = $derived(
 		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
 	);
+
+	// Host PGN export (#60): only available once the Session reaches Final Results
+	// (natural or early end, #57) — same gating and PGN writer (#59) as the
+	// Participant export, but room-level: every Round's distinct Guess Groups (not
+	// one participant's Guess) and a Host-facing summary (full Leaderboard,
+	// early-end state, total elapsed time) on the final move.
+	const elapsedMs = $derived(
+		snapshot?.sessionStartTime != null && snapshot?.finishedAt != null
+			? snapshot.finishedAt - snapshot.sessionStartTime
+			: null
+	);
+	const hostPgn = $derived(
+		phase === 'finished' && snapshot
+			? buildHostPgn(
+					game,
+					snapshot.guessHistory,
+					snapshot.context.totals,
+					roundsActuallyPlayed(roundIndex, snapshot.context.scores),
+					snapshot.endedEarly,
+					elapsedMs
+				)
+			: null
+	);
+
+	function downloadHostPgn() {
+		if (!hostPgn) return;
+		const blob = new Blob([hostPgn], { type: 'application/x-chess-pgn' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `guess-the-move-${code}-host.pgn`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
 </script>
 
 <main class="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -296,6 +331,9 @@
 			<Card.Content class="flex flex-col gap-4">
 				<Podium entries={top3} />
 				<Leaderboard entries={everyone} />
+				{#if hostPgn}
+					<Button variant="outline" onclick={downloadHostPgn}>{m.host_download_pgn()}</Button>
+				{/if}
 			</Card.Content>
 		</Card.Root>
 	{:else}

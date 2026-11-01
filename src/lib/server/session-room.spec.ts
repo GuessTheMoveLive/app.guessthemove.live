@@ -679,6 +679,82 @@ describe('SessionRoom', () => {
 		});
 	});
 
+	describe('Session start time & finished-at on the broadcast snapshot (#60: Host PGN export)', () => {
+		it('broadcasts the Session start time once Round 1 has started', async () => {
+			const { room, ctx } = await openRoom();
+			const { ws } = await join(room, ctx, 'alice');
+
+			expect(
+				(ws.lastSnapshot() as { sessionStartTime: number | null }).sessionStartTime
+			).toBeNull();
+
+			vi.useFakeTimers();
+			vi.setSystemTime(1_000_000);
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+
+			expect((ws.lastSnapshot() as { sessionStartTime: number | null }).sessionStartTime).toBe(
+				1_000_000
+			);
+		});
+
+		it('captures finishedAt exactly once, the moment finish lands the Session on the terminal phase', async () => {
+			const { room, ctx } = await openRoom();
+			await ctx.storage.put('round-index', quizSteps().length - 1);
+			const { ws } = await join(room, ctx, 'alice');
+
+			vi.useFakeTimers();
+			vi.setSystemTime(1_000_000);
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+
+			vi.setSystemTime(2_000_000);
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'finish' }));
+			expect((ws.lastSnapshot() as { finishedAt: number | null }).finishedAt).toBe(2_000_000);
+
+			// A later message (e.g. a stray repeat) doesn't overwrite the captured timestamp.
+			vi.setSystemTime(3_000_000);
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'finish' }));
+			expect((ws.lastSnapshot() as { finishedAt: number | null }).finishedAt).toBe(2_000_000);
+		});
+
+		it('captures finishedAt on an early end too (#57)', async () => {
+			const { room, ctx, token } = await openRoom();
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			vi.useFakeTimers();
+			vi.setSystemTime(1_000_000);
+			await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+			vi.setSystemTime(1_500_000);
+			await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'end_session_early' }));
+
+			const snapshot = hostWs.lastSnapshot() as {
+				sessionStartTime: number | null;
+				finishedAt: number | null;
+			};
+			expect(snapshot.sessionStartTime).toBe(1_000_000);
+			expect(snapshot.finishedAt).toBe(1_500_000);
+		});
+
+		it('a Reset clears both so a restarted Session recaptures fresh ones', async () => {
+			const { room, ctx, token } = await openRoom();
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+			await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'end_session_early' }));
+			await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'reset' }));
+
+			const snapshot = hostWs.lastSnapshot() as {
+				sessionStartTime: number | null;
+				finishedAt: number | null;
+			};
+			expect(snapshot.sessionStartTime).toBeNull();
+			expect(snapshot.finishedAt).toBeNull();
+		});
+	});
+
 	describe('Guess history on the broadcast snapshot (#58: Game Sheet)', () => {
 		it('includes every recorded Round’s Guesses, keyed by Round index then participant id', async () => {
 			const { room, ctx } = await openRoom();
@@ -687,7 +763,9 @@ describe('SessionRoom', () => {
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'e4' }));
 
-			const snapshot = ws.lastSnapshot() as { guessHistory: Record<number, Record<string, string>> };
+			const snapshot = ws.lastSnapshot() as {
+				guessHistory: Record<number, Record<string, string>>;
+			};
 			expect(snapshot.guessHistory).toEqual({ 0: { alice: 'e4' } });
 		});
 
@@ -695,7 +773,9 @@ describe('SessionRoom', () => {
 			const { room, ctx } = await openRoom();
 			const { ws } = await join(room, ctx, 'alice');
 
-			const snapshot = ws.lastSnapshot() as { guessHistory: Record<number, Record<string, string>> };
+			const snapshot = ws.lastSnapshot() as {
+				guessHistory: Record<number, Record<string, string>>;
+			};
 			expect(snapshot.guessHistory).toEqual({});
 		});
 	});

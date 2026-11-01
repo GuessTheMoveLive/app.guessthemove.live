@@ -107,5 +107,6 @@
 	"finished_lead": "¡Vas en cabeza!",
 	"finished_tied_lead": "¡Vas empatado en cabeza!",
 	"finished_behind": "Vas {points} puntos por detrás de {name}",
-	"play_download_pgn": "Descargar mi PGN"
+	"play_download_pgn": "Descargar mi PGN",
+	"host_download_pgn": "Descargar PGN"
 }

@@ -107,5 +107,6 @@
 	"finished_lead": "Du führst!",
 	"finished_tied_lead": "Du liegst punktgleich an der Spitze!",
 	"finished_behind": "Du liegst {points} Punkte hinter {name}",
-	"play_download_pgn": "Meine PGN herunterladen"
+	"play_download_pgn": "Meine PGN herunterladen",
+	"host_download_pgn": "PGN herunterladen"
 }

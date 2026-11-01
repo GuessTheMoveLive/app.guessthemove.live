@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
+	buildHostPgn,
 	buildParticipantPgn,
 	finalMoveSummary,
+	hostFinalMoveSummary,
 	participantPgnStats,
+	roundGuessGroups,
 	roundsActuallyPlayed
 } from './pgn';
 import type { GameData, GameStep } from './game-data';
@@ -59,14 +62,7 @@ describe('participantPgnStats', () => {
 	const history = { 0: { alice: 'd4' }, 1: { alice: 'Nf3' } };
 
 	it('computes points, rank, max achievable and match percent over the Rounds played', () => {
-		const stats = participantPgnStats(
-			quizSteps,
-			history,
-			'alice',
-			{ alice: 2, bob: 5 },
-			2,
-			false
-		);
+		const stats = participantPgnStats(quizSteps, history, 'alice', { alice: 2, bob: 5 }, 2, false);
 		expect(stats).toEqual({
 			points: 2,
 			rank: 2,
@@ -154,5 +150,101 @@ describe('buildParticipantPgn', () => {
 		const history = { 0: { alice: 'd4' }, 1: { alice: 'Nf3' }, 2: { alice: 'Bb5' } };
 		const pgn = buildParticipantPgn(game(), history, 'alice', { alice: 9 }, 3, false);
 		expect(pgn).toContain('{Guessed: Bb5 Final score: +9 points.');
+	});
+});
+
+describe('roundGuessGroups', () => {
+	const step = STEPS[0]; // e4, with alternative d4
+
+	it('groups participants by their exact distinct Guess, largest group first', () => {
+		const groups = roundGuessGroups(step, { alice: 'e4', bob: 'e4', carol: 'd4' });
+		expect(groups).toEqual([
+			{ san: 'e4', score: 3, participantIds: ['alice', 'bob'] },
+			{ san: 'd4', score: 0, participantIds: ['carol'] }
+		]);
+	});
+
+	it('omits anyone absent from the round (timed out) — there is no move to group them under', () => {
+		const groups = roundGuessGroups(step, { alice: 'e4' });
+		expect(groups).toEqual([{ san: 'e4', score: 3, participantIds: ['alice'] }]);
+	});
+
+	it('is empty when nobody guessed that round', () => {
+		expect(roundGuessGroups(step, {})).toEqual([]);
+	});
+
+	it('sorts participant names within a group alphabetically, independent of join order', () => {
+		const groups = roundGuessGroups(step, { carol: 'e4', alice: 'e4', bob: 'e4' });
+		expect(groups[0].participantIds).toEqual(['alice', 'bob', 'carol']);
+	});
+});
+
+describe('hostFinalMoveSummary', () => {
+	const ranking = [
+		{ id: 'alice', total: 9 },
+		{ id: 'bob', total: 5 },
+		{ id: 'carol', total: -2 }
+	];
+
+	it('lists every participant ranked, not just one', () => {
+		const text = hostFinalMoveSummary(ranking, 3, 3, false, null);
+		expect(text).toContain('Final Leaderboard: 1st alice (+9), 2nd bob (+5), 3rd carol (-2).');
+	});
+
+	it('states a natural end when the Session was not ended early', () => {
+		const text = hostFinalMoveSummary(ranking, 3, 3, false, null);
+		expect(text).toContain('reached Final Results naturally after all 3 Rounds');
+	});
+
+	it('states the early-end round, mirroring the Participant summary', () => {
+		const text = hostFinalMoveSummary(ranking, 2, 3, true, null);
+		expect(text).toContain('ended this Session early after Round 2 of 3');
+	});
+
+	it('includes the total elapsed time when both timestamps are available', () => {
+		const text = hostFinalMoveSummary(ranking, 3, 3, false, 5_025_000);
+		expect(text).toContain('Total elapsed time: 1h 23m 45s.');
+	});
+
+	it('omits elapsed time entirely when unavailable', () => {
+		const text = hostFinalMoveSummary(ranking, 3, 3, false, null);
+		expect(text).not.toContain('elapsed');
+	});
+
+	it('handles a Session nobody ever joined', () => {
+		const text = hostFinalMoveSummary([], 0, 3, false, null);
+		expect(text).toContain('Final Leaderboard: no participants.');
+	});
+});
+
+describe('buildHostPgn', () => {
+	it("attaches every played Round's distinct Guess Groups, not one participant's own Guess", () => {
+		const history = {
+			0: { alice: 'd4', bob: 'd4', carol: 'e4' },
+			1: { alice: 'Nf3' }
+		};
+		const pgn = buildHostPgn(game(), history, { alice: 1, bob: 1, carol: 3 }, 2, false, null);
+		expect(pgn).toContain(
+			'1. e4 {Guesses: d4 (alice, bob); e4 (carol)} e5 2. Nf3 {Guesses: Nf3 (alice)}'
+		);
+	});
+
+	it('carries no Guess Groups comment on a Round beyond where the Session ended early', () => {
+		const history = { 0: { alice: 'd4' } };
+		const pgn = buildHostPgn(game(), history, { alice: 0 }, 1, true, null);
+		const finalMoveSection = pgn.split('3. Bb5')[1];
+		expect(finalMoveSection).not.toContain('Guesses:');
+	});
+
+	it('attaches the Host summary (full Leaderboard, early-end state, elapsed time) to the final move', () => {
+		const pgn = buildHostPgn(game(), {}, { alice: 9, bob: 3 }, 3, false, 120_000);
+		expect(pgn).toContain('Final Leaderboard: 1st alice (+9), 2nd bob (+3).');
+		expect(pgn).toContain('Total elapsed time: 2m 0s.');
+	});
+
+	it("merges the final move's own Guess Groups comment with the Host summary", () => {
+		const history = { 0: { alice: 'e4' }, 1: { alice: 'Nf3' }, 2: { alice: 'Bb5' } };
+		const pgn = buildHostPgn(game(), history, { alice: 9 }, 3, false, null);
+		expect(pgn).toContain('{Guesses: Bb5 (alice) Final Leaderboard: 1st alice (+9).');
 	});
 });

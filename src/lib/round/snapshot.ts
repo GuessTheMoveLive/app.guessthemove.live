@@ -27,6 +27,13 @@ export interface RoundSnapshot {
 	 *  Final Results naturally — kept for the PGN export tickets (#59/#60) to flag.
 	 *  Cleared only by Reset. */
 	endedEarly: boolean;
+	/** Epoch ms of the Host's first "Start Round" for Round 1 (#52), or null before
+	 *  that's happened. Cleared only by Reset. */
+	sessionStartTime: number | null;
+	/** Epoch ms the Session first reached the terminal `finished` phase (natural end
+	 *  or #57's early end), or null before that's happened — the Host PGN export's
+	 *  (#60) total-elapsed-time endpoint. Cleared only by Reset. */
+	finishedAt: number | null;
 	/** Every participant's recorded Guess (SAN) for every Round played so far (#52) —
 	 *  the Game Sheet (#58) reconstructs each participant's own per-move Guess/score from
 	 *  this, same unredacted-broadcast pattern as `context.participants`/`context.scores`

@@ -42,10 +42,26 @@ export function fullRanking(totals: Record<string, number>): LeaderboardEntry[] 
 	return rankedEntries(totals);
 }
 
+/**
+ * Reorders an already-ranked `entries` list (post-Reveal totals) by each
+ * participant's *prior* total instead - the order a Leaderboard should render
+ * at the instant it's shown, before animating up to `entries`' own order
+ * (#55). Totals in the returned entries are untouched; only the order
+ * changes. Same tie-break as {@link topLeaderboard}/{@link fullRanking}.
+ */
+export function priorRanking(
+	entries: LeaderboardEntry[],
+	priorTotals: Record<string, number>
+): LeaderboardEntry[] {
+	return [...entries].sort(
+		(a, b) =>
+			(priorTotals[b.participantId] ?? 0) - (priorTotals[a.participantId] ?? 0) ||
+			a.participantId.localeCompare(b.participantId)
+	);
+}
+
 export type FinishedMessage =
-	| { kind: 'lead' }
-	| { kind: 'tiedLead' }
-	| { kind: 'behind'; points: number; name: string };
+	{ kind: 'lead' } | { kind: 'tiedLead' } | { kind: 'behind'; points: number; name: string };
 
 /**
  * A Participant's personal message on the Finished phase's full-screen Podium

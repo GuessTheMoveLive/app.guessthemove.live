@@ -118,9 +118,7 @@
 	// Featured Game's final Round (#49), the entire remaining real mainline to the game's
 	// actual end. Reuses #43's formatContinuation rather than reimplementing move-number
 	// formatting (it also covers the single-move case).
-	const opponentSteps = $derived(
-		quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []
-	);
+	const opponentSteps = $derived(quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []);
 	const opponentMove = $derived(
 		opponentSteps.length
 			? formatContinuation(

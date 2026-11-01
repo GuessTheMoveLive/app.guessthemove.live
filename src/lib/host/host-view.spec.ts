@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	topLeaderboard,
 	fullRanking,
+	priorRanking,
 	finishedMessageFor,
 	scoreboardRows,
 	submissionProgress,
@@ -69,6 +70,38 @@ describe('fullRanking', () => {
 	});
 });
 
+describe('priorRanking (#55)', () => {
+	it('reorders a final-ranking entries list by each participant’s prior total', () => {
+		// bob overtakes alice this Round (entries, post-Reveal), but came into it behind her.
+		const entries = topLeaderboard({ alice: 5, bob: 9 });
+
+		const result = priorRanking(entries, { alice: 8, bob: 2 });
+
+		expect(result.map((e) => e.participantId)).toEqual(['alice', 'bob']);
+		// Totals stay the post-Reveal ones - only the order changes.
+		expect(result).toEqual([
+			{ participantId: 'alice', total: 5 },
+			{ participantId: 'bob', total: 9 }
+		]);
+	});
+
+	it('treats a participant missing from priorTotals (first Round scored) as 0', () => {
+		const entries = topLeaderboard({ alice: 1, bob: 3 });
+
+		const result = priorRanking(entries, {});
+
+		expect(result.map((e) => e.participantId)).toEqual(['alice', 'bob']);
+	});
+
+	it('breaks ties by participantId, same as topLeaderboard/fullRanking', () => {
+		const entries = topLeaderboard({ zoe: 3, amy: 3 });
+
+		const result = priorRanking(entries, { zoe: 1, amy: 1 });
+
+		expect(result.map((e) => e.participantId)).toEqual(['amy', 'zoe']);
+	});
+});
+
 describe('finishedMessageFor (#50)', () => {
 	it('tells the solo leader they are in the lead', () => {
 		expect(finishedMessageFor('alice', { alice: 10, bob: 4 })).toEqual({ kind: 'lead' });
@@ -105,11 +138,7 @@ const timedOut: ParticipantState = { status: 'timedOut' };
 
 describe('scoreboardRows', () => {
 	it('orders by running total, highest first, falling back to priorTotals pre-close', () => {
-		const result = scoreboardRows(
-			{ alice: pending, bob: pending },
-			{},
-			{ alice: 2, bob: 7 }
-		);
+		const result = scoreboardRows({ alice: pending, bob: pending }, {}, { alice: 2, bob: 7 });
 
 		expect(result).toEqual([
 			{ participantId: 'bob', score: 7, move: null },

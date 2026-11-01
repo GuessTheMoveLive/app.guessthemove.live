@@ -394,7 +394,11 @@ describe('SessionRoom', () => {
 		expect(snapshot.value).toBe('active');
 	});
 
-	it('on Reveal, pushes each Participant a redacted, targeted Guess Group breakdown', async () => {
+	it('on Reveal, every socket gets the closed Round’s scores on the one broadcast snapshot', async () => {
+		// #53 retires #45's separate targeted "guess_groups" push (lost on reconnect) in
+		// favour of every client deriving its own Guess Group breakdown off the same
+		// `context.participants`/`context.scores` the broadcast snapshot already carries —
+		// so there's nothing left here for SessionRoom to compute or redact itself.
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
@@ -406,27 +410,19 @@ describe('SessionRoom', () => {
 			JSON.stringify({ type: 'submit', guess: 'wrong' })
 		);
 		await room.webSocketMessage(bobWs as never, JSON.stringify({ type: 'submit', guess: 'wrong' }));
-		// No Host "share" action — simply entering Reveal delivers the breakdown (#45).
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
 
-		// Alice and Bob guessed the same move, so they share one Guess Group — each sees
-		// both names on their own group.
-		const forAlice = aliceWs.sent
-			.map((raw) => JSON.parse(raw))
-			.find((m) => m.type === 'guess_groups');
-		expect(forAlice).toBeTruthy();
-		const aliceGroup = forAlice.breakdown.groups.find((g: { san: string }) => g.san === 'wrong');
-		expect(aliceGroup.names).toEqual(['alice', 'bob']);
-		expect(aliceGroup.count).toBe(2);
-
-		// The Host's own control socket is never sent a targeted breakdown — it reads the
-		// full view off the broadcast snapshot instead.
-		expect(hostWs.sent.map((raw) => JSON.parse(raw)).some((m) => m.type === 'guess_groups')).toBe(
-			false
-		);
+		for (const ws of [hostWs, aliceWs, bobWs]) {
+			expect(ws.sent.some((raw) => JSON.parse(raw).type === 'guess_groups')).toBe(false);
+			const snapshot = ws.lastSnapshot() as {
+				context: { participants: Record<string, unknown>; scores: Record<string, number> };
+			};
+			expect(Object.keys(snapshot.context.participants)).toEqual(['alice', 'bob']);
+			expect(snapshot.context.scores.alice).toBe(snapshot.context.scores.bob);
+		}
 	});
 
-	it('the Reveal push never leaks another Guess Group’s names to the wrong socket', async () => {
+	it('a Participant reconnecting after Reveal is replayed the same closed-Round scores (#53)', async () => {
 		const { room, ctx, token } = await openRoom();
 		await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
@@ -443,13 +439,19 @@ describe('SessionRoom', () => {
 		);
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
 
-		const forAlice = aliceWs.sent
-			.map((raw) => JSON.parse(raw))
-			.find((m) => m.type === 'guess_groups');
-		const bobsGroup = forAlice.breakdown.groups.find((g: { san: string }) => g.san === 'bobs-move');
-		// Alice sees Bob's group as a bare count, never his name.
-		expect(bobsGroup.count).toBe(1);
-		expect(bobsGroup.names).toBeNull();
+		// Simulate Alice's phone reloading: a brand-new socket, same participantId, with no
+		// memory of the earlier session — the fresh connection alone must be enough to
+		// rebuild her Reveal breakdown.
+		const { ws: reconnectWs } = await join(room, ctx, 'alice');
+
+		const snapshot = reconnectWs.lastSnapshot() as {
+			value: string;
+			context: { participants: Record<string, unknown>; scores: Record<string, number> };
+		};
+		expect(snapshot.value).toBe('reveal');
+		expect(Object.keys(snapshot.context.participants)).toEqual(['alice', 'bob']);
+		expect(snapshot.context.scores).toHaveProperty('alice');
+		expect(snapshot.context.scores).toHaveProperty('bob');
 	});
 
 	it('toggle_leaderboard flips the broadcast flag, Host-only, reset by a new Round (#51)', async () => {
@@ -464,10 +466,7 @@ describe('SessionRoom', () => {
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
 
 		// A Participant's socket can never flip it.
-		await room.webSocketMessage(
-			aliceWs as never,
-			JSON.stringify({ type: 'toggle_leaderboard' })
-		);
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'toggle_leaderboard' }));
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
 
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
@@ -511,9 +510,8 @@ describe('SessionRoom', () => {
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'next_round' }));
 
-			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
-				'guess-history'
-			);
+			const history =
+				await ctx.storage.get<Record<number, Record<string, string>>>('guess-history');
 			expect(history?.[0]).toEqual({ alice: 'e4' });
 		});
 
@@ -524,9 +522,8 @@ describe('SessionRoom', () => {
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
 			await room.alarm();
 
-			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
-				'guess-history'
-			);
+			const history =
+				await ctx.storage.get<Record<number, Record<string, string>>>('guess-history');
 			expect(history?.[0]).toEqual({});
 			expect('alice' in (history?.[0] ?? {})).toBe(false);
 		});
@@ -537,11 +534,13 @@ describe('SessionRoom', () => {
 
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
 			await room.alarm();
-			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'late-e4' }));
-
-			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
-				'guess-history'
+			await room.webSocketMessage(
+				ws as never,
+				JSON.stringify({ type: 'submit', guess: 'late-e4' })
 			);
+
+			const history =
+				await ctx.storage.get<Record<number, Record<string, string>>>('guess-history');
 			expect(history?.[0]).toEqual({ alice: 'late-e4' });
 		});
 
@@ -550,16 +549,21 @@ describe('SessionRoom', () => {
 			const { ws } = await join(room, ctx, 'alice');
 
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
-			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'round-0' }));
+			await room.webSocketMessage(
+				ws as never,
+				JSON.stringify({ type: 'submit', guess: 'round-0' })
+			);
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'next_round' }));
-			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'round-1' }));
+			await room.webSocketMessage(
+				ws as never,
+				JSON.stringify({ type: 'submit', guess: 'round-1' })
+			);
 			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
 
-			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
-				'guess-history'
-			);
+			const history =
+				await ctx.storage.get<Record<number, Record<string, string>>>('guess-history');
 			expect(history?.[0]).toEqual({ alice: 'round-0' });
 			expect(history?.[1]).toEqual({ alice: 'round-1' });
 		});
@@ -598,9 +602,8 @@ describe('SessionRoom', () => {
 			// The fresh Round 0 actor re-derives an (empty) history entry on the very next
 			// persistSnapshot - the Reset's effect is that alice's pre-reset Guess is gone,
 			// not that the key disappears outright.
-			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
-				'guess-history'
-			);
+			const history =
+				await ctx.storage.get<Record<number, Record<string, string>>>('guess-history');
 			expect(history?.[0]).toEqual({});
 			expect(await ctx.storage.get('session-start-time')).toBeUndefined();
 		});

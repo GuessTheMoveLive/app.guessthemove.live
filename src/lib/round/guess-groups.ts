@@ -33,21 +33,26 @@ export interface GuessGroupBreakdown {
 	buckets: ScoreBucket[];
 }
 
-/** A single Guess Group as one Participant's phone is allowed to see it after Share
- *  Guess Groups: names only on that Participant's own group, a bare count on the rest. */
-export interface SharedGuessGroup {
+/** The viewer's own Guess, named back to them, plus anyone else (excluding themselves)
+ *  who submitted that exact same move — the one place a Participant's bucketed view is
+ *  allowed to show a move's notation, since it's always their own (#53). */
+export interface GuessGroupSentence {
+	/** The exact SAN the viewer submitted, or null if they never submitted (timed out). */
 	san: string | null;
-	score: number;
-	count: number;
-	/** Members' names — present only on the recipient's own Guess Group; null on every
-	 *  other group, whose count still shows (the privacy rule applies at the exact-move
-	 *  level, regardless of the chart's coarser buckets). */
-	names: string[] | null;
+	/** Other participants (excluding the viewer) in the same exact Guess Group — empty
+	 *  when the viewer was alone. */
+	others: string[];
 }
 
-export interface SharedGuessGroupBreakdown {
+/** A Participant's redacted, bucketed view of a closed Round's breakdown (#53): the same
+ *  <=7 score buckets as the Host's chart, with no bucket showing a move's notation except
+ *  via `sentence`, which belongs to whichever bucket's score equals `ownScore`. */
+export interface ParticipantScoreBreakdown {
 	buckets: ScoreBucket[];
-	groups: SharedGuessGroup[];
+	/** The Round Score of the viewer's own Guess Group — picks out which bucket carries
+	 *  `sentence` (v1 Round Score == Guess Score, so this is unambiguous). */
+	ownScore: number;
+	sentence: GuessGroupSentence;
 }
 
 /** The SAN a Participant submitted, or null when they never locked in a Guess. */
@@ -107,9 +112,7 @@ export function computeGuessGroupBreakdown(
  * not the "player" wording of the Guess Group list copy.
  */
 export function chartParticipantLabel(count: number): string {
-	return count === 1
-		? m.chart_participants_one({ count })
-		: m.chart_participants_other({ count });
+	return count === 1 ? m.chart_participants_one({ count }) : m.chart_participants_other({ count });
 }
 
 /**
@@ -126,25 +129,25 @@ export function chartPointsLabel(score: number): string {
 }
 
 /**
- * Redact a full breakdown for one Participant's phone (Share Guess Groups, #42):
- * the chart buckets pass through unchanged (just counts, no names), and names
- * survive only on the group that Participant belongs to — every other group is
- * reduced to its count, so no socket ever receives another group's names.
+ * Build one Participant's redacted, bucketed view of a closed Round's breakdown (#53,
+ * replacing #45's exact-move redaction, which leaked every group's SAN even with names
+ * stripped). No bucket here ever carries a move's notation except through `sentence`,
+ * built from the viewer's own exact-match Guess Group (minus themselves) — the one
+ * group whose move is always safe to name back to its own members.
  */
-export function redactBreakdownFor(
+export function bucketedBreakdownFor(
 	breakdown: GuessGroupBreakdown,
 	participantId: string
-): SharedGuessGroupBreakdown {
+): ParticipantScoreBreakdown | null {
+	const ownGroup = breakdown.groups.find((group) => group.participantIds.includes(participantId));
+	if (!ownGroup) return null;
+
 	return {
 		buckets: breakdown.buckets,
-		groups: breakdown.groups.map((group) => {
-			const mine = group.participantIds.includes(participantId);
-			return {
-				san: group.san,
-				score: group.score,
-				count: group.participantIds.length,
-				names: mine ? group.participantIds : null
-			};
-		})
+		ownScore: ownGroup.score,
+		sentence: {
+			san: ownGroup.san,
+			others: ownGroup.participantIds.filter((id) => id !== participantId)
+		}
 	};
 }

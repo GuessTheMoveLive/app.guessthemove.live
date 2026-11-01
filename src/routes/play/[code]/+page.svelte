@@ -20,6 +20,12 @@
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
 	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
+	import {
+		computeGuessGroupBreakdown,
+		bucketedBreakdownFor,
+		chartParticipantLabel
+	} from '#lib/round/guess-groups.js';
+	import { scoreColor } from '#lib/round/score-color.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -86,8 +92,19 @@
 	// The Leaderboard only shows once the Host has toggled it open (#51) — gated on the
 	// broadcast snapshot flag rather than shown unconditionally at every Reveal.
 	const showLeaderboard = $derived(snapshot?.showLeaderboard ?? false);
-	// The Guess Group breakdown only reaches a Participant's phone if the Host shares it.
-	const sharedGroups = $derived(client.sharedGroups);
+	// The redacted, bucketed Guess Group breakdown (#53): derived locally off this
+	// Participant's own closed-Round `participants`/`scores`, already part of every
+	// broadcast snapshot (and replayed on reconnect, unlike #45's one-shot push), rather
+	// than a separate server message. Only shown once Reveal lands — same gating as the
+	// personal `feedback` below.
+	const groupBreakdown = $derived(
+		phase === 'reveal' && snapshot
+			? bucketedBreakdownFor(
+					computeGuessGroupBreakdown(snapshot.context.participants, snapshot.context.scores),
+					me
+				)
+			: null
+	);
 	// The Finished phase's personal message (#50): tells this Participant where they
 	// stand — (tied for) the lead, or the point gap to whoever's immediately above them.
 	const finishedMessage = $derived(
@@ -115,9 +132,7 @@
 	// (#49), the entire remaining real mainline to the game's actual end. Participants see the
 	// same move(s) the Host does, with no live controls. Reuses #43's formatContinuation (it
 	// also covers the single-move case).
-	const opponentSteps = $derived(
-		quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []
-	);
+	const opponentSteps = $derived(quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []);
 	const opponentMove = $derived(
 		opponentSteps.length
 			? formatContinuation(
@@ -143,15 +158,13 @@
 		buildMoveHistory(game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)))
 	);
 
-	// A new Round means a fresh tap — drop any half-made selection, and any shared Guess
-	// Group breakdown from the previous Round, so last Round's breakdown can't linger into
-	// this one. (The Reveal explanation is derived from the current snapshot, so it clears
-	// itself.)
+	// A new Round means a fresh tap — drop any half-made selection. (The Reveal
+	// explanation and Guess Group breakdown are derived from the current snapshot, so
+	// they clear themselves once the Round moves on.)
 	$effect(() => {
 		roundIndex;
 		origin = null;
 		pending = null;
-		client.sharedGroups = null;
 	});
 
 	function tapSquare(square: string) {
@@ -429,44 +442,46 @@
 			</Card.Root>
 		{/if}
 
-		{#if sharedGroups}
+		{#if groupBreakdown}
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>{m.play_guess_groups_title()}</Card.Title>
 				</Card.Header>
 				<Card.Content class="flex flex-col gap-3">
-					<GuessGroupChart buckets={sharedGroups.buckets} highlightScore={myRoundScore} />
+					<GuessGroupChart
+						buckets={groupBreakdown.buckets}
+						highlightScore={groupBreakdown.ownScore}
+					/>
 					<ul class="flex flex-col gap-1.5 text-sm">
-						{#each sharedGroups.groups as group (group.san ?? '\u0000')}
-							{@const isGameMove = group.san != null && group.san === quizStep?.san}
+						{#each groupBreakdown.buckets as bucket (bucket.score)}
+							{@const isOwnBucket = bucket.score === groupBreakdown.ownScore}
+							{@const ownMove = groupBreakdown.sentence.san
+								? formatNumberedMove(groupBreakdown.sentence.san, quizStep?.ply ?? 1)
+								: m.guess_groups_no_move()}
 							<li
 								class="flex flex-col gap-0.5 rounded-lg border px-3 py-1.5"
-								class:border-primary={group.names != null && !isGameMove}
-								class:border-2={isGameMove}
-								class:border-amber-400={isGameMove}
+								class:border-2={bucket.score === 3}
+								class:border-amber-400={bucket.score === 3}
+								style="border-left: 4px solid {scoreColor(bucket.score)};"
 							>
 								<div class="flex items-baseline justify-between gap-2">
-									<span class="font-mono text-base">
-										{group.san
-											? formatNumberedMove(group.san, quizStep?.ply ?? 1)
-											: m.guess_groups_no_move()}
-									</span>
 									<span class="font-mono text-xs text-muted-foreground tabular-nums">
-										{group.score > 0 ? '+' : ''}{group.score}
+										{bucket.score > 0 ? '+' : ''}{bucket.score}
+									</span>
+									<span class="text-xs text-muted-foreground tabular-nums">
+										{chartParticipantLabel(bucket.count)}
 									</span>
 								</div>
-								{#if group.names}
+								{#if isOwnBucket}
 									<span class="text-xs text-muted-foreground">
-										<span class="font-medium text-foreground"
-											>{m.play_guess_groups_your_group()}:</span
-										>
-										{group.names.join(', ')}
-									</span>
-								{:else}
-									<span class="text-xs text-muted-foreground">
-										{group.count === 1
-											? m.guess_group_players_one({ count: group.count })
-											: m.guess_group_players_other({ count: group.count })}
+										{#if groupBreakdown.sentence.others.length}
+											{m.play_guess_group_sentence_others({
+												names: groupBreakdown.sentence.others.join(', '),
+												move: ownMove
+											})}
+										{:else}
+											{m.play_guess_group_sentence_alone({ move: ownMove })}
+										{/if}
 									</span>
 								{/if}
 							</li>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	computeGuessGroupBreakdown,
-	redactBreakdownFor,
+	bucketedBreakdownFor,
 	chartParticipantLabel,
 	chartPointsLabel,
 	type GuessGroupBreakdown
@@ -65,7 +65,7 @@ describe('computeGuessGroupBreakdown', () => {
 	});
 });
 
-describe('redactBreakdownFor', () => {
+describe('bucketedBreakdownFor', () => {
 	const breakdown: GuessGroupBreakdown = {
 		groups: [
 			{ san: 'd4', score: 3, participantIds: ['alice', 'bob'] },
@@ -77,22 +77,31 @@ describe('redactBreakdownFor', () => {
 		]
 	};
 
-	it('keeps names only on the recipient’s own Guess Group', () => {
-		const forAlice = redactBreakdownFor(breakdown, 'alice');
-		expect(forAlice.groups).toEqual([
-			{ san: 'd4', score: 3, count: 2, names: ['alice', 'bob'] },
-			{ san: 'Nf3', score: 1, count: 1, names: null }
-		]);
+	it('passes the score buckets through unchanged — counts only, never a move', () => {
+		expect(bucketedBreakdownFor(breakdown, 'alice')?.buckets).toEqual(breakdown.buckets);
 	});
 
-	it('reduces every other group to a bare count, never its names', () => {
-		const forCarol = redactBreakdownFor(breakdown, 'carol');
-		const otherGroup = forCarol.groups.find((g) => g.san === 'd4');
-		expect(otherGroup).toEqual({ san: 'd4', score: 3, count: 2, names: null });
+	it('reports the Guess-Group sentence for the recipient’s own group, minus themselves', () => {
+		const forAlice = bucketedBreakdownFor(breakdown, 'alice');
+		expect(forAlice?.ownScore).toBe(3);
+		expect(forAlice?.sentence).toEqual({ san: 'd4', others: ['bob'] });
 	});
 
-	it('passes the chart buckets through unchanged (counts only, never names)', () => {
-		expect(redactBreakdownFor(breakdown, 'alice').buckets).toEqual(breakdown.buckets);
+	it('reports an empty others list when the recipient was alone in their group', () => {
+		const forCarol = bucketedBreakdownFor(breakdown, 'carol');
+		expect(forCarol?.ownScore).toBe(1);
+		expect(forCarol?.sentence).toEqual({ san: 'Nf3', others: [] });
+	});
+
+	it('never leaks another group’s move or members into the sentence', () => {
+		const forCarol = bucketedBreakdownFor(breakdown, 'carol');
+		expect(forCarol?.sentence.san).not.toBe('d4');
+		expect(forCarol?.sentence.others).not.toContain('alice');
+		expect(forCarol?.sentence.others).not.toContain('bob');
+	});
+
+	it('returns null for a participant absent from every group', () => {
+		expect(bucketedBreakdownFor(breakdown, 'dave')).toBeNull();
 	});
 });
 

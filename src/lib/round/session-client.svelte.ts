@@ -1,14 +1,5 @@
 import { browser } from '$app/env';
 import type { RoundSnapshot } from './snapshot';
-import type { SharedGuessGroupBreakdown } from './guess-groups';
-
-/** A targeted, per-Participant Guess Groups message (#45) — distinct from the broadcast
- *  RoundSnapshot by its `type` tag, since each recipient's copy is redacted to their own
- *  group's names before it's sent to their socket only. */
-interface GuessGroupsMessage {
-	type: 'guess_groups';
-	breakdown: SharedGuessGroupBreakdown;
-}
 
 // A thin reactive wrapper around the SessionRoom WebSocket (`/api/session/:code`),
 // reusing the transport already smoke-tested in session-room.ts. Holds the latest
@@ -44,12 +35,6 @@ export class SessionClient {
 	/** True once the Host has deleted this Session entirely (#38) — every connection,
 	 *  Host included, sees "This session has ended" rather than just retrying. */
 	ended = $state(false);
-	/** The Guess Group breakdown pushed to this Participant's phone automatically the moment
-	 *  the Round enters Reveal (#45, retiring #42's manual "Share Guess Groups" Host action),
-	 *  redacted so only their own group's names are present. Null until Reveal. Delivered as a
-	 *  targeted message rather than derived from the snapshot (unlike the Round Score and
-	 *  Variant explanation) because each recipient's copy carries only their own group's names. */
-	sharedGroups = $state<SharedGuessGroupBreakdown | null>(null);
 	#ws: WebSocket | null = null;
 
 	connect(options: ConnectOptions): void {
@@ -71,15 +56,7 @@ export class SessionClient {
 			else if (event.code === DELETE_CLOSE_CODE) this.ended = true;
 		});
 		ws.addEventListener('message', (event) => {
-			const data = JSON.parse(event.data as string) as RoundSnapshot | GuessGroupsMessage;
-			// A targeted Share Guess Groups message (#42) carries a `type` tag; the broadcast
-			// snapshot never does. Route each to its own reactive field so a shared-breakdown
-			// push doesn't clobber the live round snapshot.
-			if ('type' in data && data.type === 'guess_groups') {
-				this.sharedGroups = data.breakdown;
-			} else {
-				this.snapshot = data as RoundSnapshot;
-			}
+			this.snapshot = JSON.parse(event.data as string) as RoundSnapshot;
 		});
 	}
 

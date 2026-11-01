@@ -1,7 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { createActor, type Actor, type Snapshot } from 'xstate';
 import { roundMachine, type RoundEvent } from '#lib/round/round-machine.js';
-import { computeGuessGroupBreakdown, redactBreakdownFor } from '#lib/round/guess-groups.js';
 import { recordedGuesses, type GuessHistory } from '#lib/round/guess-history.js';
 import type { RoundSnapshot } from '#lib/round/snapshot.js';
 import { quizSteps } from '#lib/round/game-data.js';
@@ -180,12 +179,12 @@ export class SessionRoom extends DurableObject {
 				}
 				actor.send({ type: 'REVEAL' });
 				await this.ctx.storage.deleteAlarm();
-				// Guess Groups are delivered automatically the moment the Round enters Reveal
-				// (#45, retiring #42's manual "Share Guess Groups" Host action), alongside the
-				// personal Reveal feedback each Participant already derives from the broadcast
-				// snapshot. The Host Display reads the full breakdown off that snapshot; each
-				// Participant gets their own redacted copy pushed here.
-				this.pushGuessGroups(actor);
+				// The Guess Group breakdown is no longer a separate push (#53, retiring #45's
+				// one-shot "guess_groups" message, which a Participant lost on reconnect): every
+				// client already receives `context.participants`/`context.scores` on the broadcast
+				// snapshot below, which survives a reconnect since the actor's persisted snapshot
+				// is replayed on every fresh connection — so each screen derives its own (redacted,
+				// for a Participant) view locally instead of the server pushing a redacted copy.
 				break;
 			}
 			case 'continue': {
@@ -337,32 +336,6 @@ export class SessionRoom extends DurableObject {
 		return tag === HOST_TAG;
 	}
 
-	/**
-	 * Push the closed Round's Guess Group breakdown out to every Participant's phone the
-	 * moment it enters Reveal (#45). The chart is broadcast-shaped (the same <=7 buckets
-	 * for everyone), but names are per-Participant: a recipient sees the members of their
-	 * OWN Guess Group only, every other group as a bare count (GLOSSARY: Guess Group). So
-	 * the full breakdown is redacted per recipient and sent as a targeted message to their
-	 * own socket(s) — never a single broadcast — so no socket ever receives another group's
-	 * names. (The Host Display already shows the full breakdown, every name, off the
-	 * broadcast snapshot; it needs nothing from here.)
-	 */
-	private pushGuessGroups(actor: Actor<typeof roundMachine>): void {
-		const { participants, scores } = actor.getSnapshot().context;
-		const breakdown = computeGuessGroupBreakdown(participants, scores);
-		for (const participantId of Object.keys(participants)) {
-			const redacted = redactBreakdownFor(breakdown, participantId);
-			const serialized = JSON.stringify({ type: 'guess_groups', breakdown: redacted });
-			for (const socket of this.ctx.getWebSockets(participantId)) {
-				try {
-					socket.send(serialized);
-				} catch {
-					// A socket that dropped between getWebSockets() and send() — skip it.
-				}
-			}
-		}
-	}
-
 	private async registerParticipant(participantId: string): Promise<void> {
 		if (this.participantIds.includes(participantId)) return;
 
@@ -438,8 +411,7 @@ export class SessionRoom extends DurableObject {
 			deadline: await this.ctx.storage.getAlarm(),
 			roundIndex: this.roundIndex,
 			totalRounds: quizSteps().length,
-			showLeaderboard:
-				(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false
+			showLeaderboard: (await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false
 		};
 		const serialized = JSON.stringify(payload);
 

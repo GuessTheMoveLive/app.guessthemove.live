@@ -16,7 +16,7 @@ type ClientMessage =
 	| { type: 'back' }
 	| { type: 'finish' }
 	| { type: 'next_round' }
-	| { type: 'toggle_leaderboard' }
+	| { type: 'show_leaderboard' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
 	| { type: 'delete_session' };
@@ -40,10 +40,10 @@ const STORAGE_KEY_ROUND_INDEX = 'round-index';
  *  forward as `priorTotals` into the next Round's actor, since a fresh actor per Round
  *  (see advanceToRound) has no memory of earlier ones. */
 const STORAGE_KEY_TOTALS = 'totals';
-/** Whether the Host currently has the Leaderboard open on the Reveal screen - broadcast
+/** Whether the Host has opened the Leaderboard on the Reveal screen this Round - broadcast
  *  to every client so a Participant's phone only shows the Leaderboard once the Host has
- *  toggled it on (rather than unconditionally at every Reveal). Reset to false whenever a
- *  new Round starts. */
+ *  shown it (rather than unconditionally at every Reveal). One-way for the Round (#55): once
+ *  true it stays true until a new Round starts and resets it back to false. */
 const STORAGE_KEY_SHOW_LEADERBOARD = 'show-leaderboard';
 /** Default visible Round length: 3 minutes (#22), shortenable/extendable by the Host. */
 const ROUND_DURATION_MS = 180_000;
@@ -232,13 +232,12 @@ export class SessionRoom extends DurableObject {
 				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, false);
 				break;
 			}
-			case 'toggle_leaderboard': {
-				// Host-only (#51): flips whether the Leaderboard is shown on the shared
-				// Reveal screen and every Participant's phone.
+			case 'show_leaderboard': {
+				// Host-only (#51, one-way since #55): opens the Leaderboard on the shared
+				// Reveal screen and every Participant's phone. There's no hiding it back once
+				// shown - a repeat message (or a stray one from a Participant) is a no-op.
 				if (!this.isHostSocket(ws)) return;
-				const current =
-					(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false;
-				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, !current);
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, true);
 				break;
 			}
 			case 'kick': {

@@ -454,7 +454,7 @@ describe('SessionRoom', () => {
 		expect(snapshot.context.scores).toHaveProperty('bob');
 	});
 
-	it('toggle_leaderboard flips the broadcast flag, Host-only, reset by a new Round (#51)', async () => {
+	it('show_leaderboard is a one-way, Host-only flag, reset by a new Round (#51, #55)', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
@@ -462,11 +462,15 @@ describe('SessionRoom', () => {
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
 
-		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'toggle_leaderboard' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
 
-		// A Participant's socket can never flip it.
-		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'toggle_leaderboard' }));
+		// A Participant's socket can never trigger it.
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'show_leaderboard' }));
+		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
+
+		// One-way: a repeat Host message doesn't hide it back.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
 
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));

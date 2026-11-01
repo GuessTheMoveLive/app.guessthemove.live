@@ -308,9 +308,11 @@
 					</p>
 					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 				{:else}
-					<Button variant="outline" onclick={() => client.toggleLeaderboard()}>
-						{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
-					</Button>
+					{#if !showLeaderboard}
+						<Button variant="outline" onclick={() => client.showLeaderboard()}>
+							{m.host_show_leaderboard()}
+						</Button>
+					{/if}
 					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 				{/if}
 			</Card.Footer>

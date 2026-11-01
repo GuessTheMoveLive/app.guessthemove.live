@@ -1,5 +1,5 @@
 import type { ParticipantState } from '#lib/round/round-machine.js';
-import { computeTier, scoreFromEval, type AnswerKeyStep, type Tier } from '#lib/round/scoring.js';
+import { computeTier, type AnswerKeyStep, type Tier } from '#lib/round/scoring.js';
 import {
 	sanToGlyph,
 	formatNumberedMove,
@@ -166,17 +166,33 @@ export interface AnswerKeyRow {
 }
 
 /** A row's rank for sorting, before display's +3 override is applied: the move's own
- *  computed Guess Score if known, otherwise the worst possible rank (an unanalyzed
- *  eval can't be placed by strength). */
-function strengthRank(step: AnswerKeyStep, evalPawns: number | null): number {
-	return scoreFromEval(step, evalPawns) ?? -3;
+ *  Evaluation, mirrored into the mover's perspective (#65) - finer-grained than the
+ *  bucketed computed tier, so moves sharing a tier but differing in actual strength
+ *  (e.g. the real Capablanca-Marshall move 5's Ba4/O-O vs the move played, d3, which
+ *  all compute to tier +2) still rank apart instead of being treated as tied. Null
+ *  when the move's own Evaluation is unknown - an unanalyzed eval can't be placed by
+ *  strength, and sorts last via the comparator below. */
+function strengthRank(step: AnswerKeyStep, evalPawns: number | null): number | null {
+	if (evalPawns == null) return null;
+	return step.color === 'w' ? evalPawns : -evalPawns;
+}
+
+/** Descending by rank, unknown-eval rows last, nulls/equal ranks kept in their
+ *  original relative order (Array#sort is stable, ES2019+) - the move's original
+ *  order in the source data (#65's Implementation Decisions). */
+function byRankDescending(a: { rank: number | null }, b: { rank: number | null }): number {
+	if (a.rank == null) return b.rank == null ? 0 : 1;
+	if (b.rank == null) return -1;
+	return b.rank - a.rank;
 }
 
 /**
  * The full answer-key breakdown the Host sees live during the Round (#36): the Featured
  * Side's actual move plus every graded alternative, sorted strongest to weakest by
- * computed tier (#61) - ties kept in their original source order via a stable sort -
- * with the move actually played always displaying +3 (the fixed override, #61) and
+ * win-probability strength (#65) - finer-grained than the bucketed computed tier, so
+ * moves sharing a tier still rank apart by their actual strength - with exact ties kept
+ * in their original source order via a stable sort, and the move actually played always
+ * displaying +3 (the fixed override, #61) and
  * carrying the GM-bonus remark when its own computed tier would otherwise be lower. The
  * answer key is precomputed and server-held (#27) and the Host already knows the
  * Featured Game (#22), so there's no reason to withhold it - it gives the Host talking
@@ -229,9 +245,9 @@ export function answerKeyBreakdown(
 		}))
 	];
 
-	// Array#sort is stable (ES2019+), so moves tied on computed strength keep their
-	// original source order (#61) - the played move first, then alternatives as listed.
-	ranked.sort((a, b) => b.rank - a.rank);
+	// Array#sort is stable (ES2019+), so moves exactly tied on strength keep their
+	// original source order (#65) - the played move first, then alternatives as listed.
+	ranked.sort(byRankDescending);
 	return ranked.map(({ row }) => row);
 }
 

@@ -305,19 +305,51 @@ describe('answerKeyBreakdown', () => {
 		expect(rows[2]).toMatchObject({ san: 'd3', tier: '+3', isGameMove: true });
 	});
 
-	it('keeps tied-strength rows in their original source order (stable sort)', () => {
+	it('keeps exactly-tied-strength rows in their original source order (stable sort)', () => {
 		const tied: AnswerKeyStep = {
 			san: 'played',
 			color: 'w',
 			playedComment: { eval: 2.0 },
 			alternatives: [
-				{ san: 'Zxy', eval: 1.8, continuation: [] }, // loss small => +3, tied with played
-				{ san: 'Abc', eval: 1.9, continuation: [] } // loss small => +3, tied with played
+				{ san: 'Zxy', eval: 1.8, continuation: [] }, // equal to Abc - a genuine tie
+				{ san: 'Abc', eval: 1.8, continuation: [] }
 			]
 		};
 
 		const rows = answerKeyBreakdown(tied, 9);
 		expect(rows.map((r) => r.san)).toEqual(['played', 'Zxy', 'Abc']);
+	});
+
+	it('ranks by win-probability strength, not the bucketed tier, so same-tier moves still separate (#65)', () => {
+		// Zxy and Abc both compute to tier +2 (same bucket as d3 in the sort test above),
+		// but Zxy's eval is closer to the best move's, so it must still outrank Abc.
+		const sameTier: AnswerKeyStep = {
+			san: 'played',
+			color: 'w',
+			playedComment: { eval: 0.0 },
+			alternatives: [
+				{ san: 'Best', eval: 2.0, continuation: [] },
+				{ san: 'Abc', eval: 0.5, continuation: [] },
+				{ san: 'Zxy', eval: 0.8, continuation: [] }
+			]
+		};
+
+		const rows = answerKeyBreakdown(sameTier, 9);
+		const [, abcRow, zxyRow] = [rows[0], rows.find((r) => r.san === 'Abc')!, rows.find((r) => r.san === 'Zxy')!];
+		expect(abcRow.tier).toBe(zxyRow.tier);
+		expect(rows.map((r) => r.san).indexOf('Zxy')).toBeLessThan(rows.map((r) => r.san).indexOf('Abc'));
+	});
+
+	it('sorts a Black-to-move step by the mover-mirrored strength, not raw White-perspective eval', () => {
+		const blackToMove: AnswerKeyStep = {
+			san: 'played',
+			color: 'b',
+			playedComment: { eval: 1.0 }, // bad for Black
+			alternatives: [{ san: 'Better', eval: -1.0, continuation: [] }] // good for Black
+		};
+
+		const rows = answerKeyBreakdown(blackToMove, 9);
+		expect(rows.map((r) => r.san)).toEqual(['Better', 'played']);
 	});
 
 	it('shows the GM-bonus remark, naming the mover, only when the move played is not already +3', () => {
@@ -372,5 +404,21 @@ describe('answerKeyBreakdown', () => {
 		const goldRows = rows.filter((r) => r.isGameMove);
 		expect(goldRows).toHaveLength(1);
 		expect(goldRows[0].san).toBe('Nbd2');
+	});
+
+	it('sorts the real Capablanca-Marshall move 5 by strength, not source order (#65)', () => {
+		// White's move 5 in the actual answer key: 5.d3 was played, but 5.d4, 5.h3 and
+		// 5.Ba4 all compute stronger, and 5.O-O ties d3's computed tier yet is still the
+		// objectively better move - the exact upset the issue was filed against.
+		const step = getAnswerKeyStep(9)!;
+		expect(step.san).toBe('d3');
+
+		const rows = answerKeyBreakdown(step, 9, 'Capablanca', 'Marshall');
+		const sans = rows.map((r) => r.san);
+		const [d4, h3, ba4, oo, d3] = ['d4', 'h3', 'Ba4', 'O-O', 'd3'].map((s) => sans.indexOf(s));
+		expect(d4).toBeLessThan(h3);
+		expect(h3).toBeLessThan(ba4);
+		expect(ba4).toBeLessThan(oo);
+		expect(oo).toBeLessThan(d3);
 	});
 });

@@ -42,7 +42,7 @@
 		Object.fromEntries(
 			entries.map((e) => [
 				e.participantId,
-				priorTotals ? (priorTotals[e.participantId] ?? e.total) : e.total
+				priorTotals ? (priorTotals[e.participantId] ?? 0) : e.total
 			])
 		)
 	);
@@ -68,8 +68,12 @@
 		revealedKey = key;
 
 		const targets = entries.map((e) => [e.participantId, e.total] as const);
+		// A participant missing from `priorTotals` entirely (e.g. every participant, on
+		// Round 1 - `priorTotals` arrives as `{}`, not `{alice: 0, bob: 0, ...}`) came into
+		// this Round at 0, same as the round-machine's own scoring - not at their post-
+		// Reveal total, which would collapse the count-up to nothing.
 		const starts = Object.fromEntries(
-			entries.map((e) => [e.participantId, priorTotals[e.participantId] ?? e.total])
+			entries.map((e) => [e.participantId, priorTotals[e.participantId] ?? 0])
 		);
 		ordered = priorRanking(entries, priorTotals);
 		displayed = Object.fromEntries(targets.map(([id]) => [id, starts[id]]));
@@ -88,7 +92,7 @@
 				const eased = cubicOut(t);
 				const next: Record<string, number> = {};
 				for (const [id, target] of targets) {
-					const start = starts[id] ?? target;
+					const start = starts[id];
 					next[id] = Math.round(start + (target - start) * eased);
 				}
 				displayed = next;

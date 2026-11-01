@@ -13,6 +13,7 @@ import {
 } from './host-view';
 import type { ParticipantState } from '#lib/round/round-machine.js';
 import type { AnswerKeyStep } from '#lib/round/scoring.js';
+import { getAnswerKeyStep } from '#lib/round/game-data.js';
 import { m } from '#lib/paraglide/messages.js';
 
 describe('topLeaderboard', () => {
@@ -354,5 +355,22 @@ describe('answerKeyBreakdown', () => {
 		expect(remark).not.toBeNull();
 		expect(remark).toContain('Marshall');
 		expect(remark).not.toContain('Capablanca');
+	});
+
+	it('gold-borders only the move actually played, even when real game data shares its tier across several rows (#62)', () => {
+		// White's move 6 in the actual Capablanca-Marshall answer key: 6.Nbd2 was
+		// played, but 6.h3, 6.O-O, 6.Ba4, 6.d4, 6.a3 and 6.Be3 all also compute to
+		// +3 - exactly the ambiguous case #62 was filed against.
+		const step = getAnswerKeyStep(11)!;
+		expect(step.san).toBe('Nbd2');
+
+		const rows = answerKeyBreakdown(step, 11, 'Capablanca', 'Marshall');
+		const plusThreeSans = rows.filter((r) => r.tier === '+3').map((r) => r.san);
+		expect(plusThreeSans).toEqual(expect.arrayContaining(['h3', 'O-O', 'Nbd2']));
+		expect(plusThreeSans.length).toBeGreaterThan(1);
+
+		const goldRows = rows.filter((r) => r.isGameMove);
+		expect(goldRows).toHaveLength(1);
+		expect(goldRows[0].san).toBe('Nbd2');
 	});
 });

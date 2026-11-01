@@ -94,26 +94,34 @@ function blunderScoreFromLoss(loss: number): number {
  * replacing the hand-typed PGN tier label. Null when the Evaluation, or every
  * Evaluation at this position, is unknown — there's nothing to band.
  */
-export function computeTier(step: AnswerKeyStep, evalPawns: number | null): Tier | null {
-	if (evalPawns == null) return null;
+/** This Evaluation's win-probability-loss against {@link bestWinPercent} — the
+ *  shared computation {@link computeTier} and {@link scoreFromEval} both band.
+ *  Null when the Evaluation, or every Evaluation at this position, is unknown. */
+function lossFromBest(step: AnswerKeyStep, evalPawns: number): number | null {
 	const best = bestWinPercent(step);
 	if (best == null) return null;
-	return tierFromLoss(best - winPercentForMover(evalPawns, step.color));
+	return best - winPercentForMover(evalPawns, step.color);
+}
+
+export function computeTier(step: AnswerKeyStep, evalPawns: number | null): Tier | null {
+	if (evalPawns == null) return null;
+	const loss = lossFromBest(step, evalPawns);
+	if (loss == null) return null;
+	return tierFromLoss(loss);
 }
 
 /**
  * The -3..+3 Guess Score a single Evaluation earns at this position, from its
- * computed tier (#61) — the graded-alternative half of {@link scoreGuess}, also
- * used by the Answer Key display to rank alternatives and by Reveal feedback to
- * classify a Guess. Null when there's no Evaluation to compute from.
+ * computed tier (#61) — the graded-alternative half of {@link scoreGuess}, its
+ * only caller. Null when there's no Evaluation to compute from.
  */
 export function scoreFromEval(step: AnswerKeyStep, evalPawns: number | null): number | null {
-	const tier = computeTier(step, evalPawns);
-	if (tier == null) return null;
+	if (evalPawns == null) return null;
+	const loss = lossFromBest(step, evalPawns);
+	if (loss == null) return null;
+	const tier = tierFromLoss(loss);
 	if (tier !== 'blunder') return TIER_POINTS[tier];
-	const best = bestWinPercent(step);
-	// tier is only 'blunder' once bestWinPercent and evalPawns are both known.
-	return blunderScoreFromLoss(best! - winPercentForMover(evalPawns!, step.color));
+	return blunderScoreFromLoss(loss);
 }
 
 /**

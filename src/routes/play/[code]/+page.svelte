@@ -201,6 +201,9 @@
 		<h1 class="text-xl font-semibold">{m.app_title()}</h1>
 		<p class="text-xs text-muted-foreground">
 			{m.room_label()} <span class="font-mono tracking-widest">{code}</span>
+			{#if totalRounds > 0}
+				· {m.round_x_of_y({ current: roundIndex + 1, total: totalRounds })}
+			{/if}
 		</p>
 	</header>
 

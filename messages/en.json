@@ -9,7 +9,7 @@
 	"room_label": "Room",
 	"status_live": "live",
 	"status_connecting": "connecting…",
-	"round_x_of_y": "Guess {current} of {total}",
+	"round_x_of_y": "Move {current} of {total}",
 	"locale_label": "Language",
 	"session_ended_title": "This session has ended",
 	"host_session_ended_desc": "The Session was deleted. Its Room Code is now free to reuse.",

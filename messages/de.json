@@ -9,7 +9,7 @@
 	"room_label": "Raum",
 	"status_live": "live",
 	"status_connecting": "verbinde…",
-	"round_x_of_y": "Tipp {current} von {total}",
+	"round_x_of_y": "Zug {current} von {total}",
 	"locale_label": "Sprache",
 	"session_ended_title": "Diese Sitzung ist beendet",
 	"host_session_ended_desc": "Die Sitzung wurde gelöscht. Ihr Raumcode ist jetzt wieder frei.",

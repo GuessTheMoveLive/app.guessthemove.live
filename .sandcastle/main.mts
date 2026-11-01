@@ -10,7 +10,19 @@ await run({
   name: "worker",
 
   // Sandbox provider — runs the agent inside an isolated container.
-  sandbox: docker(),
+  //
+  // `mounts` persist node_modules and the npm cache on the host across
+  // iterations/runs (each iteration otherwise gets a fresh worktree with no
+  // node_modules, so `npm install` was re-fetching everything from scratch
+  // every time — ~230s/iteration measured, pure overhead). The Docker build
+  // context is `.sandcastle/` only, so baking `npm ci` into the image itself
+  // isn't an option here — a host-side cache mount is.
+  sandbox: docker({
+    mounts: [
+      { hostPath: "./.sandcastle/.cache/node_modules", sandboxPath: "node_modules" },
+      { hostPath: "./.sandcastle/.cache/npm", sandboxPath: "~/.npm" },
+    ],
+  }),
 
   // The agent provider. Pass a model string to claudeCode() — sonnet balances
   // capability and speed for most tasks. Switch to claude-opus-4-8 for harder
@@ -37,7 +49,8 @@ await run({
     sandbox: {
       // onSandboxReady runs once after the sandbox is initialised and the repo is
       // synced in, before the agent starts. Use it to install dependencies or run
-      // any other setup steps your project needs.
+      // any other setup steps your project needs. With node_modules/npm-cache
+      // mounted above, this is an incremental install after the first run.
       onSandboxReady: [{ command: "npm install", timeoutMs: 300_000 }],
     },
   },

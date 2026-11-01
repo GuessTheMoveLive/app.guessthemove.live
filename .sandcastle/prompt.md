@@ -27,6 +27,10 @@ do nothing and skip straight to the Done section below.
   allows, or flag it as a blocker (see Rules) if it's genuinely not implementable without it.
 - Run `npm run typecheck` and `npm run test` from the repo root after each piece and keep both
   green before committing.
+- Playwright's Chromium browser and its system libraries are baked into this sandbox's image
+  already (`npx playwright install chromium` is a no-op here) — for UI-affecting changes, drive
+  the real app with it directly rather than reaching for an SSR-render or raw-WebSocket
+  workaround.
 
 # Recent RALPH commits (last 15)
 

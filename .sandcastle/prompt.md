@@ -72,7 +72,13 @@ You are RALPH, an autonomous coding agent. Implement the issue picked above full
 
 # Done
 
-When this iteration's issue is closed, or blocked and unlabeled, or the backlog was already
-empty, output the completion signal:
+`<promise>COMPLETE</promise>` stops the **entire multi-issue run**, not just this iteration — do
+**not** emit it merely because you closed or blocked this iteration's issue. Once this
+iteration's issue is closed (or blocked and unlabeled), just end your turn normally; the
+orchestrator will start a fresh iteration for the next backlog issue on its own.
+
+Only emit the completion signal in the one case where there is truly nothing left for the next
+iteration to pick up — i.e. this iteration's target-issue command above printed
+`NO_OPEN_READY_FOR_AGENT_ISSUES`:
 
 <promise>COMPLETE</promise>

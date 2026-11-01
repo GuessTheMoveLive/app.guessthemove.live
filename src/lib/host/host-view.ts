@@ -1,10 +1,11 @@
 import type { ParticipantState } from '#lib/round/round-machine.js';
-import type { AnswerKeyStep, Tier } from '#lib/round/scoring.js';
+import { computeTier, scoreFromEval, type AnswerKeyStep, type Tier } from '#lib/round/scoring.js';
 import {
 	sanToGlyph,
 	formatNumberedMove,
 	formatContinuation
 } from '#lib/round/participant-input.js';
+import { m } from '#lib/paraglide/messages.js';
 
 // Pure derivations for the v1 Host control screen (#34). The Host screen consumes
 // the broadcast round snapshot from SessionRoom. Per #35, the non-playing
@@ -155,36 +156,83 @@ export interface AnswerKeyRow {
 	/** The continuation Variant, glyph-rendered and numbered the same way as the
 	 *  Participant's Continuation (#43/#51); empty for the move played. */
 	continuation: string;
+	/** True only for the row whose SAN is the Featured Side's actual move - the one
+	 *  the Answer Key's gold border keys off (#61), never any other row that happens
+	 *  to also compute to tier +3. */
+	isGameMove: boolean;
+	/** The GM-bonus remark (#61), shown only on the game-move row, only when its own
+	 *  computed tier is below +3 - explains why it still displays and scores +3. */
+	remark: string | null;
+}
+
+/** A row's rank for sorting, before display's +3 override is applied: the move's own
+ *  computed Guess Score if known, otherwise the worst possible rank (an unanalyzed
+ *  eval can't be placed by strength). */
+function strengthRank(step: AnswerKeyStep, evalPawns: number | null): number {
+	return scoreFromEval(step, evalPawns) ?? -3;
 }
 
 /**
- * The full answer-key breakdown the Host sees live during the Round (#36): the move
- * actually played first (always the +3 best), then every graded alternative with its
- * tier, eval and continuation Variant. The answer key is precomputed and server-held
- * (#27) and the Host already knows the Featured Game (#22), so there's no reason to
- * withhold it - it gives the Host talking points before anyone's even submitted. Every
- * move and the continuation Variant are numbered the same way as the Participant's own
- * Continuation (#51), not shown as loose SANs. All move text is glyph-rendered; chess
- * notation itself is never translated.
+ * The full answer-key breakdown the Host sees live during the Round (#36): the Featured
+ * Side's actual move plus every graded alternative, sorted strongest to weakest by
+ * computed tier (#61) - ties kept in their original source order via a stable sort -
+ * with the move actually played always displaying +3 (the fixed override, #61) and
+ * carrying the GM-bonus remark when its own computed tier would otherwise be lower. The
+ * answer key is precomputed and server-held (#27) and the Host already knows the
+ * Featured Game (#22), so there's no reason to withhold it - it gives the Host talking
+ * points before anyone's even submitted. Every move and the continuation Variant are
+ * numbered the same way as the Participant's own Continuation (#51), not shown as loose
+ * SANs. All move text is glyph-rendered; chess notation itself is never translated.
  */
-export function answerKeyBreakdown(step: AnswerKeyStep | null, ply: number): AnswerKeyRow[] {
+export function answerKeyBreakdown(
+	step: AnswerKeyStep | null,
+	ply: number,
+	whiteName: string | null = null,
+	blackName: string | null = null
+): AnswerKeyRow[] {
 	if (!step) return [];
-	return [
+
+	const playedEval = step.playedComment?.eval ?? null;
+	const playedTier = computeTier(step, playedEval);
+	const moverName = step.color === 'w' ? whiteName : blackName;
+	const remark =
+		playedTier != null && playedTier !== '+3'
+			? moverName
+				? m.host_answer_key_gm_remark_named({ tier: playedTier, name: moverName })
+				: m.host_answer_key_gm_remark_generic({ tier: playedTier })
+			: null;
+
+	const ranked = [
 		{
-			san: step.san,
-			glyph: formatNumberedMove(step.san, ply),
-			tier: '+3',
-			eval: step.playedComment?.eval ?? null,
-			continuation: ''
+			rank: strengthRank(step, playedEval),
+			row: {
+				san: step.san,
+				glyph: formatNumberedMove(step.san, ply),
+				tier: '+3' as Tier,
+				eval: playedEval,
+				continuation: '',
+				isGameMove: true,
+				remark
+			}
 		},
 		...step.alternatives.map((alt) => ({
-			san: alt.san,
-			glyph: formatNumberedMove(alt.san, ply),
-			tier: alt.tier,
-			eval: alt.eval,
-			continuation: alt.continuation.length ? formatContinuation(alt.continuation, ply + 1) : ''
+			rank: strengthRank(step, alt.eval),
+			row: {
+				san: alt.san,
+				glyph: formatNumberedMove(alt.san, ply),
+				tier: computeTier(step, alt.eval) ?? ('0' as Tier),
+				eval: alt.eval,
+				continuation: alt.continuation.length ? formatContinuation(alt.continuation, ply + 1) : '',
+				isGameMove: alt.san === step.san,
+				remark: null
+			}
 		}))
 	];
+
+	// Array#sort is stable (ES2019+), so moves tied on computed strength keep their
+	// original source order (#61) - the played move first, then alternatives as listed.
+	ranked.sort((a, b) => b.rank - a.rank);
+	return ranked.map(({ row }) => row);
 }
 
 /** Milliseconds left on the Round clock, floored at 0; 0 when no Round is running. */

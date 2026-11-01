@@ -19,10 +19,12 @@ function actorWithInput(input: RoundInput) {
 
 const answerKey: AnswerKeyStep = {
 	san: 'd4',
+	color: 'w',
 	playedComment: { eval: 0.85 },
 	alternatives: [
-		{ san: 'h3', tier: '+2', eval: 0.64, continuation: [] },
-		{ san: 'Nd4', tier: 'blunder', eval: -9.13, continuation: [] }
+		// Computed tier (#61): win-probability-loss ~3.6 => +2.
+		{ san: 'h3', eval: 0.45, continuation: [] },
+		{ san: 'Nd4', eval: -9.13, continuation: [] }
 	]
 };
 

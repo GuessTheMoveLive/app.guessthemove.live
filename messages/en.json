@@ -108,5 +108,7 @@
 	"finished_tied_lead": "You're tied for the lead!",
 	"finished_behind": "You are {points} points behind {name}",
 	"play_download_pgn": "Download my PGN",
-	"host_download_pgn": "Download PGN"
+	"host_download_pgn": "Download PGN",
+	"host_answer_key_gm_remark_named": "This would usually be {tier}, but since {name} played it, it's +3.",
+	"host_answer_key_gm_remark_generic": "This would usually be {tier}, but since this is the move actually played, it's +3."
 }

@@ -506,8 +506,9 @@
 								: m.guess_groups_no_move()}
 							<li
 								class="flex flex-col gap-0.5 rounded-lg border px-3 py-1.5"
-								class:border-2={bucket.score === 3}
-								class:border-amber-400={bucket.score === 3}
+								class:ring-2={isOwnBucket}
+								class:ring-primary={isOwnBucket}
+								class:ring-offset-1={isOwnBucket}
 								style="border-left: 4px solid {scoreColor(bucket.score)};"
 							>
 								<div class="flex items-baseline justify-between gap-2">

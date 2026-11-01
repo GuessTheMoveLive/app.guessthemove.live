@@ -1,0 +1,14 @@
+# Compute Guess Score tiers from win-probability-loss, not hand-typed PGN labels
+
+**Status**: accepted
+
+Every alternative move in a Featured Game's answer-key PGN used to carry a hand-typed tier token (`+3`/`+2`/`+1`/`0`/`blunder`) as the first field of its comment, authored by whoever ran the engine analysis. Nothing checked that label against the move's own Evaluation, so two problems fell out in practice: multiple alternatives (and the move actually played) could independently be hand-typed `+3`, with no way to tell which row the Answer Key's gold border should single out; and the label could simply be wrong relative to the Evaluation sitting right next to it in the same comment, producing a score that looked arbitrary next to the position it was supposedly describing. We decided to retire the hand-typed label as a scoring input entirely and compute the tier algorithmically from each move's Evaluation, via win-probability-loss bands against the strongest graded move at that position — the computation `GLOSSARY.md`'s "Guess Score" entry already described, but that the implementation had never actually carried out.
+
+## Considered Options
+
+- **Flat pawn-eval-diff thresholds** (what the single-player prototype's `blunderPenalty` used for the blunder ramp specifically): simpler to compute, but a fixed pawn gap means wildly different things depending on how decided the position already is — a 2-pawn gap matters enormously near equality and almost nothing once one side is already winning comfortably. Rejected because it wouldn't score consistently across the very different eval magnitudes a Featured Game passes through, and because `GLOSSARY.md` already committed the project to a win-probability-based definition.
+- **Win-probability-loss bands** (chosen): converts each Evaluation to a mover-relative win-probability via the standard logistic curve, then bands the loss against the position's best graded move. Scores comparably whether the position is close or already decided, and gives every alternative's tier a single, checkable derivation from the same Evaluation number already sitting in the data — nothing left to hand-type or get out of sync.
+
+## Consequences
+
+The hand-typed tier token in each PGN's alternative comments is no longer read by anything (the build script may keep parsing it as inert annotation, or drop it — either way it has no behavioral effect). The Featured Side's actual move keeps a deliberate, fixed +3 override on top of the computed system — regardless of its own computed tier, guessing the move actually played always scores the maximum, with an inline remark on the Answer Key explaining when and why that override kicks in. A future author adding a new Featured Game never hand-types a tier again; the only required input is the Evaluation itself.

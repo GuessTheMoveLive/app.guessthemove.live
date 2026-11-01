@@ -1,5 +1,5 @@
 import type { ParticipantState } from './round-machine';
-import type { AnswerKeyStep } from './scoring';
+import { computeTier, type AnswerKeyStep } from './scoring';
 import { m } from '#lib/paraglide/messages.js';
 
 // Per-Participant Reveal explanation: each Participant's Round Score, whether their
@@ -184,10 +184,15 @@ export function buildParticipantFeedback(
 
 	const variant: FeedbackVariant = { continuation: alt.continuation, endEval: alt.eval };
 	const phrase = phraseFor(alt.eval);
-	if (alt.tier === 'blunder') {
+	// #61: the tier label comes from the same computed win-probability-loss bands
+	// scoring.ts uses to award the score, not a separately hand-typed PGN tier - so
+	// the two can never drift out of sync.
+	const computedTier = computeTier(step, alt.eval);
+	if (computedTier === 'blunder') {
 		return { tier: blunderTier(score), score, ply, playedSan: step.san, guessSan, variant, phrase };
 	}
-	const tier: FeedbackTier = alt.tier === '0' ? 'playable' : 'alternative';
+	const tier: FeedbackTier =
+		computedTier == null || computedTier === '0' ? 'playable' : 'alternative';
 	return { tier, score, ply, playedSan: step.san, guessSan, variant, phrase };
 }
 

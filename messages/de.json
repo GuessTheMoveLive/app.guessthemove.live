@@ -108,5 +108,7 @@
 	"finished_tied_lead": "Du liegst punktgleich an der Spitze!",
 	"finished_behind": "Du liegst {points} Punkte hinter {name}",
 	"play_download_pgn": "Meine PGN herunterladen",
-	"host_download_pgn": "PGN herunterladen"
+	"host_download_pgn": "PGN herunterladen",
+	"host_answer_key_gm_remark_named": "Das wäre normalerweise {tier}, aber da {name} diesen Zug gespielt hat, zählt er als +3.",
+	"host_answer_key_gm_remark_generic": "Das wäre normalerweise {tier}, aber da dies der tatsächlich gespielte Zug ist, zählt er als +3."
 }

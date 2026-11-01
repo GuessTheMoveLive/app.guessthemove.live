@@ -24,7 +24,7 @@ function step(partial: Partial<GameStep> & { ply: number; san: string }): GameSt
 }
 
 function alt(partial: Partial<AnswerKeyAlternative> & { san: string }): AnswerKeyAlternative {
-	return { tier: '0', eval: null, continuation: [], ...partial };
+	return { eval: null, continuation: [], ...partial };
 }
 
 const STANDARD_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';

@@ -3,9 +3,7 @@ import { buildGameSheet } from './game-sheet';
 import type { GameStep } from './game-data';
 import type { AnswerKeyAlternative } from './scoring';
 
-function step(
-	partial: Partial<GameStep> & { ply: number; san: string }
-): GameStep {
+function step(partial: Partial<GameStep> & { ply: number; san: string }): GameStep {
 	return {
 		color: partial.ply % 2 === 1 ? 'w' : 'b',
 		fenBefore: '',
@@ -18,7 +16,7 @@ function step(
 }
 
 function alt(partial: Partial<AnswerKeyAlternative> & { san: string }): AnswerKeyAlternative {
-	return { tier: '0', eval: null, continuation: [], ...partial };
+	return { eval: null, continuation: [], ...partial };
 }
 
 describe('buildGameSheet (#58: per-move Guess/points decoration)', () => {
@@ -34,10 +32,12 @@ describe('buildGameSheet (#58: per-move Guess/points decoration)', () => {
 	});
 
 	it('shows the Guess (glyph-rendered) when it differs from the move played', () => {
+		// e4 (+1.00, the best move) vs Nf3 (+0.40): win-probability-loss ~5.4 => tier +1 (#61).
 		const quiz = step({
 			ply: 1,
 			san: 'e4',
-			alternatives: [alt({ san: 'Nf3', tier: '+1' })]
+			playedComment: { eval: 1.0 },
+			alternatives: [alt({ san: 'Nf3', eval: 0.4 })]
 		});
 		const rows = buildGameSheet([quiz], { 0: { alice: 'Nf3' } }, 'alice');
 		expect(rows[0].white).toEqual({ san: 'e4', guess: { text: '♞f3', points: 1 } });
@@ -50,11 +50,13 @@ describe('buildGameSheet (#58: per-move Guess/points decoration)', () => {
 	});
 
 	it('scores a listed blunder alternative using the graduated penalty', () => {
+		// e4 (+1.00, the best move) vs g4 (-1.80): win-probability-loss ~25 => blunder
+		// score -1 (#61's graduated ramp).
 		const quiz = step({
 			ply: 1,
 			san: 'e4',
-			playedComment: { eval: 46 },
-			alternatives: [alt({ san: 'g4', tier: 'blunder', eval: 40 })]
+			playedComment: { eval: 1.0 },
+			alternatives: [alt({ san: 'g4', eval: -1.8 })]
 		});
 		const rows = buildGameSheet([quiz], { 0: { alice: 'g4' } }, 'alice');
 		expect(rows[0].white?.guess).toEqual({ text: 'g4', points: -1 });
@@ -66,11 +68,7 @@ describe('buildGameSheet (#58: per-move Guess/points decoration)', () => {
 			step({ ply: 2, san: 'e5' }), // opponent reply, ungraded
 			step({ ply: 3, san: 'Nf3', alternatives: [alt({ san: 'Bc4' })] }) // Round 1 (White)
 		];
-		const rows = buildGameSheet(
-			steps,
-			{ 0: { alice: 'd4' }, 1: { alice: 'Bc4' } },
-			'alice'
-		);
+		const rows = buildGameSheet(steps, { 0: { alice: 'd4' }, 1: { alice: 'Bc4' } }, 'alice');
 
 		expect(rows).toEqual([
 			{

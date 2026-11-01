@@ -138,7 +138,14 @@
 				)
 			: null
 	);
-	const breakdown = $derived(answerKeyBreakdown(quizStep ?? null, quizStep?.ply ?? 1));
+	const breakdown = $derived(
+		answerKeyBreakdown(
+			quizStep ?? null,
+			quizStep?.ply ?? 1,
+			game.headers.White ?? null,
+			game.headers.Black ?? null
+		)
+	);
 	// The full Guess Group breakdown (#42): the Host Display shows every Guess Group and
 	// every name automatically at Reveal — no action needed. Reads off the broadcast
 	// snapshot's scores, populated once the Round closes.
@@ -447,11 +454,10 @@
 			<Card.Content>
 				<ol class="flex flex-col gap-1.5 text-sm">
 					{#each breakdown as row (row.san)}
-						{@const isGameMove = row.tier === '+3'}
 						<li
 							class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2"
-							class:border-2={isGameMove}
-							class:border-amber-400={isGameMove}
+							class:border-2={row.isGameMove}
+							class:border-amber-400={row.isGameMove}
 						>
 							<span class="w-16 shrink-0 font-mono font-medium tabular-nums">{row.tier}</span>
 							<span class="font-mono text-base">{row.glyph}</span>
@@ -463,6 +469,11 @@
 							{#if row.continuation}
 								<span class="w-full font-mono text-xs text-muted-foreground">
 									{row.continuation}
+								</span>
+							{/if}
+							{#if row.remark}
+								<span class="w-full text-xs text-muted-foreground italic">
+									{row.remark}
 								</span>
 							{/if}
 						</li>

@@ -71,7 +71,7 @@ _Avoid_: Eval, evaluation (reserve those for the engine's computed Evaluation, n
 The engine's own computed assessment of a position or move, produced live and on demand. Distinct from a Participant's Assessment Symbol, which is compared against it for credit.
 
 **Guess Score**:
-The -3..+3 points a Guess earns, from win-probability-loss bands computed against the Evaluation of the Featured Side's actual move.
+The -3..+3 points a Guess earns, from win-probability-loss bands computed against the Evaluation of the best graded move at that position (the Featured Side's actual move and every listed alternative). A move's Evaluation converts to a mover-relative win-probability via `winPercent = 50 + 50 × (2 / (1 + e^(−0.00368 × centipawns)) − 1)`; `loss` is the best win-probability minus the guessed move's own. Bands: `loss ≤ 2` → `+3`, `≤ 5` → `+2`, `≤ 10` → `+1`, `≤ 20` → `0`, otherwise a blunder, itself graduated by the same `loss`: `≤ 35` → `-1`, `≤ 50` → `-2`, otherwise `-3`. The Featured Side's actual move is a fixed exception: it always scores +3 regardless of its own computed band, since the point of the format is "did you guess what was actually played."
 
 **Soundness Bonus**:
 +0.5 earned by an Analysis Tree node beyond the Guess itself — the Guess's own root is never scored for Soundness, since Guess Score already covers it — whose win-probability loss against the best available reply stays under the blunder cutoff (see Accuracy Score). A Wildcard Reply earns no Soundness Bonus of its own, having no specific move to check; only Anticipated Reply nodes do.

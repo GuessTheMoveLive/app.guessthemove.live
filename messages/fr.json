@@ -108,5 +108,7 @@
 	"finished_tied_lead": "Tu es à égalité en tête !",
 	"finished_behind": "Tu as {points} points de retard sur {name}",
 	"play_download_pgn": "Télécharger mon PGN",
-	"host_download_pgn": "Télécharger le PGN"
+	"host_download_pgn": "Télécharger le PGN",
+	"host_answer_key_gm_remark_named": "Ce serait normalement {tier}, mais comme {name} a joué ce coup, c'est +3.",
+	"host_answer_key_gm_remark_generic": "Ce serait normalement {tier}, mais comme il s'agit du coup réellement joué, c'est +3."
 }

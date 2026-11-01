@@ -13,6 +13,7 @@ import {
 } from './host-view';
 import type { ParticipantState } from '#lib/round/round-machine.js';
 import type { AnswerKeyStep } from '#lib/round/scoring.js';
+import { m } from '#lib/paraglide/messages.js';
 
 describe('topLeaderboard', () => {
 	it('returns participants ordered by running total, highest first', () => {
@@ -234,40 +235,124 @@ describe('formatCountdown', () => {
 });
 
 describe('answerKeyBreakdown', () => {
+	// Nf3 (+0.85) is the strongest move here (loss 0 => its own computed tier is
+	// already +3), so no GM-bonus remark is expected on its row (#61).
 	const step: AnswerKeyStep = {
 		san: 'Nf3',
+		color: 'w',
 		playedComment: { eval: 0.85 },
 		alternatives: [
-			{ san: 'Bb5', tier: '+2', eval: 0.64, continuation: ['a6', 'Bxc6'] },
-			{ san: 'Qd4', tier: 'blunder', eval: -9.13, continuation: [] }
+			{ san: 'Bb5', eval: 0.64, continuation: ['a6', 'Bxc6'] }, // loss ~1.9 => +3
+			{ san: 'Qd4', eval: -9.13, continuation: [] } // loss ~54.4 => blunder
 		]
 	};
 
-	it('renders the played move first, numbered and glyph-rendered, flagged as the best', () => {
+	it('renders the played move first, numbered and glyph-rendered, flagged as the best, with no remark', () => {
 		const rows = answerKeyBreakdown(step, 9);
 		expect(rows[0]).toEqual({
 			san: 'Nf3',
 			glyph: '5.♞f3',
 			tier: '+3',
 			eval: 0.85,
-			continuation: ''
+			continuation: '',
+			isGameMove: true,
+			remark: null
 		});
 	});
 
-	it('renders each alternative with its tier, eval and a numbered, glyph-rendered continuation', () => {
+	it('renders each alternative with its computed tier, eval and a numbered, glyph-rendered continuation', () => {
 		const rows = answerKeyBreakdown(step, 9);
+		// Bb5 computes to +3 too (it's nearly as strong as the move played), but
+		// isGameMove is keyed on SAN identity with the move played, never on tier (#61)
+		// - so it is never flagged even though it shares the same +3 label.
 		expect(rows[1]).toEqual({
 			san: 'Bb5',
 			glyph: '5.♝b5',
-			tier: '+2',
+			tier: '+3',
 			eval: 0.64,
-			continuation: '5...a6 6.♝xc6'
+			continuation: '5...a6 6.♝xc6',
+			isGameMove: false,
+			remark: null
 		});
 		expect(rows[2].tier).toBe('blunder');
 		expect(rows[2].continuation).toBe('');
+		expect(rows[2].isGameMove).toBe(false);
 	});
 
 	it('is empty for a Round with no answer key', () => {
 		expect(answerKeyBreakdown(null, 9)).toEqual([]);
+	});
+
+	it('sorts by computed strength descending, moving the move played out of first place when it was not objectively best', () => {
+		// d3 (played, eval 0.00) is weaker than both d4 and h3 - mirrors the issue's
+		// own Capablanca-Marshall move 5 example (#61).
+		const upset: AnswerKeyStep = {
+			san: 'd3',
+			color: 'w',
+			playedComment: { eval: 0.0 },
+			alternatives: [
+				{ san: 'd4', eval: 2.0, continuation: [] }, // loss 0 => +3
+				{ san: 'h3', eval: 1.41, continuation: [] }, // loss ~4.9 => +2
+				{ san: 'Ba4', eval: -4.21, continuation: [] } // loss ~50.1 => blunder (-3)
+			]
+		};
+
+		const rows = answerKeyBreakdown(upset, 9);
+		expect(rows.map((r) => r.san)).toEqual(['d4', 'h3', 'd3', 'Ba4']);
+		// The move played still displays and is flagged as the fixed +3, even sorted
+		// below stronger alternatives.
+		expect(rows[2]).toMatchObject({ san: 'd3', tier: '+3', isGameMove: true });
+	});
+
+	it('keeps tied-strength rows in their original source order (stable sort)', () => {
+		const tied: AnswerKeyStep = {
+			san: 'played',
+			color: 'w',
+			playedComment: { eval: 2.0 },
+			alternatives: [
+				{ san: 'Zxy', eval: 1.8, continuation: [] }, // loss small => +3, tied with played
+				{ san: 'Abc', eval: 1.9, continuation: [] } // loss small => +3, tied with played
+			]
+		};
+
+		const rows = answerKeyBreakdown(tied, 9);
+		expect(rows.map((r) => r.san)).toEqual(['played', 'Zxy', 'Abc']);
+	});
+
+	it('shows the GM-bonus remark, naming the mover, only when the move played is not already +3', () => {
+		const upset: AnswerKeyStep = {
+			san: 'd3',
+			color: 'w',
+			playedComment: { eval: 0.0 }, // computed tier '0' (loss ~17.6 against d4's best)
+			alternatives: [{ san: 'd4', eval: 2.0, continuation: [] }]
+		};
+
+		const named = answerKeyBreakdown(upset, 9, 'Capablanca', 'Marshall');
+		expect(named.find((r) => r.san === 'd3')?.remark).toBe(
+			m.host_answer_key_gm_remark_named({ tier: '0', name: 'Capablanca' })
+		);
+
+		const unnamed = answerKeyBreakdown(upset, 9, null, null);
+		expect(unnamed.find((r) => r.san === 'd3')?.remark).toBe(
+			m.host_answer_key_gm_remark_generic({ tier: '0' })
+		);
+
+		// Never on an alternative's own row.
+		expect(named.find((r) => r.san === 'd4')?.remark).toBeNull();
+	});
+
+	it("resolves the remark name to the mover's own colour, not always White", () => {
+		const blackToMove: AnswerKeyStep = {
+			san: 'Qd7',
+			color: 'b',
+			playedComment: { eval: 2.0 }, // bad for the Black mover (White-perspective eval)
+			alternatives: [{ san: 'Qd8', eval: -2.0, continuation: [] }] // much better for Black
+		};
+
+		const rows = answerKeyBreakdown(blackToMove, 9, 'Capablanca', 'Marshall');
+		const remark = rows.find((r) => r.san === 'Qd7')?.remark;
+		expect(remark).not.toBeNull();
+		expect(remark).toContain('Marshall');
+		expect(remark).not.toContain('Capablanca');
 	});
 });

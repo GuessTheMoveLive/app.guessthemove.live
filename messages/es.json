@@ -108,5 +108,7 @@
 	"finished_tied_lead": "¡Vas empatado en cabeza!",
 	"finished_behind": "Vas {points} puntos por detrás de {name}",
 	"play_download_pgn": "Descargar mi PGN",
-	"host_download_pgn": "Descargar PGN"
+	"host_download_pgn": "Descargar PGN",
+	"host_answer_key_gm_remark_named": "Normalmente sería {tier}, pero como {name} la jugó, es +3.",
+	"host_answer_key_gm_remark_generic": "Normalmente sería {tier}, pero como es la jugada realmente realizada, es +3."
 }

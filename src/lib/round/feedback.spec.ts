@@ -10,13 +10,16 @@ import type { AnswerKeyStep } from './scoring';
 import type { ParticipantState } from './round-machine';
 
 // d4 (+0.85) is a slight edge for White (⩲); g3 (-0.39) is equal (=); Nd4 (-9.13) is lost (-+).
+// Computed tiers (#61): h3 (loss ~1.9) => +3 (still an "alternative", not the move
+// played), g3 (loss ~11.3) => 0 ("playable"), Nd4 (loss ~54.4) => blunder.
 const step: AnswerKeyStep = {
 	san: 'd4',
+	color: 'w',
 	playedComment: { eval: 0.85 },
 	alternatives: [
-		{ san: 'h3', tier: '+2', eval: 0.64, continuation: ['Bxf3', 'Qxf3'] },
-		{ san: 'g3', tier: '0', eval: -0.39, continuation: [] },
-		{ san: 'Nd4', tier: 'blunder', eval: -9.13, continuation: [] } // -3
+		{ san: 'h3', eval: 0.64, continuation: ['Bxf3', 'Qxf3'] },
+		{ san: 'g3', eval: -0.39, continuation: [] },
+		{ san: 'Nd4', eval: -9.13, continuation: [] } // -3
 	]
 };
 

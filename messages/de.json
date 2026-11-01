@@ -106,5 +106,6 @@
 	"back_button": "Zurück",
 	"finished_lead": "Du führst!",
 	"finished_tied_lead": "Du liegst punktgleich an der Spitze!",
-	"finished_behind": "Du liegst {points} Punkte hinter {name}"
+	"finished_behind": "Du liegst {points} Punkte hinter {name}",
+	"play_download_pgn": "Meine PGN herunterladen"
 }

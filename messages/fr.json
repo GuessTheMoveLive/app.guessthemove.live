@@ -106,5 +106,6 @@
 	"back_button": "Retour",
 	"finished_lead": "Tu es en tête !",
 	"finished_tied_lead": "Tu es à égalité en tête !",
-	"finished_behind": "Tu as {points} points de retard sur {name}"
+	"finished_behind": "Tu as {points} points de retard sur {name}",
+	"play_download_pgn": "Télécharger mon PGN"
 }

@@ -20,6 +20,7 @@
 	} from '#lib/round/participant-input.js';
 	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
 	import { buildGameSheet } from '#lib/round/game-sheet.js';
+	import { buildParticipantPgn, roundsActuallyPlayed } from '#lib/round/pgn.js';
 	import {
 		computeGuessGroupBreakdown,
 		bucketedBreakdownFor,
@@ -165,6 +166,35 @@
 			me
 		)
 	);
+
+	// Participant PGN export (#59): only available once the Session reaches Final
+	// Results (natural or early end, #57) — both land on this same `finished` phase.
+	// The mainline is always the full original Featured Game, decorated with this
+	// Participant's own Guesses from the Session-lifetime history (#52) and a
+	// performance summary on the final move.
+	const participantPgn = $derived(
+		phase === 'finished' && snapshot
+			? buildParticipantPgn(
+					game,
+					snapshot.guessHistory,
+					me,
+					snapshot.context.totals,
+					roundsActuallyPlayed(roundIndex, snapshot.context.scores),
+					snapshot.endedEarly
+				)
+			: null
+	);
+
+	function downloadPgn() {
+		if (!participantPgn) return;
+		const blob = new Blob([participantPgn], { type: 'application/x-chess-pgn' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `guess-the-move-${code}-${me}.pgn`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
 
 	// A new Round means a fresh tap — drop any half-made selection. (The Reveal
 	// explanation and Guess Group breakdown are derived from the current snapshot, so
@@ -376,6 +406,9 @@
 							{m.finished_behind({ points: finishedMessage.points, name: finishedMessage.name })}
 						{/if}
 					</p>
+				{/if}
+				{#if participantPgn}
+					<Button variant="outline" onclick={downloadPgn}>{m.play_download_pgn()}</Button>
 				{/if}
 			</Card.Content>
 		</Card.Root>

@@ -499,4 +499,110 @@ describe('SessionRoom', () => {
 		expect(aliceWs.closed).toBeNull();
 		await expect(room.createSession()).resolves.toBeNull();
 	});
+
+	describe('Guess history & Session start time (#52)', () => {
+		it('retains a submitted Guess under its round index, across a round advance', async () => {
+			const { room, ctx } = await openRoom();
+			const { ws } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'e4' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'next_round' }));
+
+			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
+				'guess-history'
+			);
+			expect(history?.[0]).toEqual({ alice: 'e4' });
+		});
+
+		it('omits a timed-out participant from that Round’s history, distinct from an empty Guess', async () => {
+			const { room, ctx } = await openRoom();
+			const { ws } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+			await room.alarm();
+
+			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
+				'guess-history'
+			);
+			expect(history?.[0]).toEqual({});
+			expect('alice' in (history?.[0] ?? {})).toBe(false);
+		});
+
+		it('records a late Guess (submitted after timeout, before Reveal)', async () => {
+			const { room, ctx } = await openRoom();
+			const { ws } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+			await room.alarm();
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'late-e4' }));
+
+			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
+				'guess-history'
+			);
+			expect(history?.[0]).toEqual({ alice: 'late-e4' });
+		});
+
+		it('keeps every Round’s Guesses as the Session progresses through several Rounds', async () => {
+			const { room, ctx } = await openRoom();
+			const { ws } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'round-0' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'next_round' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'round-1' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+
+			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
+				'guess-history'
+			);
+			expect(history?.[0]).toEqual({ alice: 'round-0' });
+			expect(history?.[1]).toEqual({ alice: 'round-1' });
+		});
+
+		it('captures the Session start time exactly once, on the first Start Round for Round 1', async () => {
+			const { room, ctx } = await openRoom();
+			const { ws } = await join(room, ctx, 'alice');
+
+			vi.useFakeTimers();
+			vi.setSystemTime(1_000_000);
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+			const firstStart = await ctx.storage.get<number>('session-start-time');
+			expect(firstStart).toBe(1_000_000);
+
+			vi.setSystemTime(2_000_000);
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'e4' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'reveal' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'continue' }));
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'next_round' }));
+
+			expect(await ctx.storage.get<number>('session-start-time')).toBe(1_000_000);
+		});
+
+		it('a Reset clears Guess history and the Session start time so a new Session recaptures both', async () => {
+			const { room, ctx, token } = await openRoom();
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+			await room.webSocketMessage(
+				aliceWs as never,
+				JSON.stringify({ type: 'submit', guess: 'e4' })
+			);
+			await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'reset' }));
+
+			// The fresh Round 0 actor re-derives an (empty) history entry on the very next
+			// persistSnapshot - the Reset's effect is that alice's pre-reset Guess is gone,
+			// not that the key disappears outright.
+			const history = await ctx.storage.get<Record<number, Record<string, string>>>(
+				'guess-history'
+			);
+			expect(history?.[0]).toEqual({});
+			expect(await ctx.storage.get('session-start-time')).toBeUndefined();
+		});
+	});
 });

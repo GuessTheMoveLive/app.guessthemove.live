@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { createActor, type Actor, type Snapshot } from 'xstate';
 import { roundMachine, type RoundEvent } from '#lib/round/round-machine.js';
 import { computeGuessGroupBreakdown, redactBreakdownFor } from '#lib/round/guess-groups.js';
+import { recordedGuesses, type GuessHistory } from '#lib/round/guess-history.js';
 import type { RoundSnapshot } from '#lib/round/snapshot.js';
 import { quizSteps } from '#lib/round/game-data.js';
 import { generateHostToken } from '#lib/server/room-code.js';
@@ -47,6 +48,14 @@ const STORAGE_KEY_TOTALS = 'totals';
 const STORAGE_KEY_SHOW_LEADERBOARD = 'show-leaderboard';
 /** Default visible Round length: 3 minutes (#22), shortenable/extendable by the Host. */
 const ROUND_DURATION_MS = 180_000;
+/** Every participant's SAN Guess for every Round played, keyed by round index then
+ *  participant id (#52) — kept for the Session's lifetime so the Game Sheet and PGN
+ *  exports can reconstruct a full per-participant history, long after any one Round's
+ *  actor is gone. A participant absent from a round's record timed out that Round. */
+const STORAGE_KEY_GUESS_HISTORY = 'guess-history';
+/** Captured once, the moment the Host first clicks "Start Round" for Round 1 (#52) —
+ *  never earlier (no Plenum Selection in v1) and never overwritten after that. */
+const STORAGE_KEY_SESSION_START_TIME = 'session-start-time';
 /** A Host's control connection never joins as a Participant (#10); it is tagged with this. */
 const HOST_TAG = 'host';
 /** The secret credential proving control of a Session (#37), set once at creation. */
@@ -134,6 +143,13 @@ export class SessionRoom extends DurableObject {
 			case 'join':
 				return;
 			case 'start_round': {
+				// Only the Host's "Start Round" for Round 1 (from Lobby) sends this message -
+				// every later Round is started by `next_round` driving the actor directly. So
+				// this is exactly the one moment the Session start time (#52) should be set,
+				// and only if it hasn't been already (a Reset clears it so it can be recaptured).
+				if ((await this.ctx.storage.get<number>(STORAGE_KEY_SESSION_START_TIME)) == null) {
+					await this.ctx.storage.put(STORAGE_KEY_SESSION_START_TIME, Date.now());
+				}
 				actor.send({ type: 'START_ROUND' });
 				await this.scheduleRoundTimeout();
 				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, false);
@@ -265,6 +281,8 @@ export class SessionRoom extends DurableObject {
 				await this.ctx.storage.delete(STORAGE_KEY_ROUND_INDEX);
 				await this.ctx.storage.delete(STORAGE_KEY_TOTALS);
 				await this.ctx.storage.delete(STORAGE_KEY_SHOW_LEADERBOARD);
+				await this.ctx.storage.delete(STORAGE_KEY_GUESS_HISTORY);
+				await this.ctx.storage.delete(STORAGE_KEY_SESSION_START_TIME);
 				await this.ctx.storage.deleteAlarm();
 				this.actor = undefined;
 				this.participantIds = [];
@@ -387,6 +405,24 @@ export class SessionRoom extends DurableObject {
 	private async persistSnapshot(): Promise<void> {
 		const actor = await this.getActor();
 		await this.ctx.storage.put(STORAGE_KEY_SNAPSHOT, actor.getPersistedSnapshot());
+		await this.persistGuessHistory(actor);
+	}
+
+	/**
+	 * Fold the current Round's Guesses into the Session-lifetime history (#52). Called
+	 * on every message, not just once the Round closes, so a late Guess submitted in
+	 * the `closed` state (before Reveal) still ends up recorded - whatever
+	 * `recordedGuesses` reads off the actor's live context always wins for this Round's
+	 * entry, so it stays accurate as the Round progresses and is simply re-written
+	 * (never appended to) on every call.
+	 */
+	private async persistGuessHistory(actor: Actor<typeof roundMachine>): Promise<void> {
+		const guesses = recordedGuesses(actor.getSnapshot().context.participants);
+		const history = (await this.ctx.storage.get<GuessHistory>(STORAGE_KEY_GUESS_HISTORY)) ?? {};
+		await this.ctx.storage.put(STORAGE_KEY_GUESS_HISTORY, {
+			...history,
+			[this.roundIndex]: guesses
+		});
 	}
 
 	private async scheduleRoundTimeout(): Promise<void> {

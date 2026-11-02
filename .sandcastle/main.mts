@@ -11,12 +11,24 @@ await run({
 
   // Sandbox provider — runs the agent inside an isolated container.
   //
-  // Host-side cache mounts for node_modules/npm are disabled on Windows:
-  // @ai-hero/sandcastle's custom-mount path resolution mangles Windows
-  // drive-letter host paths and relative sandboxPaths (producing invalid
-  // `docker run -v` arguments — "too many colons"). Each iteration falls
-  // back to a full `npm install` instead.
-  sandbox: docker({}),
+  // `mounts` persist node_modules and the npm cache on the host across
+  // iterations/runs (each iteration otherwise gets a fresh worktree with no
+  // node_modules, so `npm install` was re-fetching everything from scratch
+  // every time — ~230s/iteration measured, pure overhead). Skipped on
+  // win32: @ai-hero/sandcastle's custom-mount path resolution mangles
+  // Windows drive-letter host paths and relative sandboxPaths, producing an
+  // invalid `docker run -v` argument ("too many colons"). Windows falls
+  // back to a full `npm install` per iteration instead.
+  sandbox: docker(
+    process.platform === "win32"
+      ? {}
+      : {
+          mounts: [
+            { hostPath: "./.sandcastle/.cache/node_modules", sandboxPath: "node_modules" },
+            { hostPath: "./.sandcastle/.cache/npm", sandboxPath: "~/.npm" },
+          ],
+        },
+  ),
 
   // The agent provider. Pass a model string to claudeCode() — sonnet balances
   // capability and speed for most tasks. Switch to claude-opus-4-8 for harder

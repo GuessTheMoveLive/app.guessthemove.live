@@ -12,3 +12,8 @@ type check can substitute for — keep this list flat and short.
   intermediate it derived) would let A skip redoing B's work, thread it
   through — a parameter, a returned intermediate, a shared helper both call —
   rather than each calling the same underlying computation independently.
+- **Scope a fix to the environment that's actually broken.** When the root
+  cause is "X breaks on Windows" (or in CI, or on some specific Node
+  version), gate the fix behind that specific condition rather than
+  disabling the feature unconditionally — check whether the bug report
+  actually said "everywhere," or just "here."

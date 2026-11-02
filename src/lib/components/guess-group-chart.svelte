@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { scaleBand } from 'd3-scale';
+	import { BarChart } from 'layerchart';
+	import * as Chart from '#lib/components/ui/chart/index.js';
 	import {
 		chartParticipantLabel,
 		chartPointsLabel,
@@ -7,25 +10,23 @@
 	import { scoreColor } from '#lib/round/score-color.js';
 
 	// True diverging bar chart of a Round's bounded Guess Group breakdown (#42, made
-	// diverging in #54): one bar per Round Score present in -3..+3, on a visible 0
-	// baseline. Positive-score bars grow upward above the baseline, negative-score bars
-	// grow downward below it, and the 0 bucket's bar sits right at the baseline. Left-
-	// to-right order simply follows `buckets`' own order — weakest (-3) to strongest
-	// (+3), per computeGuessGroupBreakdown (#73) — rather than any sign-based layout rule
-	// in this component. Each bar is colored via the shared score palette (#51) instead
-	// of a flat positive/negative/zero color. Each bar is labelled on two lines (#46):
-	// "N participant(s)" at its outer tip (farthest from the baseline) and the signed
-	// "+N points"/"-N points" right at the baseline — the points line is a deliberate
-	// second channel beside color, so the palette is never the only cue (colorblind-
-	// safe). Both lines are pluralised through paraglide (see chart*Label in
-	// guess-groups).
-	//
-	// Bar height tracks the Round Score's own magnitude (#51), not how many Participants
-	// landed on it: +3 stands three times as tall as +1 (same for -3/-2/-1), and 0 stands
-	// half as tall as +1 — so the chart reads as a points scale at a glance, independent
-	// of how the room happened to split across it. The participant-count label lives in
-	// its own row outside the bar's fixed-height zone (#68) so its own height never
-	// shrinks the bar it sits above/below.
+	// diverging in #54), rebuilt on shadcn-svelte/layerchart's BarChart (#73, modeled on
+	// its "Bar Chart - Label" and "Bar Chart - Negative" examples) rather than hand-rolled
+	// divs. `y` is each bucket's own score, with `yBaseline={0}` giving the same
+	// diverging-from-zero shape as before: positive scores grow up, negative grow down.
+	// Left-to-right order simply follows `buckets`' own order — weakest (-3) to strongest
+	// (+3), per computeGuessGroupBreakdown (#73). The participant count is rendered as
+	// each bar's label (pluralised via chartParticipantLabel); the signed score itself is
+	// the x-axis tick (chartPointsLabel), so color is never the only cue distinguishing a
+	// bucket (colorblind-safe).
+
+	/** A literal score of 0 would plot a zero-height bar right on the baseline — invisible
+	 *  — so its bar height stands in at half of the +1/-1 bar's, same as the old hand-
+	 *  rolled chart; only the bar's height is nudged, `x`/`c` still key off the bucket's
+	 *  real score. */
+	function barValue(score: number): number {
+		return score === 0 ? 0.5 : score;
+	}
 
 	interface Props {
 		buckets: ScoreBucket[];
@@ -35,71 +36,51 @@
 
 	const { buckets, highlightScore = null }: Props = $props();
 
-	/** Pixel height of the +1/-1 bar; every other bar scales off this unit. */
-	const UNIT_PX = 24;
+	// Each bar's color still comes from scoreColor(), keyed by that bucket's own score
+	// (#51) — a fixed domain/range pair covering every possible score rather than just
+	// the ones in `buckets` this Round, so a bucket's color never shifts depending on
+	// which other buckets happen to be present. `c` must resolve through this explicit
+	// cScale (BarChart's own default `cRange` is a single placeholder color) for per-bar
+	// coloring to take effect at all.
+	const SCORES = [-3, -2, -1, 0, 1, 2, 3];
+	const scoreColorRange = SCORES.map((score) => scoreColor(score));
 
-	/** Fixed height of the area above/below the baseline, sized for the max |score| of 3. */
-	const ZONE_PX = 3 * UNIT_PX;
-
-	function barHeight(score: number): number {
-		return score === 0 ? UNIT_PX / 2 : Math.abs(score) * UNIT_PX;
-	}
+	// Only used for Chart.Container's required `config` prop — this chart colors bars
+	// directly by score (see `c`/`cDomain`/`cRange` below) rather than through a named
+	// series, so there's nothing else for the config to carry.
+	const chartConfig = {
+		count: { label: 'Participants' }
+	} satisfies Chart.ChartConfig;
 </script>
 
 {#if buckets.length}
-	<div class="flex items-start justify-center gap-2">
-		{#each buckets as bucket (bucket.score)}
-			<div class="flex min-w-9 flex-1 flex-col items-center" style="max-width: 4rem;">
-				<!-- The participant-count label sits in its own, unconstrained row above the bar
-				     zone (#68) — sharing the fixed-height zone with the bar let the label's own
-				     height eat into how tall the bar visually read, so a +3 bar never looked
-				     three times a +1 bar even though barHeight()'s pixel math was already correct. -->
-				<div class="flex h-4 w-full items-end justify-center">
-					{#if bucket.score >= 0}
-						<span class="text-center text-xs text-muted-foreground tabular-nums">
-							{chartParticipantLabel(bucket.count)}
-						</span>
-					{/if}
-				</div>
-				<div class="flex w-full flex-col items-center justify-end" style="height: {ZONE_PX}px;">
-					{#if bucket.score >= 0}
-						<div
-							class="w-full rounded-t"
-							class:ring-2={bucket.score === highlightScore}
-							class:ring-primary={bucket.score === highlightScore}
-							class:ring-offset-1={bucket.score === highlightScore}
-							style="height: {barHeight(bucket.score)}px; background-color: {scoreColor(
-								bucket.score
-							)};"
-						></div>
-					{/if}
-				</div>
-				<div class="w-full border-t border-border pt-1">
-					<span class="block text-center text-xs font-medium tabular-nums">
-						{chartPointsLabel(bucket.score)}
-					</span>
-				</div>
-				<div class="flex w-full flex-col items-center justify-start" style="height: {ZONE_PX}px;">
-					{#if bucket.score < 0}
-						<div
-							class="w-full rounded-b"
-							class:ring-2={bucket.score === highlightScore}
-							class:ring-primary={bucket.score === highlightScore}
-							class:ring-offset-1={bucket.score === highlightScore}
-							style="height: {barHeight(bucket.score)}px; background-color: {scoreColor(
-								bucket.score
-							)};"
-						></div>
-					{/if}
-				</div>
-				<div class="flex h-4 w-full items-start justify-center">
-					{#if bucket.score < 0}
-						<span class="text-center text-xs text-muted-foreground tabular-nums">
-							{chartParticipantLabel(bucket.count)}
-						</span>
-					{/if}
-				</div>
-			</div>
-		{/each}
-	</div>
+	<Chart.Container config={chartConfig} class="aspect-auto h-48">
+		<BarChart
+			data={buckets}
+			x="score"
+			xScale={scaleBand().padding(0.3)}
+			y={(d: ScoreBucket) => barValue(d.score)}
+			yBaseline={0}
+			yDomain={[-3, 3]}
+			c="score"
+			cDomain={SCORES}
+			cRange={scoreColorRange}
+			axis="x"
+			labels={{
+				value: (d: ScoreBucket) => chartParticipantLabel(d.count),
+				offset: 8
+			}}
+			props={{
+				bars: {
+					stroke: 'var(--primary)',
+					strokeWidth: (d: ScoreBucket) => (d.score === highlightScore ? 3 : 0),
+					radius: 6,
+					rounded: 'all'
+				},
+				xAxis: {
+					format: (d: number) => chartPointsLabel(d)
+				}
+			}}
+		/>
+	</Chart.Container>
 {/if}

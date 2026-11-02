@@ -17,6 +17,7 @@ type ClientMessage =
 	| { type: 'finish' }
 	| { type: 'next_round' }
 	| { type: 'show_leaderboard' }
+	| { type: 'show_room_statistics' }
 	| { type: 'kick'; participantId: string }
 	| { type: 'reset' }
 	| { type: 'delete_session' }
@@ -46,6 +47,10 @@ const STORAGE_KEY_TOTALS = 'totals';
  *  shown it (rather than unconditionally at every Reveal). One-way for the Round (#55): once
  *  true it stays true until a new Round starts and resets it back to false. */
 const STORAGE_KEY_SHOW_LEADERBOARD = 'show-leaderboard';
+/** Whether the Host has opened Room Statistics on the Reveal screen this Round (#73) —
+ *  same one-way-per-Round shape as STORAGE_KEY_SHOW_LEADERBOARD above, but gates the
+ *  Guess Group breakdown card instead, independently of the Leaderboard toggle. */
+const STORAGE_KEY_SHOW_ROOM_STATISTICS = 'show-room-statistics';
 /** Default visible Round length: 3 minutes (#22), shortenable/extendable by the Host. */
 const ROUND_DURATION_MS = 180_000;
 /** Every participant's SAN Guess for every Round played, keyed by round index then
@@ -161,6 +166,7 @@ export class SessionRoom extends DurableObject {
 				actor.send({ type: 'START_ROUND' });
 				await this.scheduleRoundTimeout();
 				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, false);
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, false);
 				break;
 			}
 			case 'submit': {
@@ -239,6 +245,7 @@ export class SessionRoom extends DurableObject {
 				next.send({ type: 'START_ROUND' });
 				await this.scheduleRoundTimeout();
 				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, false);
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, false);
 				break;
 			}
 			case 'show_leaderboard': {
@@ -247,6 +254,14 @@ export class SessionRoom extends DurableObject {
 				// shown - a repeat message (or a stray one from a Participant) is a no-op.
 				if (!this.isHostSocket(ws)) return;
 				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, true);
+				break;
+			}
+			case 'show_room_statistics': {
+				// Host-only, one-way per Round (#73): same shape as show_leaderboard above,
+				// but opens the Guess Group breakdown card instead, independently of the
+				// Leaderboard toggle.
+				if (!this.isHostSocket(ws)) return;
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, true);
 				break;
 			}
 			case 'kick': {
@@ -288,6 +303,7 @@ export class SessionRoom extends DurableObject {
 				await this.ctx.storage.delete(STORAGE_KEY_ROUND_INDEX);
 				await this.ctx.storage.delete(STORAGE_KEY_TOTALS);
 				await this.ctx.storage.delete(STORAGE_KEY_SHOW_LEADERBOARD);
+				await this.ctx.storage.delete(STORAGE_KEY_SHOW_ROOM_STATISTICS);
 				await this.ctx.storage.delete(STORAGE_KEY_GUESS_HISTORY);
 				await this.ctx.storage.delete(STORAGE_KEY_SESSION_START_TIME);
 				await this.ctx.storage.delete(STORAGE_KEY_FINISHED_AT);
@@ -455,6 +471,8 @@ export class SessionRoom extends DurableObject {
 			roundIndex: this.roundIndex,
 			totalRounds: quizSteps().length,
 			showLeaderboard: (await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false,
+			showRoomStatistics:
+				(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_ROOM_STATISTICS)) ?? false,
 			endedEarly: (await this.ctx.storage.get<boolean>(STORAGE_KEY_ENDED_EARLY)) ?? false,
 			guessHistory: (await this.ctx.storage.get<GuessHistory>(STORAGE_KEY_GUESS_HISTORY)) ?? {},
 			sessionStartTime:

@@ -10,8 +10,8 @@
 	// diverging in #54): one bar per Round Score present in -3..+3, on a visible 0
 	// baseline. Positive-score bars grow upward above the baseline, negative-score bars
 	// grow downward below it, and the 0 bucket's bar sits right at the baseline. Left-
-	// to-right order simply follows `buckets`' own order — strongest (+3) to weakest
-	// (-3), per computeGuessGroupBreakdown (#68) — rather than any sign-based layout rule
+	// to-right order simply follows `buckets`' own order — weakest (-3) to strongest
+	// (+3), per computeGuessGroupBreakdown (#73) — rather than any sign-based layout rule
 	// in this component. Each bar is colored via the shared score palette (#51) instead
 	// of a flat positive/negative/zero color. Each bar is labelled on two lines (#46):
 	// "N participant(s)" at its outer tip (farthest from the baseline) and the signed

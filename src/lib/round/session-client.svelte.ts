@@ -105,6 +105,13 @@ export class SessionClient {
 		this.#send({ type: 'show_leaderboard' });
 	}
 
+	/** Host opens the Guess Group breakdown card on the shared Reveal screen and every
+	 *  Participant's phone (#73) — same one-way-per-Round shape as showLeaderboard above,
+	 *  broadcast via the snapshot's `showRoomStatistics`, and independent of it. */
+	showRoomStatistics(): void {
+		this.#send({ type: 'show_room_statistics' });
+	}
+
 	/** Host removes a disruptive Participant; they cannot rejoin under the same name. */
 	kick(participantId: string): void {
 		this.#send({ type: 'kick', participantId });

@@ -40,15 +40,15 @@ describe('computeGuessGroupBreakdown', () => {
 		expect(groups.map((g) => g.san)).toEqual(['Nf3', 'd4', 'c4']);
 	});
 
-	it('tallies at most 7 buckets, one per Round Score, in +3..-3 descending order', () => {
+	it('tallies at most 7 buckets, one per Round Score, in -3..+3 ascending order', () => {
 		const { buckets } = computeGuessGroupBreakdown(
 			{ a: submitted('d4'), b: submitted('d4'), c: submitted('x'), d: { status: 'timedOut' } },
 			{ a: 3, b: 3, c: 0, d: -3 }
 		);
 		expect(buckets).toEqual([
-			{ score: 3, count: 2 },
+			{ score: -3, count: 1 },
 			{ score: 0, count: 1 },
-			{ score: -3, count: 1 }
+			{ score: 3, count: 2 }
 		]);
 	});
 
@@ -57,7 +57,7 @@ describe('computeGuessGroupBreakdown', () => {
 			{ a: submitted('d4'), b: submitted('x') },
 			{ a: 3, b: -2 }
 		);
-		expect(buckets.map((b) => b.score)).toEqual([3, -2]);
+		expect(buckets.map((b) => b.score)).toEqual([-2, 3]);
 	});
 
 	it('is empty for a Round with no Participants', () => {

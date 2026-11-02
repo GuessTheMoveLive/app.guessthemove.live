@@ -479,6 +479,60 @@ describe('SessionRoom', () => {
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
 	});
 
+	it('show_room_statistics is a one-way, Host-only flag, reset by a new Round (#73, mirrors show_leaderboard)', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		expect(
+			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
+		).toBe(false);
+
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
+		expect(
+			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
+		).toBe(true);
+
+		// A Participant's socket can never trigger it.
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'show_room_statistics' })
+		);
+		expect(
+			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
+		).toBe(true);
+
+		// One-way: a repeat Host message doesn't hide it back.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
+		expect(
+			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
+		).toBe(true);
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'continue' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'next_round' }));
+		expect(
+			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
+		).toBe(false);
+	});
+
+	it('show_room_statistics is independent of show_leaderboard — toggling one leaves the other untouched (#73)', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
+
+		const snapshot = hostWs.lastSnapshot() as {
+			showLeaderboard: boolean;
+			showRoomStatistics: boolean;
+		};
+		expect(snapshot.showRoomStatistics).toBe(true);
+		expect(snapshot.showLeaderboard).toBe(false);
+	});
+
 	it('end_session_early: jumps every client straight to Final Results, keeping the Room Code alive (#57)', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);

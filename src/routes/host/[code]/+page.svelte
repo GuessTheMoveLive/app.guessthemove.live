@@ -21,6 +21,7 @@
 		formatContinuation
 	} from '#lib/round/participant-input.js';
 	import { computeGuessGroupBreakdown } from '#lib/round/guess-groups.js';
+	import { headerContext } from '#lib/round/header-context.svelte.js';
 	import { buildHostPgn, roundsActuallyPlayed } from '#lib/round/pgn.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -71,6 +72,8 @@
 		clearInterval(tick);
 		clearTimeout(copiedResetTimer);
 		client.disconnect();
+		headerContext.roomCode = null;
+		headerContext.phase = null;
 	});
 
 	function reset() {
@@ -97,6 +100,14 @@
 
 	const snapshot = $derived(client.snapshot);
 	const phase = $derived(snapshot?.value ?? 'lobby');
+
+	// Hands this Session's Room Code and current phase up to the layout-level sticky
+	// header (#73) — the Host Display has no other way to stay visible once scrolled.
+	$effect(() => {
+		headerContext.roomCode = code;
+		headerContext.phase = phase;
+	});
+
 	const participants = $derived(snapshot?.context.participants ?? {});
 	const progress = $derived(submissionProgress(participants));
 	const answered = $derived(everyoneAnswered(participants));
@@ -116,6 +127,10 @@
 	// Broadcast rather than local (#51): synced through the snapshot so a Participant's
 	// phone can gate its own Leaderboard card on the same toggle (see play/[code]).
 	const showLeaderboard = $derived(snapshot?.showLeaderboard ?? false);
+	// Independent sibling toggle (#73): gates the Guess Group breakdown card on a
+	// Participant's phone, same broadcast shape as showLeaderboard — the Host Display's
+	// own breakdown below is never gated by it.
+	const showRoomStatistics = $derived(snapshot?.showRoomStatistics ?? false);
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
 	const hasNextRound = $derived(roundIndex + 1 < totalRounds);
@@ -367,16 +382,26 @@
 					/>
 				{/if}
 			</Card.Content>
-			<Card.Footer class="flex gap-2">
+			<Card.Footer class="flex flex-wrap gap-2">
 				{#if isFinalRound}
 					<p class="text-sm font-medium text-muted-foreground">
 						{m.host_final_round()}
 					</p>
+					{#if !showRoomStatistics}
+						<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+							{m.host_show_room_statistics()}
+						</Button>
+					{/if}
 					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 				{:else}
 					{#if !showLeaderboard}
 						<Button variant="outline" onclick={() => client.showLeaderboard()}>
 							{m.host_show_leaderboard()}
+						</Button>
+					{/if}
+					{#if !showRoomStatistics}
+						<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+							{m.host_show_room_statistics()}
 						</Button>
 					{/if}
 					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>

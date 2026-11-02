@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildGameSheet } from './game-sheet';
+import { buildGameSheet, gameSheetSteps } from './game-sheet';
 import type { GameStep } from './game-data';
 import type { AnswerKeyAlternative } from './scoring';
 
@@ -92,5 +92,34 @@ describe('buildGameSheet (#58: per-move Guess/points decoration)', () => {
 
 	it('is empty with no moves played yet', () => {
 		expect(buildGameSheet([], {}, 'alice')).toEqual([]);
+	});
+});
+
+describe('gameSheetSteps (#73: Game Sheet shows the opponent’s revealed move)', () => {
+	const steps = [
+		step({ ply: 1, san: 'e4', alternatives: [alt({ san: 'd4' })] }),
+		step({ ply: 2, san: 'e5' }),
+		step({ ply: 3, san: 'Nf3', alternatives: [alt({ san: 'Bc4' })] })
+	];
+	const quizStep = steps[0];
+	const opponentSteps = [steps[1]];
+
+	it('stops strictly before the quiz step while the Round is still active', () => {
+		expect(gameSheetSteps(steps, quizStep, [], 'active')).toEqual([]);
+	});
+
+	it('stops at the quiz step on Reveal when the opponent has not replied yet', () => {
+		expect(gameSheetSteps(steps, quizStep, [], 'reveal')).toEqual([steps[0]]);
+	});
+
+	it('extends through the opponent’s just-revealed reply during Opponent Response', () => {
+		expect(gameSheetSteps(steps, quizStep, opponentSteps, 'opponentResponse')).toEqual([
+			steps[0],
+			steps[1]
+		]);
+	});
+
+	it('falls back to the quiz step on Opponent Response if no opponent steps are given', () => {
+		expect(gameSheetSteps(steps, quizStep, [], 'opponentResponse')).toEqual([steps[0]]);
 	});
 });

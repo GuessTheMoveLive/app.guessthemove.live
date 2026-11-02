@@ -23,6 +23,11 @@ export interface RoundSnapshot {
 	 *  Participant's phone only shows the Leaderboard once this is true (GLOSSARY:
 	 *  Leaderboard). Reset to false whenever a new Round starts. */
 	showLeaderboard: boolean;
+	/** Whether the Host has toggled Room Statistics open on the current Reveal (#73) — a
+	 *  Participant's phone only shows the Guess Group breakdown card once this is true
+	 *  (GLOSSARY: Room Statistics). Reset to false whenever a new Round starts, same
+	 *  one-way-per-Round shape as showLeaderboard, but independent of it. */
+	showRoomStatistics: boolean;
 	/** True once the Host has ended the Session early (#57) rather than it reaching
 	 *  Final Results naturally — kept for the PGN export tickets (#59/#60) to flag.
 	 *  Cleared only by Reset. */

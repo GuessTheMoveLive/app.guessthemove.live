@@ -20,7 +20,7 @@
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
 	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
-	import { buildGameSheet } from '#lib/round/game-sheet.js';
+	import { buildGameSheet, gameSheetSteps } from '#lib/round/game-sheet.js';
 	import { buildParticipantPgn, roundsActuallyPlayed } from '#lib/round/pgn.js';
 	import {
 		computeGuessGroupBreakdown,
@@ -28,6 +28,7 @@
 		chartParticipantLabel
 	} from '#lib/round/guess-groups.js';
 	import { scoreColor } from '#lib/round/score-color.js';
+	import { headerContext } from '#lib/round/header-context.svelte.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -77,10 +78,19 @@
 	onDestroy(() => {
 		clearInterval(tick);
 		client.disconnect();
+		headerContext.roomCode = null;
+		headerContext.phase = null;
 	});
 
 	const snapshot = $derived(client.snapshot);
 	const phase = $derived(snapshot?.value ?? 'lobby');
+
+	// Hands this Session's Room Code and current phase up to the layout-level sticky
+	// header (#73), so they stay visible after scrolling down a long Reveal screen.
+	$effect(() => {
+		headerContext.roomCode = code;
+		headerContext.phase = phase;
+	});
 	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
 	const me = $derived(name.trim());
 	const myState = $derived(snapshot?.context.participants[me]);
@@ -94,6 +104,10 @@
 	// The Leaderboard only shows once the Host has toggled it open (#51) — gated on the
 	// broadcast snapshot flag rather than shown unconditionally at every Reveal.
 	const showLeaderboard = $derived(snapshot?.showLeaderboard ?? false);
+	// The Guess Group breakdown card only shows once the Host has toggled Room Statistics
+	// open (#73/0005) — so a Participant's own personal feedback above it isn't competing
+	// for attention with the room-wide chart the instant Reveal lands.
+	const showRoomStatistics = $derived(snapshot?.showRoomStatistics ?? false);
 	// The redacted, bucketed Guess Group breakdown (#53): derived locally off this
 	// Participant's own closed-Round `participants`/`scores`, already part of every
 	// broadcast snapshot (and replayed on reconnect, unlike #45's one-shot push), rather
@@ -162,13 +176,11 @@
 	// the current Round's in-memory state, so it stays correct across a reconnect too.
 	// The current Round's own move is withheld while still `active` (unrevealed), but
 	// included from Reveal onward through the Opponent Response screen that follows it
-	// (#68), so the sheet doesn't lose the Round a Participant just played.
-	const includeCurrentRound = $derived(phase === 'reveal' || phase === 'opponentResponse');
+	// (#68) — and, once Opponent Response itself reveals the reply, that move too (#73),
+	// so the sheet doesn't leave an already-revealed move blank.
 	const history = $derived(
 		buildGameSheet(
-			game.steps.filter((s) =>
-				includeCurrentRound ? s.ply <= (quizStep?.ply ?? 0) : s.ply < (quizStep?.ply ?? 1)
-			),
+			gameSheetSteps(game.steps, quizStep ?? null, opponentSteps, phase),
 			snapshot?.guessHistory ?? {},
 			me
 		)
@@ -534,7 +546,7 @@
 			</Card.Root>
 		{/if}
 
-		{#if groupBreakdown}
+		{#if groupBreakdown && showRoomStatistics}
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>{m.play_guess_groups_title()}</Card.Title>

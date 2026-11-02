@@ -2,6 +2,7 @@ import type { GameStep } from './game-data';
 import type { GuessHistory } from './guess-history';
 import { moveNumber, sanToGlyph } from './participant-input';
 import { scoreGuess, TIMEOUT_PENALTY } from './scoring';
+import type { RoundStateValue } from './snapshot';
 
 /**
  * A participant's Guess decoration for one graded (Featured Side) move (#58): `text` is
@@ -26,6 +27,31 @@ export interface GameSheetRow {
 	number: number;
 	white: GameSheetMove | null;
 	black: GameSheetMove | null;
+}
+
+/**
+ * The slice of a game's steps a Participant's Game Sheet should show right now (#73,
+ * fixing a gap left by #68): while a Round is `active`, strictly before the current
+ * quiz step (its move is still hidden); once Reveal makes the quiz step itself visible,
+ * through it; and once Opponent Response has revealed the opponent's reply too, through
+ * the last ply in `opponentSteps` as well, so that already-revealed move shows up as a
+ * normal filled cell instead of staying blank until the next Round starts.
+ */
+export function gameSheetSteps(
+	steps: GameStep[],
+	quizStep: GameStep | null,
+	opponentSteps: GameStep[],
+	phase: RoundStateValue
+): GameStep[] {
+	const includeCurrentRound = phase === 'reveal' || phase === 'opponentResponse';
+	const cutoffPly =
+		phase === 'opponentResponse' && opponentSteps.length
+			? opponentSteps[opponentSteps.length - 1].ply
+			: quizStep?.ply ?? 0;
+
+	return steps.filter((s) =>
+		includeCurrentRound ? s.ply <= cutoffPly : s.ply < (quizStep?.ply ?? 1)
+	);
 }
 
 /**

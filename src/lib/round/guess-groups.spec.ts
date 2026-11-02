@@ -60,6 +60,20 @@ describe('computeGuessGroupBreakdown', () => {
 		expect(buckets.map((b) => b.score)).toEqual([-2, 3]);
 	});
 
+	it('keeps ascending order for a mix of populated and empty scores (#74)', () => {
+		const { buckets } = computeGuessGroupBreakdown(
+			{
+				a: submitted('d4'),
+				b: submitted('e4'),
+				c: submitted('x'),
+				d: submitted('y'),
+				e: submitted('z')
+			},
+			{ a: -3, b: -1, c: -1, d: 2, e: 3 }
+		);
+		expect(buckets.map((b) => b.score)).toEqual([-3, -1, 2, 3]);
+	});
+
 	it('is empty for a Round with no Participants', () => {
 		expect(computeGuessGroupBreakdown({}, {})).toEqual({ groups: [], buckets: [] });
 	});

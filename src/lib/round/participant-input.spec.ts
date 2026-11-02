@@ -9,7 +9,8 @@ import {
 	moveNumber,
 	isWhitePly,
 	formatNumberedMove,
-	formatContinuation
+	formatContinuation,
+	isDarkSquare
 } from './participant-input';
 import type { GameStep } from './game-data';
 
@@ -24,6 +25,31 @@ describe('coordinate axes (#24: full a–h / 1–8 on both axes)', () => {
 
 	it('labels ranks 8 down to 1 top to bottom (White view)', () => {
 		expect(DISPLAY_RANKS).toEqual([8, 7, 6, 5, 4, 3, 2, 1]);
+	});
+});
+
+describe('isDarkSquare (#68: a1 must render dark, matching a real board)', () => {
+	it('renders a1 dark and h1 light', () => {
+		expect(isDarkSquare('a', 1)).toBe(true);
+		expect(isDarkSquare('h', 1)).toBe(false);
+	});
+
+	it('renders a8 light and h8 dark', () => {
+		expect(isDarkSquare('a', 8)).toBe(false);
+		expect(isDarkSquare('h', 8)).toBe(true);
+	});
+
+	it('alternates across every file within a rank, and across every rank within a file', () => {
+		for (const rank of DISPLAY_RANKS) {
+			for (let i = 1; i < FILES.length; i++) {
+				expect(isDarkSquare(FILES[i], rank)).toBe(!isDarkSquare(FILES[i - 1], rank));
+			}
+		}
+		for (const file of FILES) {
+			for (let i = 1; i < DISPLAY_RANKS.length; i++) {
+				expect(isDarkSquare(file, DISPLAY_RANKS[i])).toBe(!isDarkSquare(file, DISPLAY_RANKS[i - 1]));
+			}
+		}
 	});
 });
 

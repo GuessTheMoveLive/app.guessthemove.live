@@ -28,8 +28,8 @@ export interface ScoreBucket {
 export interface GuessGroupBreakdown {
 	/** Every Guess Group with every member's name — the Host Display's full view. */
 	groups: GuessGroup[];
-	/** At most 7 buckets, one per Round Score present in -3..+3; a score nobody got
-	 *  is omitted entirely rather than shown empty. */
+	/** At most 7 buckets, one per Round Score present in +3..-3, strongest first; a
+	 *  score nobody got is omitted entirely rather than shown empty. */
 	buckets: ScoreBucket[];
 }
 
@@ -64,8 +64,9 @@ function guessSan(state: ParticipantState): string | null {
  * Group a closed Round's Participants by exact-match Guess (SAN) into Guess Groups,
  * and tally the bounded per-Round-Score chart. Both read off the already-computed
  * `scores` map (see round-machine's closeRoundScores), so this is called only once a
- * Round has closed. Groups are ordered largest first (Kahoot-style), the chart left
- * (−3) to right (+3).
+ * Round has closed. Groups are ordered largest first (Kahoot-style); the chart buckets
+ * descend from the strongest Round Score (+3) to the weakest (-3), so both the bar
+ * chart and the list rendered under it lead with the strongest outcome (#68).
  */
 export function computeGuessGroupBreakdown(
 	participants: Record<string, ParticipantState>,
@@ -97,7 +98,7 @@ export function computeGuessGroupBreakdown(
 		counts.set(score, (counts.get(score) ?? 0) + 1);
 	}
 	const buckets: ScoreBucket[] = [];
-	for (let score = -3; score <= 3; score++) {
+	for (let score = 3; score >= -3; score--) {
 		const count = counts.get(score);
 		if (count) buckets.push({ score, count });
 	}

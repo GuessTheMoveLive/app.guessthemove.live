@@ -16,6 +16,7 @@
 		resolveTapMove,
 		formatNumberedMove,
 		formatContinuation,
+		isDarkSquare,
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
 	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
@@ -159,9 +160,15 @@
 	// (Featured Side) move decorated with this Participant's own Guess and points from
 	// the Session-lifetime history SessionRoom persists and broadcasts (#52) — not just
 	// the current Round's in-memory state, so it stays correct across a reconnect too.
+	// The current Round's own move is withheld while still `active` (unrevealed), but
+	// included from Reveal onward through the Opponent Response screen that follows it
+	// (#68), so the sheet doesn't lose the Round a Participant just played.
+	const includeCurrentRound = $derived(phase === 'reveal' || phase === 'opponentResponse');
 	const history = $derived(
 		buildGameSheet(
-			game.steps.filter((s) => s.ply < (quizStep?.ply ?? 1)),
+			game.steps.filter((s) =>
+				includeCurrentRound ? s.ply <= (quizStep?.ply ?? 0) : s.ply < (quizStep?.ply ?? 1)
+			),
 			snapshot?.guessHistory ?? {},
 			me
 		)
@@ -308,7 +315,7 @@
 							</div>
 							{#each FILES as file (file)}
 								{@const sq = `${file}${rank}`}
-								{@const isDark = (FILES.indexOf(file) + rank) % 2 === 0}
+								{@const isDark = isDarkSquare(file, rank)}
 								<button
 									type="button"
 									disabled={locked}
@@ -373,7 +380,9 @@
 		{/if}
 	{:else if phase === 'opponentResponse'}
 		<!-- Opponent Response (#48): the same single next move the Host shows, large, with no
-		     live controls (consistent with the host-only "Next Round" pattern). -->
+		     live controls (consistent with the host-only "Next Round" pattern). The Game Sheet
+		     stays visible here too (#68), already filled in with the Round just revealed, so
+		     the sheet doesn't flicker away and back between Reveal and this screen. -->
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>{m.opponent_response_title()}</Card.Title>
@@ -385,6 +394,23 @@
 				</div>
 			</Card.Content>
 		</Card.Root>
+
+		{#if history.length}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
+				</Card.Header>
+				<Card.Content>
+					<GameSheet
+						rows={history}
+						event={game.headers.Event}
+						date={game.headers.Date}
+						white={game.headers.White}
+						black={game.headers.Black}
+					/>
+				</Card.Content>
+			</Card.Root>
+		{/if}
 	{:else if phase === 'finished'}
 		<!-- Finished (#50): the terminal, full-screen Podium reached from the final Round's
 		     Opponent Response once the Host clicks "Finish". A Participant's personal
@@ -467,6 +493,25 @@
 			</Card.Content>
 		</Card.Root>
 
+		{#if phase === 'reveal' && history.length}
+			<!-- Game Sheet (#68): stays visible through Reveal, already filled in with the
+			     Round just revealed, instead of disappearing the instant Reveal happens. -->
+			<Card.Root>
+				<Card.Header>
+					<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
+				</Card.Header>
+				<Card.Content>
+					<GameSheet
+						rows={history}
+						event={game.headers.Event}
+						date={game.headers.Date}
+						white={game.headers.White}
+						black={game.headers.Black}
+					/>
+				</Card.Content>
+			</Card.Root>
+		{/if}
+
 		<!-- Leaderboard (#51): only shown once the Host has toggled it open on the shared
 		     Reveal screen, except on the Final Round where it's always shown alongside the
 		     Podium. The viewer's own row is highlighted. -->
@@ -483,6 +528,7 @@
 						entries={leaders}
 						highlightId={me}
 						priorTotals={snapshot?.context.priorTotals ?? {}}
+						participants={snapshot?.context.participants ?? {}}
 					/>
 				</Card.Content>
 			</Card.Root>

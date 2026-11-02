@@ -3,6 +3,7 @@ import {
 	topLeaderboard,
 	fullRanking,
 	priorRanking,
+	roundDeltas,
 	finishedMessageFor,
 	scoreboardRows,
 	submissionProgress,
@@ -101,6 +102,33 @@ describe('priorRanking (#55)', () => {
 		const result = priorRanking(entries, { zoe: 1, amy: 1 });
 
 		expect(result.map((e) => e.participantId)).toEqual(['amy', 'zoe']);
+	});
+});
+
+describe('roundDeltas (#68)', () => {
+	it('computes this Round\'s point change for a participant with a prior total', () => {
+		const entries = topLeaderboard({ alice: 9 });
+
+		const result = roundDeltas(entries, { alice: 7 }, { alice: { status: 'submitted', guess: 'e4' } });
+
+		expect(result).toEqual({ alice: 2 });
+	});
+
+	it('falls back a missing prior total to 0, same convention as priorRanking', () => {
+		const entries = topLeaderboard({ bob: 3 });
+
+		const result = roundDeltas(entries, {}, { bob: { status: 'late', guess: 'e4' } });
+
+		expect(result).toEqual({ bob: 3 });
+	});
+
+	it('shows no delta at all for a participant who did not submit a Guess this Round', () => {
+		const entries = topLeaderboard({ carol: 4 });
+
+		const result = roundDeltas(entries, { carol: 4 }, { carol: { status: 'timedOut' } });
+
+		expect(result).toEqual({});
+		expect('carol' in result).toBe(false);
 	});
 });
 

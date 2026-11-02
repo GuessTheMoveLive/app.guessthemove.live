@@ -61,6 +61,29 @@ export function priorRanking(
 	);
 }
 
+/**
+ * Each Participant's Round point delta (#68): this Round's total minus the prior
+ * Round's total, falling back to 0 for a participant missing from `priorTotals`
+ * (their first Round scored) — same convention as {@link priorRanking}. A Participant
+ * who did not submit a Guess this Round (timed out) carries no delta at all, not a
+ * delta of 0 — keyed off `participants`' status the same way the rest of the
+ * Round/Reveal flow already determines submission (e.g. {@link scoreboardRows}),
+ * rather than a new data source.
+ */
+export function roundDeltas(
+	entries: LeaderboardEntry[],
+	priorTotals: Record<string, number>,
+	participants: Record<string, ParticipantState>
+): Record<string, number> {
+	const deltas: Record<string, number> = {};
+	for (const entry of entries) {
+		const state = participants[entry.participantId];
+		if (state?.status !== 'submitted' && state?.status !== 'late') continue;
+		deltas[entry.participantId] = entry.total - (priorTotals[entry.participantId] ?? 0);
+	}
+	return deltas;
+}
+
 export type FinishedMessage =
 	{ kind: 'lead' } | { kind: 'tiedLead' } | { kind: 'behind'; points: number; name: string };
 

@@ -354,9 +354,17 @@
 			<Card.Content class="flex flex-col gap-4">
 				{#if isFinalRound}
 					<Podium entries={top3} />
-					<Leaderboard entries={leaders} priorTotals={snapshot?.context.priorTotals ?? {}} />
+					<Leaderboard
+						entries={leaders}
+						priorTotals={snapshot?.context.priorTotals ?? {}}
+						participants={participants}
+					/>
 				{:else if showLeaderboard}
-					<Leaderboard entries={leaders} priorTotals={snapshot?.context.priorTotals ?? {}} />
+					<Leaderboard
+						entries={leaders}
+						priorTotals={snapshot?.context.priorTotals ?? {}}
+						participants={participants}
+					/>
 				{/if}
 			</Card.Content>
 			<Card.Footer class="flex gap-2">

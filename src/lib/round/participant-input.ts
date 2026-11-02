@@ -22,6 +22,15 @@ export const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 /** Ranks top-to-bottom down the grid, White's view (#24: full coordinates on both axes). */
 export const DISPLAY_RANKS = [8, 7, 6, 5, 4, 3, 2, 1] as const;
 
+/**
+ * Whether a tap-grid square renders as the dark color, matching standard chess board
+ * convention: a1 is dark, h1 is light, alternating from there (#68 — previously inverted,
+ * so a1 rendered light and misled anyone using the grid to orient themselves).
+ */
+export function isDarkSquare(file: (typeof FILES)[number], rank: number): boolean {
+	return (FILES.indexOf(file) + rank) % 2 === 1;
+}
+
 const PIECE_GLYPH: Record<PieceType, string> = {
 	k: '♚',
 	q: '♛',

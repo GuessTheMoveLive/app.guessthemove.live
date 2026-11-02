@@ -83,7 +83,7 @@ Points an Analysis Tree leaf's Assessment Symbol earns against the Evaluation at
 A Participant's total for one Round: Guess Score plus that Round's Analysis Tree contribution, where the contribution is the sum of all Soundness Bonuses and Assessment Bonuses earned, capped at +3 (one shared cap across both bonus types, not split between them). Every bonus is additive-only — floored at 0 per node/leaf, never subtracting — so nothing about the Analysis Tree can make a Round Score worse than Guess Score alone, and a strong Analysis Tree can carry a negative Guess Score to a net positive Round Score. Effective range: -3 (worst Guess, no tree credit) to +6 (best Guess, tree contribution capped).
 
 **Reveal**:
-The Host-triggered moment a Round's Guesses and Analysis Trees become visible to the room and the Leaderboard updates. Nothing is visible to anyone (Participants or the Host Display) before it. Automatically delivers each Participant their own Round Score, whether their Guess matched the Featured Side's actual move, its Variant explanation, and their redacted Guess Group breakdown — no separate Host step needed. The Host Display shows the full Guess Group breakdown (every Guess Group, every name) for the Host alone.
+The Host-triggered moment a Round's Guesses and Analysis Trees become visible to the room and the Leaderboard updates. Nothing is visible to anyone (Participants or the Host Display) before it. Automatically delivers each Participant their own Round Score, whether their Guess matched the Featured Side's actual move, and its Variant explanation — no separate Host step needed. The redacted Guess Group breakdown instead waits for the Host's separate Room Statistics toggle. The Host Display shows the full Guess Group breakdown (every Guess Group, every name) immediately, without needing Room Statistics itself.
 _Avoid_: Feedback (retired as a separate phase — its explanation is now automatic and part of every Participant's Reveal).
 
 **Leaderboard**:
@@ -104,5 +104,9 @@ All Participants who submitted the exact same move as their Guess in a Round. Sc
 _Avoid_: Cluster, category, bucket — those get used loosely in conversation; the canonical term is Guess Group.
 
 **Guess Group breakdown** (Reveal):
-Delivered to every Participant's own phone automatically the moment the Round enters Reveal (no Host action — the manual "Share Guess Groups" step was retired). A Participant sees a bar chart with at most seven bars — one per distinct Round Score from -3 to +3, any score nobody got omitted — plus the names of everyone in their own Guess Group; every other Guess Group shows only its count, never its names. The Host Display shows the full breakdown, every Guess Group and every name.
-_Avoid_: Share Guess Groups (retired — the breakdown is now automatic at Reveal, never a Host button).
+A bar chart with at most seven bars — one per distinct Round Score from -3 to +3, left to right in that fixed order, any score nobody got omitted entirely (not left as an empty gap) — plus the names of everyone in the viewer's own Guess Group; every other Guess Group shows only its count, never its names. On a Participant's own phone this card stays hidden until the Host opens Room Statistics; the Host Display shows the full breakdown, every Guess Group and every name, without needing its own Room Statistics toggle.
+_Avoid_: Share Guess Groups (the original name for this gate, retired by [0003](docs/adr/0003-merge-feedback-into-reveal.md) and reinstated under the name Room Statistics by [0005](docs/adr/0005-gate-guess-group-breakdown-behind-room-statistics.md) — use Room Statistics going forward).
+
+**Room Statistics**:
+A Host-triggered toggle, broadcast to the whole room at once, that reveals the Guess Group breakdown card on every Participant's phone — same shape as the Leaderboard's toggle, and independent of it. Participants still get their own Round Score, actual-move match, and Variant explanation automatically at Reveal regardless of Room Statistics; only the room-wide breakdown waits for it.
+_Avoid_: Share Guess Groups (retired term — see Guess Group breakdown).

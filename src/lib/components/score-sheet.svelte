@@ -39,16 +39,28 @@
 	{#if event || date || white || black}
 		<div class="flex flex-col gap-0.5 border-b px-2 py-1.5 leading-tight">
 			{#if event}
-				<div class="truncate"><span class="text-muted-foreground">{m.score_sheet_tournament()}</span> {event}</div>
+				<div class="truncate">
+					<span class="text-muted-foreground">{m.score_sheet_tournament()}</span>
+					{event}
+				</div>
 			{/if}
 			{#if date}
-				<div class="truncate"><span class="text-muted-foreground">{m.score_sheet_date()}</span> {date}</div>
+				<div class="truncate">
+					<span class="text-muted-foreground">{m.score_sheet_date()}</span>
+					{date}
+				</div>
 			{/if}
 			{#if white}
-				<div class="truncate"><span class="text-muted-foreground">{m.score_sheet_white()}</span> {white}</div>
+				<div class="truncate">
+					<span class="text-muted-foreground">{m.score_sheet_white()}</span>
+					{white}
+				</div>
 			{/if}
 			{#if black}
-				<div class="truncate"><span class="text-muted-foreground">{m.score_sheet_black()}</span> {black}</div>
+				<div class="truncate">
+					<span class="text-muted-foreground">{m.score_sheet_black()}</span>
+					{black}
+				</div>
 			{/if}
 		</div>
 	{/if}

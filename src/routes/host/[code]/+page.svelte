@@ -372,13 +372,13 @@
 					<Leaderboard
 						entries={leaders}
 						priorTotals={snapshot?.context.priorTotals ?? {}}
-						participants={participants}
+						{participants}
 					/>
 				{:else if showLeaderboard}
 					<Leaderboard
 						entries={leaders}
 						priorTotals={snapshot?.context.priorTotals ?? {}}
-						participants={participants}
+						{participants}
 					/>
 				{/if}
 			</Card.Content>

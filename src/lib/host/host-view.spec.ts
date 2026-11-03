@@ -106,10 +106,14 @@ describe('priorRanking (#55)', () => {
 });
 
 describe('roundDeltas (#68)', () => {
-	it('computes this Round\'s point change for a participant with a prior total', () => {
+	it("computes this Round's point change for a participant with a prior total", () => {
 		const entries = topLeaderboard({ alice: 9 });
 
-		const result = roundDeltas(entries, { alice: 7 }, { alice: { status: 'submitted', guess: 'e4' } });
+		const result = roundDeltas(
+			entries,
+			{ alice: 7 },
+			{ alice: { status: 'submitted', guess: 'e4' } }
+		);
 
 		expect(result).toEqual({ alice: 2 });
 	});
@@ -363,9 +367,15 @@ describe('answerKeyBreakdown', () => {
 		};
 
 		const rows = answerKeyBreakdown(sameTier, 9);
-		const [, abcRow, zxyRow] = [rows[0], rows.find((r) => r.san === 'Abc')!, rows.find((r) => r.san === 'Zxy')!];
+		const [, abcRow, zxyRow] = [
+			rows[0],
+			rows.find((r) => r.san === 'Abc')!,
+			rows.find((r) => r.san === 'Zxy')!
+		];
 		expect(abcRow.tier).toBe(zxyRow.tier);
-		expect(rows.map((r) => r.san).indexOf('Zxy')).toBeLessThan(rows.map((r) => r.san).indexOf('Abc'));
+		expect(rows.map((r) => r.san).indexOf('Zxy')).toBeLessThan(
+			rows.map((r) => r.san).indexOf('Abc')
+		);
 	});
 
 	it('sorts a Black-to-move step by the mover-mirrored strength, not raw White-perspective eval', () => {

@@ -485,36 +485,33 @@ describe('SessionRoom', () => {
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
-		expect(
-			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
-		).toBe(false);
+		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
+			false
+		);
 
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
-		expect(
-			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
-		).toBe(true);
+		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
+			true
+		);
 
 		// A Participant's socket can never trigger it.
-		await room.webSocketMessage(
-			aliceWs as never,
-			JSON.stringify({ type: 'show_room_statistics' })
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'show_room_statistics' }));
+		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
+			true
 		);
-		expect(
-			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
-		).toBe(true);
 
 		// One-way: a repeat Host message doesn't hide it back.
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
-		expect(
-			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
-		).toBe(true);
+		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
+			true
+		);
 
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'reveal' }));
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'continue' }));
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'next_round' }));
-		expect(
-			(hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics
-		).toBe(false);
+		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
+			false
+		);
 	});
 
 	it('show_room_statistics is independent of show_leaderboard — toggling one leaves the other untouched (#73)', async () => {

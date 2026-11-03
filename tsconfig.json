@@ -2,11 +2,7 @@
 	"extends": "$app/tsconfig",
 	"compilerOptions": {
 		"strict": true,
-		"types": [
-			"$app/types",
-			"node",
-			"./worker-configuration.d.ts"
-		],
+		"types": ["$app/types", "node", "./worker-configuration.d.ts"],
 		"ignoreDeprecations": "6.0"
 	},
 	"include": ["src", "vite.config.ts"],

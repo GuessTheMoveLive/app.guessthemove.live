@@ -47,7 +47,9 @@ describe('isDarkSquare (#68: a1 must render dark, matching a real board)', () =>
 		}
 		for (const file of FILES) {
 			for (let i = 1; i < DISPLAY_RANKS.length; i++) {
-				expect(isDarkSquare(file, DISPLAY_RANKS[i])).toBe(!isDarkSquare(file, DISPLAY_RANKS[i - 1]));
+				expect(isDarkSquare(file, DISPLAY_RANKS[i])).toBe(
+					!isDarkSquare(file, DISPLAY_RANKS[i - 1])
+				);
 			}
 		}
 	});

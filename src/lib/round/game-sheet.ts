@@ -47,7 +47,7 @@ export function gameSheetSteps(
 	const cutoffPly =
 		phase === 'opponentResponse' && opponentSteps.length
 			? opponentSteps[opponentSteps.length - 1].ply
-			: quizStep?.ply ?? 0;
+			: (quizStep?.ply ?? 0);
 
 	return steps.filter((s) =>
 		includeCurrentRound ? s.ply <= cutoffPly : s.ply < (quizStep?.ply ?? 1)

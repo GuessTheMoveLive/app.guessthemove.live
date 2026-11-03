@@ -219,7 +219,7 @@
 	// explanation and Guess Group breakdown are derived from the current snapshot, so
 	// they clear themselves once the Round moves on.)
 	$effect(() => {
-		roundIndex;
+		void roundIndex;
 		origin = null;
 		pending = null;
 	});

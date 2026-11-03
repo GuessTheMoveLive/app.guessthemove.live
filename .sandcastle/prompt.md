@@ -25,8 +25,8 @@ do nothing and skip straight to the Done section below.
   one depends on have already shipped. If a stated prerequisite hasn't landed yet, don't block
   indefinitely — note the gap in your closing comment and implement as defensively as the issue
   allows, or flag it as a blocker (see Rules) if it's genuinely not implementable without it.
-- Run `npm run typecheck` and `npm run test` from the repo root after each piece and keep both
-  green before committing.
+- Run `npm run lint`, `npm run typecheck`, and `npm run test` from the repo root after each piece
+  and keep all three green before committing.
 - Playwright's Chromium browser and its system libraries are baked into this sandbox's image
   already (`npx playwright install chromium` is a no-op here) — for UI-affecting changes, drive
   the real app with it directly rather than reaching for an SSR-render or raw-WebSocket
@@ -52,7 +52,8 @@ You are RALPH, an autonomous coding agent. Implement the issue picked above full
 3. **Execute** — RGR: write a failing test first where the change is unit-testable (pure
    helpers, round-machine transitions, Durable Object message handling), then implement the
    Svelte UI.
-4. **Verify** — `npm run typecheck && npm run test` from the repo root before every commit. Fix
+4. **Verify** — `npm run lint && npm run typecheck && npm run test` from the repo root before
+   every commit. Fix
    failures before proceeding, never commit red.
 5. **Commit** — one commit per logically-complete slice. Message MUST:
    - Start with `RALPH:` prefix
@@ -61,7 +62,7 @@ You are RALPH, an autonomous coding agent. Implement the issue picked above full
    - Note any blockers for the next iteration
 6. **Close** — once fully implemented and verified, close it:
    `gh issue close <N> --comment "<what was built, in the same style as this repo's other
-   closing comments — gh issue view 48, 49, or 50 for the tone/format to match>"`. Also append
+closing comments — gh issue view 48, 49, or 50 for the tone/format to match>"`. Also append
    one line to issue #1's "Decisions so far" via `gh issue comment 1`, same pattern as the
    existing entries there.
 

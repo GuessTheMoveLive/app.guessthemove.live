@@ -7,7 +7,6 @@ import {
 	EVAL_SYMBOLS
 } from './feedback';
 import type { AnswerKeyStep } from './scoring';
-import type { ParticipantState } from './round-machine';
 
 // d4 (+0.85) is a slight edge for White (⩲); g3 (-0.39) is equal (=); Nd4 (-9.13) is lost (-+).
 // Computed tiers (#61): h3 (loss ~1.9) => +3 (still an "alternative", not the move

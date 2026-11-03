@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -11,7 +12,7 @@
 	function enter(event: SubmitEvent) {
 		event.preventDefault();
 		if (!normalized) return;
-		goto(`/play/${encodeURIComponent(normalized)}`);
+		goto(resolve('/play/[code]', { code: normalized }));
 	}
 </script>
 
@@ -33,7 +34,7 @@
 					spellcheck="false"
 					maxlength="12"
 					aria-label={m.room_code_label()}
-					class="w-full rounded-md border bg-background px-3 py-4 text-center font-mono text-2xl uppercase tracking-[0.3em] placeholder:tracking-normal placeholder:text-muted-foreground/50"
+					class="w-full rounded-md border bg-background px-3 py-4 text-center font-mono text-2xl tracking-[0.3em] uppercase placeholder:tracking-normal placeholder:text-muted-foreground/50"
 				/>
 				<Button type="submit" size="lg" disabled={!normalized}>{m.join_button()}</Button>
 			</form>

@@ -1,5 +1,6 @@
 import { run, claudeCode } from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { execFileSync } from "node:child_process";
 
 // Simple loop: an agent that picks open issues one by one and closes them.
 // Run this with: npx tsx .sandcastle/main.mts
@@ -57,7 +58,32 @@ await run({
       // synced in, before the agent starts. Use it to install dependencies or run
       // any other setup steps your project needs. With node_modules/npm-cache
       // mounted above, this is an incremental install after the first run.
-      onSandboxReady: [{ command: "npm install", timeoutMs: 300_000 }],
+      //
+      // `npm ci` (not `npm install`) so a per-iteration install never rewrites
+      // package-lock.json — on win32 (no cache mounts, so every iteration
+      // installs from scratch) a plain `npm install` was touching the lockfile
+      // each time, which left every iteration's worktree flagged "dirty" and
+      // preserved on disk even when the agent made no real change.
+      onSandboxReady: [{ command: "npm ci", timeoutMs: 300_000 }],
     },
   },
 });
+
+// Safety net: merge-to-head only ever merges committed commits into this
+// branch, so it can't be the source of stray untracked files — but flag any
+// untracked file left in the host repo after the run anyway, in case
+// something (a stray local edit, a future sandcastle change) slips one in
+// without a commit or review to catch it.
+const untracked = execFileSync(
+  "git",
+  ["status", "--porcelain", "--untracked-files=all"],
+  { encoding: "utf8" },
+)
+  .split("\n")
+  .filter((line) => line.startsWith("?? "));
+if (untracked.length > 0) {
+  console.warn(
+    `\nWarning: ${untracked.length} untracked file(s) found in the repo after the sandcastle run — these were never committed by any iteration, so review them before trusting anything landed cleanly:\n` +
+      untracked.map((line) => `  ${line.slice(3)}`).join("\n"),
+  );
+}

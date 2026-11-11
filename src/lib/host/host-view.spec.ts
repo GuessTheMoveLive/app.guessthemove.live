@@ -428,35 +428,35 @@ describe('answerKeyBreakdown', () => {
 	});
 
 	it('gold-borders only the move actually played, even when real game data shares its tier across several rows (#62)', () => {
-		// White's move 6 in the actual Capablanca-Marshall answer key: 6.Nbd2 was
-		// played, but 6.h3, 6.O-O, 6.Ba4, 6.d4, 6.a3 and 6.Be3 all also compute to
-		// +3 - exactly the ambiguous case #62 was filed against.
-		const step = getAnswerKeyStep(11)!;
-		expect(step.san).toBe('Nbd2');
+		// Black's move 6 in the actual Bernstein-Capablanca answer key: 6...Nbd7 was
+		// played, but 6...b6, 6...h6, 6...c6, 6...dxc4, 6...c5 and 6...a6 all also
+		// compute to +3 - exactly the ambiguous case #62 was filed against.
+		const step = getAnswerKeyStep(12)!;
+		expect(step.san).toBe('Nbd7');
 
-		const rows = answerKeyBreakdown(step, 11, 'Capablanca', 'Marshall');
+		const rows = answerKeyBreakdown(step, 12, 'Bernstein', 'Capablanca');
 		const plusThreeSans = rows.filter((r) => r.tier === '+3').map((r) => r.san);
-		expect(plusThreeSans).toEqual(expect.arrayContaining(['h3', 'O-O', 'Nbd2']));
+		expect(plusThreeSans).toEqual(expect.arrayContaining(['b6', 'h6', 'Nbd7']));
 		expect(plusThreeSans.length).toBeGreaterThan(1);
 
 		const goldRows = rows.filter((r) => r.isGameMove);
 		expect(goldRows).toHaveLength(1);
-		expect(goldRows[0].san).toBe('Nbd2');
+		expect(goldRows[0].san).toBe('Nbd7');
 	});
 
-	it('sorts the real Capablanca-Marshall move 5 by strength, not source order (#65)', () => {
-		// White's move 5 in the actual answer key: 5.d3 was played, but 5.d4, 5.h3 and
-		// 5.Ba4 all compute stronger, and 5.O-O ties d3's computed tier yet is still the
-		// objectively better move - the exact upset the issue was filed against.
-		const step = getAnswerKeyStep(9)!;
-		expect(step.san).toBe('d3');
+	it('sorts the real Bernstein-Capablanca move 5 by strength, not source order (#65)', () => {
+		// Black's move 5 in the actual answer key: 5...O-O was played, but 5...h6
+		// computes stronger, and 5...Nbd7 ties O-O's computed tier yet still sorts
+		// behind it - the exact upset the issue was filed against.
+		const step = getAnswerKeyStep(10)!;
+		expect(step.san).toBe('O-O');
 
-		const rows = answerKeyBreakdown(step, 9, 'Capablanca', 'Marshall');
+		const rows = answerKeyBreakdown(step, 10, 'Bernstein', 'Capablanca');
 		const sans = rows.map((r) => r.san);
-		const [d4, h3, ba4, oo, d3] = ['d4', 'h3', 'Ba4', 'O-O', 'd3'].map((s) => sans.indexOf(s));
-		expect(d4).toBeLessThan(h3);
-		expect(h3).toBeLessThan(ba4);
-		expect(ba4).toBeLessThan(oo);
-		expect(oo).toBeLessThan(d3);
+		const [h6, oo, nbd7, b6, c5] = ['h6', 'O-O', 'Nbd7', 'b6', 'c5'].map((s) => sans.indexOf(s));
+		expect(h6).toBeLessThan(oo);
+		expect(oo).toBeLessThan(nbd7);
+		expect(nbd7).toBeLessThan(b6);
+		expect(b6).toBeLessThan(c5);
 	});
 });

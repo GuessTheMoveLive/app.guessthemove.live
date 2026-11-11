@@ -4,8 +4,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { Chess } from 'chess.js';
 
-const SRC = './games/capablanca-marshall/Capablanca - Marshall (Guess-the-Move key).pgn';
-const OUT = 'src/lib/data/capablanca-marshall.json';
+const SRC =
+	process.argv[2] ?? './games/capablanca-marshall/Capablanca - Marshall (Guess-the-Move key).pgn';
+const OUT = process.argv[3] ?? 'src/lib/data/capablanca-marshall.json';
 
 const raw = readFileSync(SRC, 'utf8');
 
@@ -183,5 +184,5 @@ const data = {
 
 writeFileSync(OUT, JSON.stringify(data));
 console.log(
-	`Wrote ${OUT}: ${steps.length} plies, ${steps.filter((s) => s.alternatives.length).length} quizzed White moves`
+	`Wrote ${OUT}: ${steps.length} plies, ${steps.filter((s) => s.alternatives.length).length} quizzed Featured Side moves`
 );

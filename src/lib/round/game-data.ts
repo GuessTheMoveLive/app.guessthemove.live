@@ -1,4 +1,4 @@
-import raw from '../data/capablanca-marshall.json';
+import raw from '../data/bernstein-capablanca.json';
 import type { AnswerKeyStep } from './scoring';
 
 // Loads the precomputed per-position answer-key table built offline by

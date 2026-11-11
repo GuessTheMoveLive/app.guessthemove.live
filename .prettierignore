@@ -12,6 +12,7 @@ skills-lock.json
 # Generated
 worker-configuration.d.ts
 src/lib/data/capablanca-marshall.json
+src/lib/data/bernstein-capablanca.json
 
 # Miscellaneous
 /static/

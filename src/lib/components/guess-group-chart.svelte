@@ -7,7 +7,7 @@
 		chartPointsLabel,
 		type ScoreBucket
 	} from '#lib/round/guess-groups.js';
-	import { chartScoreColor } from '#lib/round/score-color.js';
+	import { scoreColor } from '#lib/round/score-color.js';
 
 	// True diverging bar chart of a Round's bounded Guess Group breakdown (#42, made
 	// diverging in #54), rebuilt on shadcn-svelte/layerchart's BarChart (#73, modeled on
@@ -36,16 +36,16 @@
 
 	const { buckets, highlightScore = null }: Props = $props();
 
-	// Each bar's color comes from chartScoreColor() (#83), keyed by that bucket's own
-	// score — a fixed domain/range pair covering every possible score rather than just
-	// the ones in `buckets` this Round, so a bucket's color never shifts depending on
-	// which other buckets happen to be present. `c` must resolve through this explicit
-	// cScale (BarChart's own default `cRange` is a single placeholder color) for per-bar
-	// coloring to take effect at all. chartScoreColor resolves through the active
-	// theme's `--chart-1..4` tokens rather than a fixed palette, so this chart recolors
-	// itself automatically if the theme's chart tokens ever change.
+	// Each bar's color comes from scoreColor(), keyed by that bucket's own score — a
+	// fixed domain/range pair covering every possible score rather than just the ones in
+	// `buckets` this Round, so a bucket's color never shifts depending on which other
+	// buckets happen to be present. `c` must resolve through this explicit cScale
+	// (BarChart's own default `cRange` is a single placeholder color) for per-bar
+	// coloring to take effect at all. scoreColor's fixed semantic hex gives positive
+	// scores green, 0 gray, and negative scores red, matching the Game Sheet and reveal
+	// list's coloring of the same scores.
 	const SCORES = [-3, -2, -1, 0, 1, 2, 3];
-	const scoreColorRange = SCORES.map((score) => chartScoreColor(score));
+	const scoreColorRange = SCORES.map((score) => scoreColor(score));
 
 	// Only used for Chart.Container's required `config` prop — this chart colors bars
 	// directly by score (see `c`/`cDomain`/`cRange` below) rather than through a named

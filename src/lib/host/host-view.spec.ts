@@ -427,17 +427,18 @@ describe('answerKeyBreakdown', () => {
 		expect(remark).not.toContain('Capablanca');
 	});
 
-	it('gold-borders only the move actually played, even when real game data shares its tier across several rows (#62)', () => {
+	it('gold-borders only the move actually played, even when it shares its tier with the next-ranked alternative (#62, narrowed by #70)', () => {
 		// Black's move 6 in the actual Bernstein-Capablanca answer key: 6...Nbd7 was
-		// played, but 6...b6, 6...h6, 6...c6, 6...dxc4, 6...c5 and 6...a6 all also
-		// compute to +3 - exactly the ambiguous case #62 was filed against.
+		// played and is itself the best move here, so 6...b6 - the single next-ranked
+		// alternative, well within the +2 floor - is promoted to +3 alongside it (#70).
+		// 6...h6, 6...c6, 6...dxc4, 6...c5 and 6...a6 rank further behind and no longer
+		// independently qualify, unlike under the old flat loss<=2 band (#62).
 		const step = getAnswerKeyStep(12)!;
 		expect(step.san).toBe('Nbd7');
 
 		const rows = answerKeyBreakdown(step, 12, 'Bernstein', 'Capablanca');
 		const plusThreeSans = rows.filter((r) => r.tier === '+3').map((r) => r.san);
-		expect(plusThreeSans).toEqual(expect.arrayContaining(['b6', 'h6', 'Nbd7']));
-		expect(plusThreeSans.length).toBeGreaterThan(1);
+		expect(plusThreeSans.sort()).toEqual(['Nbd7', 'b6']);
 
 		const goldRows = rows.filter((r) => r.isGameMove);
 		expect(goldRows).toHaveLength(1);

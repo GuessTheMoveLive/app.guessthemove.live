@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	scoreGuess,
 	computeTier,
+	playedMoveTier,
 	scoreParticipantRound,
 	TIMEOUT_PENALTY,
 	type AnswerKeyStep
@@ -13,13 +14,16 @@ import type { ParticipantState } from './round-machine';
 // alternatives (engine eval only — #61 retires the hand-typed tier label).
 // The played move's own eval (+1.00) is the best option, so every alternative's
 // win-probability-loss is measured against it; evals are chosen with a clear
-// margin either side of each banding cutoff (2 / 5 / 10 / 20 / 35 / 50).
+// margin either side of each banding cutoff (5 / 10 / 20 / 35 / 50). h3 sits
+// right behind the played move (loss ~2.69, under the '+2' floor), so per #70
+// it is promoted to '+3' as the sound next-best-ranked move — the played move
+// is itself a loss-0 '+3' by the old band, satisfying the promotion's gate.
 const step: AnswerKeyStep = {
 	san: 'd4',
 	color: 'w',
 	playedComment: { eval: 1.0 },
 	alternatives: [
-		{ san: 'h3', eval: 0.7, continuation: [] }, // loss ~2.69 => +2
+		{ san: 'h3', eval: 0.7, continuation: [] }, // next-best-ranked, loss ~2.69 => +3 (#70)
 		{ san: 'Qe2', eval: 0.4, continuation: [] }, // loss ~5.42 => +1
 		{ san: 'g3', eval: -0.3, continuation: [] }, // loss ~11.86 => 0
 		{ san: 'Bxh7', eval: -1.8, continuation: [] }, // loss ~25.08 => blunder -1
@@ -29,12 +33,11 @@ const step: AnswerKeyStep = {
 };
 
 describe('computeTier (win-probability-loss bands, #61)', () => {
-	it('awards +3 for a loss at/under 2', () => {
-		expect(computeTier(step, 1.0)).toBe('+3'); // the best move itself: loss 0
+	it('awards +3 to the best move itself', () => {
+		expect(computeTier(step, 1.0)).toBe('+3'); // the played move: loss 0
 	});
 
-	it('bands +2/+1/0 for alternatives with increasing loss', () => {
-		expect(computeTier(step, 0.7)).toBe('+2');
+	it('bands +1/0 for alternatives with increasing loss', () => {
 		expect(computeTier(step, 0.4)).toBe('+1');
 		expect(computeTier(step, -0.3)).toBe('0');
 	});
@@ -56,11 +59,6 @@ describe('computeTier (win-probability-loss bands, #61)', () => {
 			playedComment: { eval: 2.0 },
 			alternatives: []
 		};
-
-		it('2-loss cutoff: +3 just inside, +2 just outside', () => {
-			expect(computeTier(base, 1.77)).toBe('+3'); // loss ~1.88
-			expect(computeTier(base, 1.74)).toBe('+2'); // loss ~2.13
-		});
 
 		it('5-loss cutoff: +2 just inside, +1 just outside', () => {
 			expect(computeTier(base, 1.41)).toBe('+2'); // loss ~4.92
@@ -112,6 +110,72 @@ describe('computeTier (win-probability-loss bands, #61)', () => {
 		expect(computeTier(blackStep, -0.5)).toBe('0');
 		expect(scoreGuess(blackStep, 'Qxc2')).toBe(0);
 	});
+
+	describe('+3 is rank-based, not a flat loss band (#70)', () => {
+		it('promotes a sound next-best-ranked alternative to +3', () => {
+			expect(computeTier(step, 0.7)).toBe('+3'); // h3: loss ~2.69, under the +2 floor
+		});
+
+		it('awards +3 to an alternative tied with the played move', () => {
+			const tied: AnswerKeyStep = {
+				san: 'd4',
+				color: 'w',
+				playedComment: { eval: 1.0 },
+				alternatives: [{ san: 'e4', eval: 1.0, continuation: [] }]
+			};
+			expect(computeTier(tied, 1.0)).toBe('+3');
+		});
+
+		it('awards +3 to an alternative strictly better than the played move', () => {
+			const upset: AnswerKeyStep = {
+				san: 'played',
+				color: 'w',
+				playedComment: { eval: 0.3 }, // not +3 by itself against 'stronger'
+				alternatives: [{ san: 'stronger', eval: 1.0, continuation: [] }]
+			};
+			expect(computeTier(upset, 1.0)).toBe('+3');
+			expect(playedMoveTier(upset)).toBe('+1'); // the played move's own computed tier
+			expect(scoreGuess(upset, 'played')).toBe(3); // override still applies
+		});
+
+		it('does not promote the next-best rank when its own loss exceeds the +2 floor', () => {
+			const distantSecond: AnswerKeyStep = {
+				san: 'best',
+				color: 'w',
+				playedComment: { eval: 2.0 },
+				alternatives: [{ san: 'x', eval: -0.3, continuation: [] }] // loss ~41, nowhere near +2
+			};
+			expect(computeTier(distantSecond, -0.3)).toBe('blunder');
+		});
+
+		it('does not promote the next-best rank when the played move is not a +3 by itself', () => {
+			// 'played' has loss ~11.4 from 'best' (not within the old loss<=2 gate), so the
+			// rank-2 move 'runnerUp' gets no promotion even though its own loss is small.
+			const notElite: AnswerKeyStep = {
+				san: 'played',
+				color: 'w',
+				playedComment: { eval: 0.3 },
+				alternatives: [
+					{ san: 'best', eval: 1.0, continuation: [] },
+					{ san: 'runnerUp', eval: 0.28, continuation: [] } // loss ~1.4 from 'played', but not next-after 'best'
+				]
+			};
+			expect(computeTier(notElite, 0.28)).not.toBe('+3');
+		});
+
+		it('promotes every move tied for the next-best rank', () => {
+			const tiedRunnersUp: AnswerKeyStep = {
+				san: 'd4',
+				color: 'w',
+				playedComment: { eval: 1.0 },
+				alternatives: [
+					{ san: 'h3', eval: 0.7, continuation: [] },
+					{ san: 'c4', eval: 0.7, continuation: [] } // tied with h3 for next-after
+				]
+			};
+			expect(computeTier(tiedRunnersUp, 0.7)).toBe('+3');
+		});
+	});
 });
 
 describe('scoreGuess', () => {
@@ -119,8 +183,8 @@ describe('scoreGuess', () => {
 		expect(scoreGuess(step, 'd4')).toBe(3);
 	});
 
-	it('maps the computed tiers to +2 / +1 / 0', () => {
-		expect(scoreGuess(step, 'h3')).toBe(2);
+	it('awards +3 for the next-best-ranked alternative, +1/0 further down', () => {
+		expect(scoreGuess(step, 'h3')).toBe(3);
 		expect(scoreGuess(step, 'Qe2')).toBe(1);
 		expect(scoreGuess(step, 'g3')).toBe(0);
 	});
@@ -146,7 +210,7 @@ describe('scoreGuess', () => {
 			playedComment: { eval: -5.0 },
 			alternatives: [{ san: 'stronger', eval: 2.0, continuation: [] }]
 		};
-		expect(computeTier(upset, -5.0)).toBe('blunder');
+		expect(playedMoveTier(upset)).toBe('blunder');
 		expect(scoreGuess(upset, 'played')).toBe(3);
 	});
 });
@@ -154,7 +218,7 @@ describe('scoreGuess', () => {
 describe('scoreParticipantRound', () => {
 	it('scores a submitted guess by its computed tier in a scoring round', () => {
 		const state: ParticipantState = { status: 'submitted', guess: 'h3' };
-		expect(scoreParticipantRound(state, step, true)).toBe(2);
+		expect(scoreParticipantRound(state, step, true)).toBe(3);
 	});
 
 	it('applies a hard -3 to a timed-out participant', () => {

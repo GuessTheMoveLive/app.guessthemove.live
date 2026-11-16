@@ -22,7 +22,8 @@ const answerKey: AnswerKeyStep = {
 	color: 'w',
 	playedComment: { eval: 0.85 },
 	alternatives: [
-		// Computed tier (#61): win-probability-loss ~3.6 => +2.
+		// Computed tier: next-ranked alternative, loss ~3.6 (within the +2 floor) and
+		// d4 itself is elite, so h3 is promoted to +3 (#70).
 		{ san: 'h3', eval: 0.45, continuation: [] },
 		{ san: 'Nd4', eval: -9.13, continuation: [] }
 	]
@@ -273,12 +274,12 @@ describe('roundMachine scoring', () => {
 		});
 		actor.send({ type: 'START_ROUND' });
 		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' }); // exact => +3
-		actor.send({ type: 'SUBMIT', participantId: 'bob', guess: 'h3' }); // tier +2 => +2
+		actor.send({ type: 'SUBMIT', participantId: 'bob', guess: 'h3' }); // promoted tier +3 => +3
 		// carol never submits => timedOut => -3
 
 		actor.send({ type: 'ROUND_TIMEOUT' });
 
-		expect(actor.getSnapshot().context.scores).toEqual({ alice: 3, bob: 2, carol: -3 });
+		expect(actor.getSnapshot().context.scores).toEqual({ alice: 3, bob: 3, carol: -3 });
 	});
 
 	it('folds this round into the running total carried in via priorTotals', () => {

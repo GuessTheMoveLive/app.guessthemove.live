@@ -1,5 +1,5 @@
 import type { ParticipantState } from '#lib/round/round-machine.js';
-import { computeTier, type AnswerKeyStep, type Tier } from '#lib/round/scoring.js';
+import { computeTier, playedMoveTier, type AnswerKeyStep, type Tier } from '#lib/round/scoring.js';
 import {
 	sanToGlyph,
 	formatNumberedMove,
@@ -232,7 +232,7 @@ export function answerKeyBreakdown(
 	if (!step) return [];
 
 	const playedEval = step.playedComment?.eval ?? null;
-	const playedTier = computeTier(step, playedEval);
+	const playedTier = playedMoveTier(step);
 	const moverName = step.color === 'w' ? whiteName : blackName;
 	const remark =
 		playedTier != null && playedTier !== '+3'

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
 	FILES,
 	DISPLAY_RANKS,
+	displayRanks,
+	displayFiles,
 	pieceAt,
 	sanToGlyph,
 	resolveTapMove,
@@ -25,6 +27,18 @@ describe('coordinate axes (#24: full a–h / 1–8 on both axes)', () => {
 
 	it('labels ranks 8 down to 1 top to bottom (White view)', () => {
 		expect(DISPLAY_RANKS).toEqual([8, 7, 6, 5, 4, 3, 2, 1]);
+	});
+});
+
+describe('displayRanks/displayFiles (#87: auto-flip for a Black Featured Side)', () => {
+	it('keep the White-view order when the Featured Side is White', () => {
+		expect(displayRanks('w')).toEqual([8, 7, 6, 5, 4, 3, 2, 1]);
+		expect(displayFiles('w')).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+	});
+
+	it('reverse both axes when the Featured Side is Black', () => {
+		expect(displayRanks('b')).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+		expect(displayFiles('b')).toEqual(['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a']);
 	});
 });
 

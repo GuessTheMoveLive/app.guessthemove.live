@@ -23,6 +23,22 @@ export const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 export const DISPLAY_RANKS = [8, 7, 6, 5, 4, 3, 2, 1] as const;
 
 /**
+ * Ranks top-to-bottom for the tap-to-guess grid, oriented so the Featured Side's own
+ * pieces sit at the bottom (#87): unchanged for White, reversed for Black.
+ */
+export function displayRanks(featuredColor: PieceColor): readonly number[] {
+	return featuredColor === 'b' ? [1, 2, 3, 4, 5, 6, 7, 8] : DISPLAY_RANKS;
+}
+
+/**
+ * Files left-to-right for the tap-to-guess grid, oriented so the Featured Side's own
+ * pieces sit at the bottom (#87): unchanged for White, reversed for Black.
+ */
+export function displayFiles(featuredColor: PieceColor): readonly (typeof FILES)[number][] {
+	return featuredColor === 'b' ? [...FILES].reverse() : FILES;
+}
+
+/**
  * Whether a tap-grid square renders as the dark color, matching standard chess board
  * convention: a1 is dark, h1 is light, alternating from there (#68 — previously inverted,
  * so a1 rendered light and misled anyone using the grid to orient themselves).

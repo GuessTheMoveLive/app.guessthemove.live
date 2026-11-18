@@ -11,8 +11,8 @@
 	} from '#lib/host/host-view.js';
 	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
 	import {
-		FILES,
-		DISPLAY_RANKS,
+		displayRanks,
+		displayFiles,
 		resolveTapMove,
 		formatNumberedMove,
 		formatContinuation,
@@ -158,6 +158,11 @@
 			: null
 	);
 	const fen = $derived(quizStep?.fenBefore ?? game.startFen);
+	// The tap-to-guess grid auto-flips to the Featured Side's own view (#87): Black's
+	// pieces at the bottom when Black is to move, White's view otherwise.
+	const featuredColor = $derived(quizStep?.color ?? 'w');
+	const ranks = $derived(displayRanks(featuredColor));
+	const files = $derived(displayFiles(featuredColor));
 	const candidateSans = $derived(
 		quizStep ? [quizStep.san, ...quizStep.alternatives.map((a) => a.san)] : []
 	);
@@ -318,14 +323,14 @@
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-4">
 				<div class="flex flex-col">
-					{#each DISPLAY_RANKS as rank (rank)}
+					{#each ranks as rank (rank)}
 						<div class="flex">
 							<div
 								class="flex w-5 items-center justify-center font-mono text-xs text-muted-foreground"
 							>
 								{rank}
 							</div>
-							{#each FILES as file (file)}
+							{#each files as file (file)}
 								{@const sq = `${file}${rank}`}
 								{@const isDark = isDarkSquare(file, rank)}
 								<button
@@ -344,7 +349,7 @@
 					{/each}
 					<div class="flex">
 						<div class="w-5"></div>
-						{#each FILES as file (file)}
+						{#each files as file (file)}
 							<div class="flex-1 text-center font-mono text-xs text-muted-foreground">
 								{file}
 							</div>

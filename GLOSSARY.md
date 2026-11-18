@@ -5,7 +5,7 @@ A live, multiplayer chess training format: participants guess the moves of a str
 ## Language
 
 **Session**:
-One live event instance, identified by a Room Code, running from the Plenum Selection Phase through to a final Leaderboard. Not persisted once it ends; no accounts.
+One live event instance, identified by a Room Code, opening straight into Round 1 of a pre-selected Featured Game and running through to a final Leaderboard. Not persisted once it ends; no accounts.
 _Avoid_: Game (ambiguous with Featured Game), Room (that's the Room Code, not the Session itself)
 
 **Host**:
@@ -13,7 +13,7 @@ The person running the Session from the Host Display. May also join as a separat
 _Avoid_: Presenter, moderator
 
 **Host Display**:
-The shared screen (driven from a PC, shown on the beamer) a Session's Host uses to run the Plenum Selection Phase, control Reveals, and show the board and Leaderboard to the room. Never shows a Participant's Guess or Analysis Tree before Reveal, including the Host's own if they've joined as a Participant.
+The shared screen (driven from a PC, shown on the beamer) a Session's Host uses to control Reveals and show the board and Leaderboard to the room. Never shows a Participant's Guess or Analysis Tree before Reveal, including the Host's own if they've joined as a Participant.
 _Avoid_: Beamer, projector, control panel
 
 **Participant**:
@@ -27,12 +27,8 @@ _Avoid_: using this interchangeably with Host Token; they're different credentia
 **Host Token**:
 The secret credential, embedded only in the Host's own Session URL, that proves control of a Session. Never shown on the shared/QR view. Distinct from the Room Code, which anyone can see and use to join as a Participant.
 
-**Plenum Selection Phase**:
-The Session's opening phase: the Host enters moves on the Host Display's board as the room verbally agrees on a position, with no Participant device interaction or scoring. Once a position is reached, it's used to search for a Candidate Game.
-_Avoid_: Opening phase, game selection
-
 **Candidate Game**:
-A real game surfaced by searching on criteria (opening reached, tournament tier, gender, etc.) during the Plenum Selection Phase, carrying a computed Accuracy Score. The Host picks one Candidate Game meeting the minimum Accuracy Score to become the Featured Game.
+A real game in the Host's pre-analyzed library, carrying a computed Accuracy Score. Before the Session starts, the Host picks one Candidate Game meeting the minimum Accuracy Score to become the Featured Game.
 
 **Featured Game**:
 The Candidate Game chosen to guess through for the rest of the Session, played move by move across successive Rounds.

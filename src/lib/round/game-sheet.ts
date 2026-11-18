@@ -77,11 +77,12 @@ export function buildGameSheet(
 			rows.push(row);
 		}
 
-		const move: GameSheetMove = { san: sanToGlyph(step.san), guess: null };
+		const move: GameSheetMove = { san: sanToGlyph(step.san, step.color), guess: null };
 		if (step.alternatives.length > 0) {
 			const guessSan = guessHistory[roundIndex]?.[participantId];
 			const points = guessSan == null ? TIMEOUT_PENALTY : scoreGuess(step, guessSan);
-			const text = guessSan == null ? '—' : guessSan === step.san ? '' : sanToGlyph(guessSan);
+			const text =
+				guessSan == null ? '—' : guessSan === step.san ? '' : sanToGlyph(guessSan, step.color);
 			move.guess = { text, points };
 			roundIndex++;
 		}

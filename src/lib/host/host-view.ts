@@ -3,7 +3,8 @@ import { computeTier, playedMoveTier, type AnswerKeyStep, type Tier } from '#lib
 import {
 	sanToGlyph,
 	formatNumberedMove,
-	formatContinuation
+	formatContinuation,
+	type PieceColor
 } from '#lib/round/participant-input.js';
 import { m } from '#lib/paraglide/messages.js';
 
@@ -131,18 +132,24 @@ export interface ScoreboardRow {
  * and (once submitted) this Round's move, highest score first, ties broken by
  * participantId. Unlike {@link topLeaderboard} this is the full roster, not a
  * top-N, and it's meant to stay on screen across every phase, not just between
- * Rounds — kick stays available per-row alongside it.
+ * Rounds — kick stays available per-row alongside it. `featuredColor` is the current
+ * Round's mover (#88) — every submitted guess is a guess at that same move, so one
+ * color glyph-renders the whole column.
  */
 export function scoreboardRows(
 	participants: Record<string, ParticipantState>,
 	totals: Record<string, number>,
-	priorTotals: Record<string, number>
+	priorTotals: Record<string, number>,
+	featuredColor: PieceColor
 ): ScoreboardRow[] {
 	return Object.entries(participants)
 		.map(([participantId, state]) => ({
 			participantId,
 			score: totals[participantId] ?? priorTotals[participantId] ?? 0,
-			move: state.status === 'submitted' || state.status === 'late' ? sanToGlyph(state.guess) : null
+			move:
+				state.status === 'submitted' || state.status === 'late'
+					? sanToGlyph(state.guess, featuredColor)
+					: null
 		}))
 		.sort((a, b) => b.score - a.score || a.participantId.localeCompare(b.participantId));
 }

@@ -116,14 +116,6 @@
 	// The Finished phase's full ranking (#50): every Participant, not just the top 5.
 	const everyone = $derived(fullRanking(snapshot?.context.totals ?? {}));
 	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
-	const scoreboard = $derived(
-		scoreboardRows(
-			participants,
-			snapshot?.context.totals ?? {},
-			snapshot?.context.priorTotals ?? {}
-		)
-	);
-	const rosterSize = $derived(scoreboard.length);
 	// Broadcast rather than local (#51): synced through the snapshot so a Participant's
 	// phone can gate its own Leaderboard card on the same toggle (see play/[code]).
 	const showLeaderboard = $derived(snapshot?.showLeaderboard ?? false);
@@ -139,6 +131,15 @@
 	const isLastRound = $derived(!hasNextRound);
 	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
 	const quizStep = $derived(quizSteps()[roundIndex]);
+	const scoreboard = $derived(
+		scoreboardRows(
+			participants,
+			snapshot?.context.totals ?? {},
+			snapshot?.context.priorTotals ?? {},
+			quizStep?.color ?? 'w'
+		)
+	);
+	const rosterSize = $derived(scoreboard.length);
 	// The Opponent Response (#48): the single next move actually played in the game after this
 	// Round's Featured move, shown large in numbered notation (e.g. "5...Be7") — or, on the
 	// Featured Game's final Round (#49), the entire remaining real mainline to the game's

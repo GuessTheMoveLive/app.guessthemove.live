@@ -92,30 +92,33 @@ describe('pieceAt', () => {
 });
 
 describe('sanToGlyph (standard PGN notation; only K/Q/R/B/N become glyphs)', () => {
-	it('swaps a piece letter for its glyph', () => {
-		expect(sanToGlyph('Nf3')).toBe('♞f3');
-		expect(sanToGlyph('Qxe7')).toBe('♛xe7');
-		expect(sanToGlyph('Rd1')).toBe('♜d1');
+	it('swaps a piece letter for its glyph, picking the color set from the mover (#88)', () => {
+		expect(sanToGlyph('Nf3', 'w')).toBe('♘f3');
+		expect(sanToGlyph('Nf3', 'b')).toBe('♞f3');
+		expect(sanToGlyph('Qxe7', 'w')).toBe('♕xe7');
+		expect(sanToGlyph('Qxe7', 'b')).toBe('♛xe7');
+		expect(sanToGlyph('Rd1', 'w')).toBe('♖d1');
+		expect(sanToGlyph('Rd1', 'b')).toBe('♜d1');
 	});
 
 	it('leaves a pawn move as plain SAN — no glyph prefix', () => {
-		expect(sanToGlyph('e4')).toBe('e4');
-		expect(sanToGlyph('exd5')).toBe('exd5');
+		expect(sanToGlyph('e4', 'w')).toBe('e4');
+		expect(sanToGlyph('exd5', 'b')).toBe('exd5');
 	});
 
 	it('keeps castling as written', () => {
-		expect(sanToGlyph('O-O')).toBe('O-O');
-		expect(sanToGlyph('O-O-O')).toBe('O-O-O');
+		expect(sanToGlyph('O-O', 'w')).toBe('O-O');
+		expect(sanToGlyph('O-O-O', 'b')).toBe('O-O-O');
 	});
 
 	it('keeps check and mate suffixes', () => {
-		expect(sanToGlyph('Qh5+')).toBe('♛h5+');
-		expect(sanToGlyph('Qf7#')).toBe('♛f7#');
+		expect(sanToGlyph('Qh5+', 'w')).toBe('♕h5+');
+		expect(sanToGlyph('Qf7#', 'b')).toBe('♛f7#');
 	});
 
 	it('converts a promotion piece letter to its glyph, pawn move itself stays plain', () => {
-		expect(sanToGlyph('e8=Q')).toBe('e8=♛');
-		expect(sanToGlyph('bxa1=N+')).toBe('bxa1=♞+');
+		expect(sanToGlyph('e8=Q', 'w')).toBe('e8=♕');
+		expect(sanToGlyph('bxa1=N+', 'b')).toBe('bxa1=♞+');
 	});
 });
 
@@ -141,7 +144,7 @@ describe('resolveTapMove', () => {
 		const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPP1PPPP/RNBQKBNR w KQkq - 0 1';
 		const move = resolveTapMove(fen, 'b1', 'd2', ['Nbd2', 'Nd3']);
 		expect(move?.san).toBe('Nbd2');
-		expect(move?.glyph).toBe('♞bd2');
+		expect(move?.glyph).toBe('♘bd2');
 	});
 
 	it('resolves the tapped knight when two candidates land on the same square', () => {
@@ -155,7 +158,7 @@ describe('resolveTapMove', () => {
 
 	it('flags a capture when the destination is occupied by the opponent', () => {
 		const move = resolveTapMove(QUIZ_FEN, 'b5', 'c6', candidates);
-		expect(move).toMatchObject({ capture: true, san: 'Bxc6', glyph: '♝xc6' });
+		expect(move).toMatchObject({ capture: true, san: 'Bxc6', glyph: '♗xc6' });
 	});
 
 	it('names kingside castling when the king steps two files', () => {
@@ -166,7 +169,7 @@ describe('resolveTapMove', () => {
 
 	it('falls back to a best-effort SAN for a legal-looking move off the answer key', () => {
 		const move = resolveTapMove(QUIZ_FEN, 'f3', 'g5', candidates);
-		expect(move).toMatchObject({ san: 'Ng5', glyph: '♞g5', capture: false });
+		expect(move).toMatchObject({ san: 'Ng5', glyph: '♘g5', capture: false });
 	});
 });
 
@@ -193,7 +196,7 @@ describe('buildMoveHistory (#24: glyph move list, paired by move number)', () =>
 
 		expect(history).toEqual([
 			{ number: 1, white: 'e4', black: 'e5' },
-			{ number: 2, white: '♞f3', black: '♞c6' }
+			{ number: 2, white: '♘f3', black: '♞c6' }
 		]);
 	});
 
@@ -228,11 +231,11 @@ describe('move numbering (#43: correct move numbers on Reveal strings)', () => {
 	it('numbers a continuation from a Black ply per standard notation', () => {
 		// The played move was White's 5th (ply 9); the continuation opens with Black's reply.
 		expect(formatContinuation(['exd4', 'cxd4', 'a6', 'Bxc6+', 'bxc6', 'h3', 'Bd7'], 10)).toBe(
-			'5...exd4 6.cxd4 a6 7.♝xc6+ bxc6 8.h3 ♝d7'
+			'5...exd4 6.cxd4 a6 7.♗xc6+ bxc6 8.h3 ♝d7'
 		);
 	});
 
 	it('numbers a continuation that opens on a White ply without an ellipsis', () => {
-		expect(formatContinuation(['Qe2', 'a6'], 11)).toBe('6.♛e2 a6');
+		expect(formatContinuation(['Qe2', 'a6'], 11)).toBe('6.♕e2 a6');
 	});
 });

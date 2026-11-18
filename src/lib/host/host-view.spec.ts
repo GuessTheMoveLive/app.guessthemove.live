@@ -172,7 +172,7 @@ const timedOut: ParticipantState = { status: 'timedOut' };
 
 describe('scoreboardRows', () => {
 	it('orders by running total, highest first, falling back to priorTotals pre-close', () => {
-		const result = scoreboardRows({ alice: pending, bob: pending }, {}, { alice: 2, bob: 7 });
+		const result = scoreboardRows({ alice: pending, bob: pending }, {}, { alice: 2, bob: 7 }, 'w');
 
 		expect(result).toEqual([
 			{ participantId: 'bob', score: 7, move: null },
@@ -181,7 +181,7 @@ describe('scoreboardRows', () => {
 	});
 
 	it('prefers totals over priorTotals once the round has closed', () => {
-		const result = scoreboardRows({ alice: submitted }, { alice: 9 }, { alice: 2 });
+		const result = scoreboardRows({ alice: submitted }, { alice: 9 }, { alice: 2 }, 'w');
 
 		expect(result).toEqual([{ participantId: 'alice', score: 9, move: 'e4' }]);
 	});
@@ -190,7 +190,8 @@ describe('scoreboardRows', () => {
 		const result = scoreboardRows(
 			{ alice: submitted, bob: late, carol: pending, dave: timedOut },
 			{},
-			{}
+			{},
+			'w'
 		);
 
 		expect(result.map((r) => [r.participantId, r.move])).toEqual([
@@ -201,8 +202,15 @@ describe('scoreboardRows', () => {
 		]);
 	});
 
+	it("glyph-renders a submitted move in the Featured Side's own color (#88)", () => {
+		const knightGuess: ParticipantState = { status: 'submitted', guess: 'Nf3' };
+
+		expect(scoreboardRows({ alice: knightGuess }, {}, {}, 'w')[0].move).toBe('♘f3');
+		expect(scoreboardRows({ alice: knightGuess }, {}, {}, 'b')[0].move).toBe('♞f3');
+	});
+
 	it('breaks score ties by participantId', () => {
-		const result = scoreboardRows({ zoe: pending, amy: pending }, {}, { zoe: 3, amy: 3 });
+		const result = scoreboardRows({ zoe: pending, amy: pending }, {}, { zoe: 3, amy: 3 }, 'w');
 
 		expect(result.map((r) => r.participantId)).toEqual(['amy', 'zoe']);
 	});
@@ -284,7 +292,7 @@ describe('answerKeyBreakdown', () => {
 		const rows = answerKeyBreakdown(step, 9);
 		expect(rows[0]).toEqual({
 			san: 'Nf3',
-			glyph: '5.♞f3',
+			glyph: '5.♘f3',
 			tier: '+3',
 			eval: 0.85,
 			continuation: '',
@@ -300,10 +308,10 @@ describe('answerKeyBreakdown', () => {
 		// - so it is never flagged even though it shares the same +3 label.
 		expect(rows[1]).toEqual({
 			san: 'Bb5',
-			glyph: '5.♝b5',
+			glyph: '5.♗b5',
 			tier: '+3',
 			eval: 0.64,
-			continuation: '5...a6 6.♝xc6',
+			continuation: '5...a6 6.♗xc6',
 			isGameMove: false,
 			remark: null
 		});

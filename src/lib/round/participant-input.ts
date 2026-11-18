@@ -24,16 +24,14 @@ export const DISPLAY_RANKS = [8, 7, 6, 5, 4, 3, 2, 1] as const;
 
 /**
  * Ranks top-to-bottom for the tap-to-guess grid, oriented so the Featured Side's own
- * pieces sit at the bottom (#87): unchanged for White, reversed for Black.
+ * pieces sit at the bottom (#87): unchanged for White, reversed for Black. Callers get
+ * `featuredColor` from the current Round's `quizStep.color` (`GameStep.color`, game-data.ts).
  */
 export function displayRanks(featuredColor: PieceColor): readonly number[] {
 	return featuredColor === 'b' ? [1, 2, 3, 4, 5, 6, 7, 8] : DISPLAY_RANKS;
 }
 
-/**
- * Files left-to-right for the tap-to-guess grid, oriented so the Featured Side's own
- * pieces sit at the bottom (#87): unchanged for White, reversed for Black.
- */
+/** Files left-to-right for the tap-to-guess grid — see {@link displayRanks} (#87). */
 export function displayFiles(featuredColor: PieceColor): readonly (typeof FILES)[number][] {
 	return featuredColor === 'b' ? [...FILES].reverse() : FILES;
 }

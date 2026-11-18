@@ -17,6 +17,7 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
+		"test:e2e": "npm run build && node e2e/host-participant-flow.mjs",
 		"gen": "wrangler types",
 		"sandcastle": "npx tsx .sandcastle/main.mts"
 	},

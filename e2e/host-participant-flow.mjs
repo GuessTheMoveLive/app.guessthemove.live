@@ -1,11 +1,16 @@
-// Smoke test for the Host -> Start Round -> Participant tap-to-guess flow (#87's
-// board auto-flip fix). Not wired into CI (would add a Playwright browser-install
-// cost to every push) - run it on demand with `npm run test:e2e` after `npm run build`.
-// Drives a real wrangler-dev instance (plain `vite dev` can't serve the
-// Durable-Object-backed /api/session socket), so it needs a prior build.
+// Drives the Host -> Start Round -> Participant tap-to-guess flow end to end against a
+// real wrangler-dev instance (plain `vite dev` can't serve the Durable-Object-backed
+// /api/session socket), so it needs a prior build. Doubles as:
+//   - a smoke test asserting the board auto-flips for this repo's Black-analysed
+//     Featured Game (#87) - run via `npm run test:e2e` after `npm run build`.
+//   - a visual-driving harness for an agent that needs to see the running app: set
+//     SCREENSHOT_DIR to save host.png/participant.png after the Round starts.
+// Not wired into CI (would add a Playwright browser-install cost to every push).
 import { chromium } from 'playwright';
 import { spawn, execSync } from 'node:child_process';
 import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
 
 // `shell: true` spawns wrangler dev under an intermediate cmd.exe/sh - killing just
 // that PID leaves the actual wrangler/workerd process (and its held port) running, so
@@ -66,6 +71,14 @@ async function main() {
 
 			await hostPage.locator('button:has-text("Start Round")').click();
 			await participantPage.waitForTimeout(500);
+
+			if (process.env.SCREENSHOT_DIR) {
+				await mkdir(process.env.SCREENSHOT_DIR, { recursive: true });
+				await hostPage.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, 'host.png') });
+				await participantPage.screenshot({
+					path: path.join(process.env.SCREENSHOT_DIR, 'participant.png')
+				});
+			}
 
 			// The tap-to-guess grid renders as rows of "<rank label><8 squares>", then a
 			// trailing file-label row - see the markup in src/routes/play/[code]/+page.svelte.

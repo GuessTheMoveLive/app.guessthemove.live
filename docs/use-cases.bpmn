@@ -1,0 +1,480 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn2:definitions xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                   xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                   xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   id="Definitions_UseCases"
+                   targetNamespace="http://guessthemove.live/bpmn">
+
+  <bpmn2:collaboration id="Collaboration_1">
+    <bpmn2:participant id="Participant_Session" name="Guess the Move &#8212; Session" processRef="Process_Session" />
+  </bpmn2:collaboration>
+
+  <bpmn2:process id="Process_Session" name="Session" isExecutable="false">
+
+    <bpmn2:laneSet id="LaneSet_1">
+      <bpmn2:lane id="Lane_Host" name="Host">
+        <bpmn2:flowNodeRef>StartEvent_1</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_CreateSession</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_StartRound</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_Reveal</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Gateway_RevealSplit</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Gateway_RevealJoin</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_OptionalToggles</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_Continue</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Gateway_OppSplit</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Gateway_OppJoin</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Gateway_LastRound</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_Finish</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Gateway_FinishSplit</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_DownloadPgnHost</bpmn2:flowNodeRef>
+      </bpmn2:lane>
+      <bpmn2:lane id="Lane_Participant" name="Participant">
+        <bpmn2:flowNodeRef>Task_Join</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_Submit</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_RevealParticipant</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_OpponentResponseParticipant</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_DownloadPgnParticipant</bpmn2:flowNodeRef>
+      </bpmn2:lane>
+      <bpmn2:lane id="Lane_Presenter" name="Presenter">
+        <bpmn2:flowNodeRef>Task_ShowRoomCode</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_RoundInProgress</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_RevealPresenter</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_OpponentResponsePresenter</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>Task_ShowFinalResults</bpmn2:flowNodeRef>
+        <bpmn2:flowNodeRef>EndEvent_Final</bpmn2:flowNodeRef>
+      </bpmn2:lane>
+    </bpmn2:laneSet>
+
+    <bpmn2:startEvent id="StartEvent_1" name="&quot;Hosting this session?&quot;">
+      <bpmn2:outgoing>SF1</bpmn2:outgoing>
+    </bpmn2:startEvent>
+
+    <bpmn2:task id="Task_CreateSession" name="Create Session">
+      <bpmn2:incoming>SF1</bpmn2:incoming>
+      <bpmn2:outgoing>SF2</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_ShowRoomCode" name="Lobby &#8212; Room Code (QR + link)">
+      <bpmn2:incoming>SF2</bpmn2:incoming>
+      <bpmn2:outgoing>SF3</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_Join" name="&quot;Join&quot;">
+      <bpmn2:incoming>SF3</bpmn2:incoming>
+      <bpmn2:outgoing>SF4</bpmn2:outgoing>
+      <bpmn2:multiInstanceLoopCharacteristics />
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_StartRound" name="&quot;Start Round&quot;">
+      <bpmn2:incoming>SF4</bpmn2:incoming>
+      <bpmn2:outgoing>SF5</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_RoundInProgress" name="Round in progress">
+      <bpmn2:incoming>SF5</bpmn2:incoming>
+      <bpmn2:incoming>SF22</bpmn2:incoming>
+      <bpmn2:outgoing>SF6</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_Submit" name="&quot;Submit&quot;">
+      <bpmn2:incoming>SF6</bpmn2:incoming>
+      <bpmn2:outgoing>SF7</bpmn2:outgoing>
+      <bpmn2:multiInstanceLoopCharacteristics />
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_Reveal" name="&quot;Reveal&quot;">
+      <bpmn2:incoming>SF7</bpmn2:incoming>
+      <bpmn2:incoming>SF23</bpmn2:incoming>
+      <bpmn2:outgoing>SF8</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:parallelGateway id="Gateway_RevealSplit">
+      <bpmn2:incoming>SF8</bpmn2:incoming>
+      <bpmn2:outgoing>SF9</bpmn2:outgoing>
+      <bpmn2:outgoing>SF10</bpmn2:outgoing>
+    </bpmn2:parallelGateway>
+
+    <bpmn2:task id="Task_RevealPresenter" name="Reveal: board + full breakdown + Leaderboard">
+      <bpmn2:incoming>SF9</bpmn2:incoming>
+      <bpmn2:outgoing>SF11</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_RevealParticipant" name="Round Score + Variant (auto)">
+      <bpmn2:incoming>SF10</bpmn2:incoming>
+      <bpmn2:outgoing>SF12</bpmn2:outgoing>
+      <bpmn2:multiInstanceLoopCharacteristics />
+    </bpmn2:task>
+
+    <bpmn2:parallelGateway id="Gateway_RevealJoin">
+      <bpmn2:incoming>SF11</bpmn2:incoming>
+      <bpmn2:incoming>SF12</bpmn2:incoming>
+      <bpmn2:outgoing>SF13</bpmn2:outgoing>
+    </bpmn2:parallelGateway>
+
+    <bpmn2:task id="Task_OptionalToggles" name="(optional) &quot;Room Statistics&quot; / &quot;Show leaderboard&quot;">
+      <bpmn2:incoming>SF13</bpmn2:incoming>
+      <bpmn2:outgoing>SF14</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_Continue" name="&quot;Continue&quot;">
+      <bpmn2:incoming>SF14</bpmn2:incoming>
+      <bpmn2:outgoing>SF15</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:parallelGateway id="Gateway_OppSplit">
+      <bpmn2:incoming>SF15</bpmn2:incoming>
+      <bpmn2:outgoing>SF16</bpmn2:outgoing>
+      <bpmn2:outgoing>SF17</bpmn2:outgoing>
+    </bpmn2:parallelGateway>
+
+    <bpmn2:task id="Task_OpponentResponsePresenter" name="Opponent's response">
+      <bpmn2:incoming>SF16</bpmn2:incoming>
+      <bpmn2:outgoing>SF18</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_OpponentResponseParticipant" name="Opponent's response (read-only)">
+      <bpmn2:incoming>SF17</bpmn2:incoming>
+      <bpmn2:outgoing>SF19</bpmn2:outgoing>
+      <bpmn2:multiInstanceLoopCharacteristics />
+    </bpmn2:task>
+
+    <bpmn2:parallelGateway id="Gateway_OppJoin">
+      <bpmn2:incoming>SF18</bpmn2:incoming>
+      <bpmn2:incoming>SF19</bpmn2:incoming>
+      <bpmn2:outgoing>SF20</bpmn2:outgoing>
+    </bpmn2:parallelGateway>
+
+    <bpmn2:exclusiveGateway id="Gateway_LastRound" name="last Round?" isMarkerVisible="true">
+      <bpmn2:incoming>SF20</bpmn2:incoming>
+      <bpmn2:outgoing>SF21</bpmn2:outgoing>
+      <bpmn2:outgoing>SF22</bpmn2:outgoing>
+      <bpmn2:outgoing>SF23</bpmn2:outgoing>
+    </bpmn2:exclusiveGateway>
+
+    <bpmn2:task id="Task_Finish" name="&quot;Finish&quot;">
+      <bpmn2:incoming>SF21</bpmn2:incoming>
+      <bpmn2:outgoing>SF24</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:parallelGateway id="Gateway_FinishSplit">
+      <bpmn2:incoming>SF24</bpmn2:incoming>
+      <bpmn2:outgoing>SF25</bpmn2:outgoing>
+      <bpmn2:outgoing>SF26</bpmn2:outgoing>
+      <bpmn2:outgoing>SF27</bpmn2:outgoing>
+    </bpmn2:parallelGateway>
+
+    <bpmn2:task id="Task_ShowFinalResults" name="Final Results: Podium + Leaderboard">
+      <bpmn2:incoming>SF25</bpmn2:incoming>
+      <bpmn2:outgoing>SF28</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_DownloadPgnHost" name="(optional) &quot;Download PGN&quot;">
+      <bpmn2:incoming>SF26</bpmn2:incoming>
+      <bpmn2:outgoing>SF29</bpmn2:outgoing>
+    </bpmn2:task>
+
+    <bpmn2:task id="Task_DownloadPgnParticipant" name="(optional) &quot;Download my PGN&quot;">
+      <bpmn2:incoming>SF27</bpmn2:incoming>
+      <bpmn2:outgoing>SF30</bpmn2:outgoing>
+      <bpmn2:multiInstanceLoopCharacteristics />
+    </bpmn2:task>
+
+    <bpmn2:endEvent id="EndEvent_Final">
+      <bpmn2:incoming>SF28</bpmn2:incoming>
+      <bpmn2:incoming>SF29</bpmn2:incoming>
+      <bpmn2:incoming>SF30</bpmn2:incoming>
+    </bpmn2:endEvent>
+
+    <bpmn2:textAnnotation id="TextAnnotation_Offline">
+      <bpmn2:text>Featured Game is selected offline, outside the app &#8212; a Candidate Game from the pre-analyzed library that clears the minimum Accuracy Score.</bpmn2:text>
+    </bpmn2:textAnnotation>
+    <bpmn2:association id="Association_Offline" sourceRef="StartEvent_1" targetRef="TextAnnotation_Offline" associationDirection="None" />
+
+    <bpmn2:sequenceFlow id="SF1" sourceRef="StartEvent_1" targetRef="Task_CreateSession" />
+    <bpmn2:sequenceFlow id="SF2" sourceRef="Task_CreateSession" targetRef="Task_ShowRoomCode" />
+    <bpmn2:sequenceFlow id="SF3" sourceRef="Task_ShowRoomCode" targetRef="Task_Join" />
+    <bpmn2:sequenceFlow id="SF4" sourceRef="Task_Join" targetRef="Task_StartRound" />
+    <bpmn2:sequenceFlow id="SF5" sourceRef="Task_StartRound" targetRef="Task_RoundInProgress" />
+    <bpmn2:sequenceFlow id="SF6" sourceRef="Task_RoundInProgress" targetRef="Task_Submit" />
+    <bpmn2:sequenceFlow id="SF7" sourceRef="Task_Submit" targetRef="Task_Reveal" />
+    <bpmn2:sequenceFlow id="SF8" sourceRef="Task_Reveal" targetRef="Gateway_RevealSplit" />
+    <bpmn2:sequenceFlow id="SF9" sourceRef="Gateway_RevealSplit" targetRef="Task_RevealPresenter" />
+    <bpmn2:sequenceFlow id="SF10" sourceRef="Gateway_RevealSplit" targetRef="Task_RevealParticipant" />
+    <bpmn2:sequenceFlow id="SF11" sourceRef="Task_RevealPresenter" targetRef="Gateway_RevealJoin" />
+    <bpmn2:sequenceFlow id="SF12" sourceRef="Task_RevealParticipant" targetRef="Gateway_RevealJoin" />
+    <bpmn2:sequenceFlow id="SF13" sourceRef="Gateway_RevealJoin" targetRef="Task_OptionalToggles" />
+    <bpmn2:sequenceFlow id="SF14" sourceRef="Task_OptionalToggles" targetRef="Task_Continue" />
+    <bpmn2:sequenceFlow id="SF15" sourceRef="Task_Continue" targetRef="Gateway_OppSplit" />
+    <bpmn2:sequenceFlow id="SF16" sourceRef="Gateway_OppSplit" targetRef="Task_OpponentResponsePresenter" />
+    <bpmn2:sequenceFlow id="SF17" sourceRef="Gateway_OppSplit" targetRef="Task_OpponentResponseParticipant" />
+    <bpmn2:sequenceFlow id="SF18" sourceRef="Task_OpponentResponsePresenter" targetRef="Gateway_OppJoin" />
+    <bpmn2:sequenceFlow id="SF19" sourceRef="Task_OpponentResponseParticipant" targetRef="Gateway_OppJoin" />
+    <bpmn2:sequenceFlow id="SF20" sourceRef="Gateway_OppJoin" targetRef="Gateway_LastRound" />
+    <bpmn2:sequenceFlow id="SF21" name="yes &#8212; &quot;Finish&quot;" sourceRef="Gateway_LastRound" targetRef="Task_Finish" />
+    <bpmn2:sequenceFlow id="SF22" name="no &#8212; &quot;Next Round&quot;" sourceRef="Gateway_LastRound" targetRef="Task_RoundInProgress" />
+    <bpmn2:sequenceFlow id="SF23" name="no &#8212; &quot;Back&quot; (undo)" sourceRef="Gateway_LastRound" targetRef="Task_Reveal" />
+    <bpmn2:sequenceFlow id="SF24" sourceRef="Task_Finish" targetRef="Gateway_FinishSplit" />
+    <bpmn2:sequenceFlow id="SF25" sourceRef="Gateway_FinishSplit" targetRef="Task_ShowFinalResults" />
+    <bpmn2:sequenceFlow id="SF26" sourceRef="Gateway_FinishSplit" targetRef="Task_DownloadPgnHost" />
+    <bpmn2:sequenceFlow id="SF27" sourceRef="Gateway_FinishSplit" targetRef="Task_DownloadPgnParticipant" />
+    <bpmn2:sequenceFlow id="SF28" sourceRef="Task_ShowFinalResults" targetRef="EndEvent_Final" />
+    <bpmn2:sequenceFlow id="SF29" sourceRef="Task_DownloadPgnHost" targetRef="EndEvent_Final" />
+    <bpmn2:sequenceFlow id="SF30" sourceRef="Task_DownloadPgnParticipant" targetRef="EndEvent_Final" />
+
+  </bpmn2:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
+
+      <bpmndi:BPMNShape id="Participant_Session_di" bpmnElement="Participant_Session" isHorizontal="true">
+        <dc:Bounds x="0" y="70" width="3340" height="480" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Host_di" bpmnElement="Lane_Host" isHorizontal="true">
+        <dc:Bounds x="30" y="70" width="3310" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Participant_di" bpmnElement="Lane_Participant" isHorizontal="true">
+        <dc:Bounds x="30" y="230" width="3310" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Presenter_di" bpmnElement="Lane_Presenter" isHorizontal="true">
+        <dc:Bounds x="30" y="390" width="3310" height="160" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="TextAnnotation_Offline_di" bpmnElement="TextAnnotation_Offline">
+        <dc:Bounds x="20" y="5" width="240" height="55" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Association_Offline_di" bpmnElement="Association_Offline">
+        <di:waypoint x="110" y="60" />
+        <di:waypoint x="98" y="132" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="80" y="132" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CreateSession_di" bpmnElement="Task_CreateSession">
+        <dc:Bounds x="166" y="110" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ShowRoomCode_di" bpmnElement="Task_ShowRoomCode">
+        <dc:Bounds x="366" y="430" width="170" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Join_di" bpmnElement="Task_Join">
+        <dc:Bounds x="366" y="270" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_StartRound_di" bpmnElement="Task_StartRound">
+        <dc:Bounds x="576" y="110" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RoundInProgress_di" bpmnElement="Task_RoundInProgress">
+        <dc:Bounds x="766" y="430" width="170" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Submit_di" bpmnElement="Task_Submit">
+        <dc:Bounds x="976" y="270" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Reveal_di" bpmnElement="Task_Reveal">
+        <dc:Bounds x="1166" y="110" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_RevealSplit_di" bpmnElement="Gateway_RevealSplit">
+        <dc:Bounds x="1336" y="125" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RevealPresenter_di" bpmnElement="Task_RevealPresenter">
+        <dc:Bounds x="1436" y="430" width="170" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RevealParticipant_di" bpmnElement="Task_RevealParticipant">
+        <dc:Bounds x="1436" y="270" width="170" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_RevealJoin_di" bpmnElement="Gateway_RevealJoin">
+        <dc:Bounds x="1656" y="125" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_OptionalToggles_di" bpmnElement="Task_OptionalToggles">
+        <dc:Bounds x="1756" y="110" width="190" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Continue_di" bpmnElement="Task_Continue">
+        <dc:Bounds x="1996" y="110" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_OppSplit_di" bpmnElement="Gateway_OppSplit">
+        <dc:Bounds x="2166" y="125" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_OpponentResponsePresenter_di" bpmnElement="Task_OpponentResponsePresenter">
+        <dc:Bounds x="2266" y="430" width="170" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_OpponentResponseParticipant_di" bpmnElement="Task_OpponentResponseParticipant">
+        <dc:Bounds x="2266" y="270" width="170" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_OppJoin_di" bpmnElement="Gateway_OppJoin">
+        <dc:Bounds x="2486" y="125" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_LastRound_di" bpmnElement="Gateway_LastRound">
+        <dc:Bounds x="2586" y="125" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Finish_di" bpmnElement="Task_Finish">
+        <dc:Bounds x="2686" y="110" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_FinishSplit_di" bpmnElement="Gateway_FinishSplit">
+        <dc:Bounds x="2846" y="125" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ShowFinalResults_di" bpmnElement="Task_ShowFinalResults">
+        <dc:Bounds x="2946" y="430" width="160" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_DownloadPgnHost_di" bpmnElement="Task_DownloadPgnHost">
+        <dc:Bounds x="2946" y="110" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_DownloadPgnParticipant_di" bpmnElement="Task_DownloadPgnParticipant">
+        <dc:Bounds x="2946" y="270" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Final_di" bpmnElement="EndEvent_Final">
+        <dc:Bounds x="3246" y="452" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="SF1_di" bpmnElement="SF1">
+        <di:waypoint x="116" y="150" />
+        <di:waypoint x="166" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF2_di" bpmnElement="SF2">
+        <di:waypoint x="316" y="150" />
+        <di:waypoint x="341" y="150" />
+        <di:waypoint x="341" y="470" />
+        <di:waypoint x="366" y="470" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF3_di" bpmnElement="SF3">
+        <di:waypoint x="451" y="430" />
+        <di:waypoint x="436" y="350" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF4_di" bpmnElement="SF4">
+        <di:waypoint x="506" y="310" />
+        <di:waypoint x="541" y="310" />
+        <di:waypoint x="541" y="150" />
+        <di:waypoint x="576" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF5_di" bpmnElement="SF5">
+        <di:waypoint x="716" y="150" />
+        <di:waypoint x="741" y="150" />
+        <di:waypoint x="741" y="470" />
+        <di:waypoint x="766" y="470" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF6_di" bpmnElement="SF6">
+        <di:waypoint x="936" y="470" />
+        <di:waypoint x="956" y="470" />
+        <di:waypoint x="956" y="310" />
+        <di:waypoint x="976" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF7_di" bpmnElement="SF7">
+        <di:waypoint x="1116" y="310" />
+        <di:waypoint x="1141" y="310" />
+        <di:waypoint x="1141" y="150" />
+        <di:waypoint x="1166" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF8_di" bpmnElement="SF8">
+        <di:waypoint x="1286" y="150" />
+        <di:waypoint x="1336" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF9_di" bpmnElement="SF9">
+        <di:waypoint x="1361" y="175" />
+        <di:waypoint x="1361" y="430" />
+        <di:waypoint x="1521" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF10_di" bpmnElement="SF10">
+        <di:waypoint x="1361" y="175" />
+        <di:waypoint x="1361" y="270" />
+        <di:waypoint x="1521" y="270" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF11_di" bpmnElement="SF11">
+        <di:waypoint x="1606" y="470" />
+        <di:waypoint x="1681" y="470" />
+        <di:waypoint x="1681" y="175" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF12_di" bpmnElement="SF12">
+        <di:waypoint x="1606" y="310" />
+        <di:waypoint x="1681" y="310" />
+        <di:waypoint x="1681" y="175" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF13_di" bpmnElement="SF13">
+        <di:waypoint x="1706" y="150" />
+        <di:waypoint x="1756" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF14_di" bpmnElement="SF14">
+        <di:waypoint x="1946" y="150" />
+        <di:waypoint x="1996" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF15_di" bpmnElement="SF15">
+        <di:waypoint x="2116" y="150" />
+        <di:waypoint x="2166" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF16_di" bpmnElement="SF16">
+        <di:waypoint x="2191" y="175" />
+        <di:waypoint x="2191" y="430" />
+        <di:waypoint x="2351" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF17_di" bpmnElement="SF17">
+        <di:waypoint x="2191" y="175" />
+        <di:waypoint x="2191" y="270" />
+        <di:waypoint x="2351" y="270" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF18_di" bpmnElement="SF18">
+        <di:waypoint x="2436" y="470" />
+        <di:waypoint x="2511" y="470" />
+        <di:waypoint x="2511" y="175" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF19_di" bpmnElement="SF19">
+        <di:waypoint x="2436" y="310" />
+        <di:waypoint x="2511" y="310" />
+        <di:waypoint x="2511" y="175" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF20_di" bpmnElement="SF20">
+        <di:waypoint x="2536" y="150" />
+        <di:waypoint x="2586" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF21_di" bpmnElement="SF21">
+        <di:waypoint x="2636" y="150" />
+        <di:waypoint x="2686" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF22_di" bpmnElement="SF22">
+        <di:waypoint x="2611" y="175" />
+        <di:waypoint x="2611" y="600" />
+        <di:waypoint x="851" y="600" />
+        <di:waypoint x="851" y="510" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF23_di" bpmnElement="SF23">
+        <di:waypoint x="2611" y="125" />
+        <di:waypoint x="2611" y="20" />
+        <di:waypoint x="1226" y="20" />
+        <di:waypoint x="1226" y="110" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF24_di" bpmnElement="SF24">
+        <di:waypoint x="2796" y="150" />
+        <di:waypoint x="2846" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF25_di" bpmnElement="SF25">
+        <di:waypoint x="2871" y="175" />
+        <di:waypoint x="2871" y="430" />
+        <di:waypoint x="3026" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF26_di" bpmnElement="SF26">
+        <di:waypoint x="2871" y="125" />
+        <di:waypoint x="3016" y="125" />
+        <di:waypoint x="3016" y="110" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF27_di" bpmnElement="SF27">
+        <di:waypoint x="2871" y="175" />
+        <di:waypoint x="2871" y="270" />
+        <di:waypoint x="3021" y="270" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF28_di" bpmnElement="SF28">
+        <di:waypoint x="3106" y="470" />
+        <di:waypoint x="3246" y="470" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF29_di" bpmnElement="SF29">
+        <di:waypoint x="3086" y="150" />
+        <di:waypoint x="3264" y="150" />
+        <di:waypoint x="3264" y="452" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF30_di" bpmnElement="SF30">
+        <di:waypoint x="3096" y="310" />
+        <di:waypoint x="3240" y="310" />
+        <di:waypoint x="3240" y="470" />
+        <di:waypoint x="3246" y="470" />
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn2:definitions>

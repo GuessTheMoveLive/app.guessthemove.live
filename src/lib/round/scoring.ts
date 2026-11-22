@@ -130,6 +130,26 @@ export function playedMoveTier(step: AnswerKeyStep): Tier | null {
 }
 
 /**
+ * The numeric sibling of {@link playedMoveTier}: the played move's own -3..+3
+ * score by the same rules (flat loss<=2 band for +3, {@link tierFromLoss}
+ * otherwise), except a 'blunder' band is resolved to its graduated depth via
+ * {@link blunderScoreFromLoss} instead of staying a bucket label - so a caller
+ * that wants "how bad, exactly" (the Answer Key's GM-bonus remark, #91) doesn't
+ * have to re-derive the loss itself. Null under the same conditions as {@link
+ * playedMoveTier}.
+ */
+export function playedMoveScore(step: AnswerKeyStep): number | null {
+	const played = playedWinPercent(step);
+	const best = bestWinPercent(step);
+	if (played == null || best == null) return null;
+	const loss = best - played;
+	if (loss <= 2) return TIER_POINTS['+3'];
+	const tier = tierFromLoss(loss);
+	if (tier !== 'blunder') return TIER_POINTS[tier];
+	return blunderScoreFromLoss(loss);
+}
+
+/**
  * Whether `movePercent` earns the rank-based '+3' (#70, GLOSSARY: Guess Score):
  * the played move itself, anything at least as good as it (tied or strictly
  * better), or — only when the played move is itself elite by {@link

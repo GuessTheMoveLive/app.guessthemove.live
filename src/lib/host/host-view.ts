@@ -1,5 +1,5 @@
 import type { ParticipantState } from '#lib/round/round-machine.js';
-import { computeTier, playedMoveTier, type AnswerKeyStep, type Tier } from '#lib/round/scoring.js';
+import { scoreFromEval, playedMoveScore, type AnswerKeyStep } from '#lib/round/scoring.js';
 import {
 	sanToGlyph,
 	formatNumberedMove,
@@ -175,13 +175,27 @@ export function everyoneAnswered(participants: Record<string, ParticipantState>)
 	return roster.length > 0 && roster.every((p) => p.status === 'submitted' || p.status === 'late');
 }
 
+/** The Answer Key's own display label: the -3..+3 score written out explicitly
+ *  (#91) rather than bucketed behind the word "blunder" - so a graduated
+ *  penalty sorts and reads as the move's actual rank, same as every other
+ *  score band. */
+export type AnswerKeyTierLabel = '+3' | '+2' | '+1' | '0' | '-1' | '-2' | '-3';
+
+/** A -3..+3 score, formatted as the Answer Key displays it: a leading '+' for
+ *  anything above zero, the bare number otherwise (so '0' reads as '0', never
+ *  '+0', and a blunder's depth reads as '-1'/'-2'/'-3' instead of a flat
+ *  "blunder" label, #91). */
+function formatScoreLabel(score: number): AnswerKeyTierLabel {
+	return (score > 0 ? `+${score}` : `${score}`) as AnswerKeyTierLabel;
+}
+
 export interface AnswerKeyRow {
 	/** The raw SAN (kept for a stable {#each} key). */
 	san: string;
 	/** The move, glyph-rendered and move-number-prefixed the same way as the
 	 *  Participant's Continuation (#43/#51), e.g. "5.Nf3". */
 	glyph: string;
-	tier: Tier;
+	tier: AnswerKeyTierLabel;
 	eval: number | null;
 	/** The continuation Variant, glyph-rendered and numbered the same way as the
 	 *  Participant's Continuation (#43/#51); empty for the move played. */
@@ -239,13 +253,14 @@ export function answerKeyBreakdown(
 	if (!step) return [];
 
 	const playedEval = step.playedComment?.eval ?? null;
-	const playedTier = playedMoveTier(step);
+	const playedScore = playedMoveScore(step);
+	const playedLabel = playedScore != null ? formatScoreLabel(playedScore) : null;
 	const moverName = step.color === 'w' ? whiteName : blackName;
 	const remark =
-		playedTier != null && playedTier !== '+3'
+		playedLabel != null && playedLabel !== '+3'
 			? moverName
-				? m.host_answer_key_gm_remark_named({ tier: playedTier, name: moverName })
-				: m.host_answer_key_gm_remark_generic({ tier: playedTier })
+				? m.host_answer_key_gm_remark_named({ tier: playedLabel, name: moverName })
+				: m.host_answer_key_gm_remark_generic({ tier: playedLabel })
 			: null;
 
 	const ranked = [
@@ -254,7 +269,7 @@ export function answerKeyBreakdown(
 			row: {
 				san: step.san,
 				glyph: formatNumberedMove(step.san, ply),
-				tier: '+3' as Tier,
+				tier: '+3' as AnswerKeyTierLabel,
 				eval: playedEval,
 				continuation: '',
 				isGameMove: true,
@@ -266,7 +281,7 @@ export function answerKeyBreakdown(
 			row: {
 				san: alt.san,
 				glyph: formatNumberedMove(alt.san, ply),
-				tier: computeTier(step, alt.eval) ?? ('0' as Tier),
+				tier: formatScoreLabel(scoreFromEval(step, alt.eval) ?? 0),
 				eval: alt.eval,
 				continuation: alt.continuation.length ? formatContinuation(alt.continuation, ply + 1) : '',
 				isGameMove: alt.san === step.san,

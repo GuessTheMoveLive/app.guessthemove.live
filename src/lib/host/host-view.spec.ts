@@ -284,7 +284,7 @@ describe('answerKeyBreakdown', () => {
 		playedComment: { eval: 0.85 },
 		alternatives: [
 			{ san: 'Bb5', eval: 0.64, continuation: ['a6', 'Bxc6'] }, // loss ~1.9 => +3
-			{ san: 'Qd4', eval: -9.13, continuation: [] } // loss ~54.4 => blunder
+			{ san: 'Qd4', eval: -9.13, continuation: [] } // loss ~54.4 => -3
 		]
 	};
 
@@ -315,9 +315,26 @@ describe('answerKeyBreakdown', () => {
 			isGameMove: false,
 			remark: null
 		});
-		expect(rows[2].tier).toBe('blunder');
+		expect(rows[2].tier).toBe('-3');
 		expect(rows[2].continuation).toBe('');
 		expect(rows[2].isGameMove).toBe(false);
+	});
+
+	it('labels blunders by their graduated depth, sorted the same as every other tier, not bucketed behind one flat label (#91)', () => {
+		const step: AnswerKeyStep = {
+			san: 'Nf3',
+			color: 'w',
+			playedComment: { eval: 0.85 },
+			alternatives: [
+				{ san: 'Mild', eval: -3, continuation: [] }, // loss ~32.9 => -1
+				{ san: 'Medium', eval: -5, continuation: [] }, // loss ~44.1 => -2
+				{ san: 'Severe', eval: -7, continuation: [] } // loss ~50.7 => -3
+			]
+		};
+
+		const rows = answerKeyBreakdown(step, 9);
+		expect(rows.map((r) => r.san)).toEqual(['Nf3', 'Mild', 'Medium', 'Severe']);
+		expect(rows.map((r) => r.tier)).toEqual(['+3', '-1', '-2', '-3']);
 	});
 
 	it('is empty for a Round with no answer key', () => {

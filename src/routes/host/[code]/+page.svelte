@@ -235,9 +235,13 @@
 	     right = Answer Key, full-height since it's the longest card. Below 768px
 	     the grid collapses to one column (`grid-cols-1`), and since the three lane
 	     wrappers below carry no `md:col-start-N` effect at that width, they simply
-	     stack in DOM order. -->
+	     stack in DOM order. `md:row-start-1` on every lane is required alongside
+	     `md:col-start-N`: the center lane comes first in DOM order, and CSS grid's
+	     auto-placement cursor only moves forward, so without a pinned row the
+	     left lane (col-start-1, "behind" the cursor after the center lane claims
+	     column 2) gets auto-placed into a second row instead of sitting beside it. -->
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start">
-		<div class="flex flex-col gap-6 md:col-start-2">
+		<div class="flex flex-col gap-6 md:col-start-2 md:row-start-1">
 			{#if client.ended}
 				<Card.Root>
 					<Card.Header>
@@ -450,7 +454,7 @@
 			{/if}
 		</div>
 
-		<div class="flex flex-col gap-6 md:col-start-1">
+		<div class="flex flex-col gap-6 md:col-start-1 md:row-start-1">
 			{#if rosterSize > 0 && phase !== 'finished'}
 				<Card.Root>
 					<Card.Header>
@@ -523,7 +527,7 @@
 			{/if}
 		</div>
 
-		<div class="flex flex-col gap-6 md:col-start-3">
+		<div class="flex flex-col gap-6 md:col-start-3 md:row-start-1">
 			{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length}
 				<Card.Root>
 					<Card.Header>

@@ -471,8 +471,9 @@
 			</Card.Content>
 		</Card.Root>
 	{:else}
-		<!-- Three-card Reveal (#46): personal feedback, then the Leaderboard (gated on the
-		     Host's toggle, #51), then how the whole room guessed — each its own Card. -->
+		<!-- Reveal (#46, reordered #90): personal feedback, then how the whole room guessed,
+		     then the Ranking (gated on the Host's toggle, #51), then the Game Sheet — each
+		     its own Card. -->
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title
@@ -525,47 +526,6 @@
 			</Card.Content>
 		</Card.Root>
 
-		{#if phase === 'reveal' && history.length}
-			<!-- Game Sheet (#68): stays visible through Reveal, already filled in with the
-			     Round just revealed, instead of disappearing the instant Reveal happens. -->
-			<Card.Root>
-				<Card.Header>
-					<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					<GameSheet
-						rows={history}
-						event={game.headers.Event}
-						date={game.headers.Date}
-						white={game.headers.White}
-						black={game.headers.Black}
-					/>
-				</Card.Content>
-			</Card.Root>
-		{/if}
-
-		<!-- Leaderboard (#51): only shown once the Host has toggled it open on the shared
-		     Reveal screen, except on the Final Round where it's always shown alongside the
-		     Podium. The viewer's own row is highlighted. -->
-		{#if isFinalRound || showLeaderboard}
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
-				</Card.Header>
-				<Card.Content class="flex flex-col gap-4">
-					{#if isFinalRound}
-						<Podium entries={top3} highlightId={me} />
-					{/if}
-					<Leaderboard
-						entries={leaders}
-						highlightId={me}
-						priorTotals={snapshot?.context.priorTotals ?? {}}
-						participants={snapshot?.context.participants ?? {}}
-					/>
-				</Card.Content>
-			</Card.Root>
-		{/if}
-
 		{#if groupBreakdown && showRoomStatistics}
 			<Card.Root>
 				<Card.Header>
@@ -612,6 +572,47 @@
 							</li>
 						{/each}
 					</ul>
+				</Card.Content>
+			</Card.Root>
+		{/if}
+
+		<!-- Ranking (#51): only shown once the Host has toggled it open on the shared Reveal
+		     screen, except on the Final Round where it's always shown alongside the Podium.
+		     The viewer's own row is highlighted. -->
+		{#if isFinalRound || showLeaderboard}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
+				</Card.Header>
+				<Card.Content class="flex flex-col gap-4">
+					{#if isFinalRound}
+						<Podium entries={top3} highlightId={me} />
+					{/if}
+					<Leaderboard
+						entries={leaders}
+						highlightId={me}
+						priorTotals={snapshot?.context.priorTotals ?? {}}
+						participants={snapshot?.context.participants ?? {}}
+					/>
+				</Card.Content>
+			</Card.Root>
+		{/if}
+
+		{#if phase === 'reveal' && history.length}
+			<!-- Game Sheet (#68): stays visible through Reveal, already filled in with the
+			     Round just revealed, instead of disappearing the instant Reveal happens. -->
+			<Card.Root>
+				<Card.Header>
+					<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
+				</Card.Header>
+				<Card.Content>
+					<GameSheet
+						rows={history}
+						event={game.headers.Event}
+						date={game.headers.Date}
+						white={game.headers.White}
+						black={game.headers.Black}
+					/>
 				</Card.Content>
 			</Card.Root>
 		{/if}

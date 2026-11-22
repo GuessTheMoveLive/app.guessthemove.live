@@ -230,12 +230,12 @@
 		</div>
 	</header>
 
-	<!-- Three-lane desktop layout (#89, ≥768px): left = Scoreboard, center = the
-	     phase/Reveal card plus Guess Group breakdown, right = Answer Key and Score
-	     Sheet. Below 768px the grid collapses to one column (`grid-cols-1`), and
-	     since the three lane wrappers below carry no `md:col-start-N` effect at that
-	     width, they simply stack in DOM order — the same order the cards appeared
-	     in before this layout existed. -->
+	<!-- Three-lane desktop layout (#89, ≥768px): left = Participants plus Ranking,
+	     center = the phase/Reveal card plus Guess Group breakdown and Score Sheet,
+	     right = Answer Key, full-height since it's the longest card. Below 768px
+	     the grid collapses to one column (`grid-cols-1`), and since the three lane
+	     wrappers below carry no `md:col-start-N` effect at that width, they simply
+	     stack in DOM order. -->
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start">
 		<div class="flex flex-col gap-6 md:col-start-2">
 			{#if client.ended}
@@ -317,11 +317,7 @@
 				<Card.Root>
 					<Card.Header>
 						<Card.Title>{m.host_closed_title()}</Card.Title>
-						<Card.Description>{m.leaderboard_top5()}</Card.Description>
 					</Card.Header>
-					<Card.Content>
-						<Leaderboard entries={leaders} />
-					</Card.Content>
 					<Card.Footer>
 						<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
 					</Card.Footer>
@@ -353,45 +349,26 @@
 				</Card.Root>
 			{:else if phase === 'finished'}
 				<!-- Finished (#50): the terminal, full-screen phase reached from the final Round's
-		     Opponent Response via "Finish". Shows the Podium plus the full ranking of every
-		     Participant — the Host has no score of their own, so no personal message. -->
+		     Opponent Response via "Finish". The Podium and full ranking live in the
+		     Ranking card (left column) instead of here. -->
 				<Card.Root>
 					<Card.Header>
 						<Card.Title>{m.final_results_title()}</Card.Title>
 					</Card.Header>
-					<Card.Content class="flex flex-col gap-4">
-						<Podium entries={top3} />
-						<Leaderboard entries={everyone} />
-						{#if hostPgn}
+					{#if hostPgn}
+						<Card.Footer>
 							<Button variant="outline" onclick={downloadHostPgn}>{m.host_download_pgn()}</Button>
-						{/if}
-					</Card.Content>
+						</Card.Footer>
+					{/if}
 				</Card.Root>
 			{:else}
+				<!-- The Podium/Ranking for this Reveal lives in the Ranking card (left column)
+		     instead of inline here — see the #89 three-lane layout. -->
 				<Card.Root>
 					<Card.Header>
 						<Card.Title>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title
 						>
-						{#if isFinalRound || showLeaderboard}
-							<Card.Description>{m.leaderboard_top5()}</Card.Description>
-						{/if}
 					</Card.Header>
-					<Card.Content class="flex flex-col gap-4">
-						{#if isFinalRound}
-							<Podium entries={top3} />
-							<Leaderboard
-								entries={leaders}
-								priorTotals={snapshot?.context.priorTotals ?? {}}
-								{participants}
-							/>
-						{:else if showLeaderboard}
-							<Leaderboard
-								entries={leaders}
-								priorTotals={snapshot?.context.priorTotals ?? {}}
-								{participants}
-							/>
-						{/if}
-					</Card.Content>
 					<Card.Footer class="flex flex-wrap gap-2">
 						{#if isFinalRound}
 							<p class="text-sm font-medium text-muted-foreground">
@@ -454,6 +431,23 @@
 					</Card.Content>
 				</Card.Root>
 			{/if}
+
+			{#if !client.ended && phase !== 'finished' && history.length}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<ScoreSheet
+							rows={history}
+							event={game.headers.Event}
+							date={game.headers.Date}
+							white={game.headers.White}
+							black={game.headers.Black}
+						/>
+					</Card.Content>
+				</Card.Root>
+			{/if}
 		</div>
 
 		<div class="flex flex-col gap-6 md:col-start-1">
@@ -485,6 +479,45 @@
 								</li>
 							{/each}
 						</ol>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+
+			{#if phase === 'closed'}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.leaderboard_title()}</Card.Title>
+						<Card.Description>{m.leaderboard_top5()}</Card.Description>
+					</Card.Header>
+					<Card.Content>
+						<Leaderboard entries={leaders} />
+					</Card.Content>
+				</Card.Root>
+			{:else if phase === 'finished'}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.leaderboard_title()}</Card.Title>
+					</Card.Header>
+					<Card.Content class="flex flex-col gap-4">
+						<Podium entries={top3} />
+						<Leaderboard entries={everyone} />
+					</Card.Content>
+				</Card.Root>
+			{:else if !client.ended && phase !== 'lobby' && phase !== 'active' && phase !== 'opponentResponse' && (isFinalRound || showLeaderboard)}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.leaderboard_title()}</Card.Title>
+						<Card.Description>{m.leaderboard_top5()}</Card.Description>
+					</Card.Header>
+					<Card.Content class="flex flex-col gap-4">
+						{#if isFinalRound}
+							<Podium entries={top3} />
+						{/if}
+						<Leaderboard
+							entries={leaders}
+							priorTotals={snapshot?.context.priorTotals ?? {}}
+							{participants}
+						/>
 					</Card.Content>
 				</Card.Root>
 			{/if}
@@ -527,23 +560,6 @@
 								</li>
 							{/each}
 						</ol>
-					</Card.Content>
-				</Card.Root>
-			{/if}
-
-			{#if !client.ended && phase !== 'finished' && history.length}
-				<Card.Root>
-					<Card.Header>
-						<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						<ScoreSheet
-							rows={history}
-							event={game.headers.Event}
-							date={game.headers.Date}
-							white={game.headers.White}
-							black={game.headers.Black}
-						/>
 					</Card.Content>
 				</Card.Root>
 			{/if}

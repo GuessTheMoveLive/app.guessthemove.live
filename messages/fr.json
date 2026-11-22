@@ -48,7 +48,7 @@
 	"host_score_sheet": "Feuille de partie",
 	"host_answer_key_title": "Corrigé — réservé à l'animateur",
 	"host_answer_key_desc": "L'analyse complète précalculée, visible par toi pendant toute la manche — tes points à aborder pour la révélation.",
-	"host_scoreboard_title": "Tableau des scores ({count})",
+	"host_scoreboard_title": "Participants ({count})",
 	"host_kick_label": "Exclure {name}",
 	"play_lobby_title": "Tu es prêt",
 	"play_lobby_waiting": "En attente que l'animateur démarre la manche",

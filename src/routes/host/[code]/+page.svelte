@@ -230,8 +230,8 @@
 		</div>
 	</header>
 
-	<!-- Three-lane desktop layout (#89, ≥768px): left = Participants plus Ranking,
-	     center = the phase/Reveal card plus Guess Group breakdown and Score Sheet,
+	<!-- Three-lane desktop layout (#89, ≥768px): left = Participants, Guess Group
+	     breakdown, and Ranking, center = the phase/Reveal card plus Score Sheet,
 	     right = Answer Key, full-height since it's the longest card. Below 768px
 	     the grid collapses to one column (`grid-cols-1`), and since the three lane
 	     wrappers below carry no `md:col-start-N` effect at that width, they simply
@@ -401,6 +401,59 @@
 				</Card.Root>
 			{/if}
 
+			{#if !client.ended && phase !== 'finished' && history.length}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<ScoreSheet
+							rows={history}
+							event={game.headers.Event}
+							date={game.headers.Date}
+							white={game.headers.White}
+							black={game.headers.Black}
+						/>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+		</div>
+
+		<!-- Left lane order matches the Participant's own Reveal card order (#90): Guess
+		     Groups, then Ranking (Leaderboard/Podium) — see src/routes/play/[code]/+page.svelte. -->
+		<div class="flex flex-col gap-6 md:col-start-1 md:row-start-1">
+			{#if rosterSize > 0 && phase !== 'finished'}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.host_scoreboard_title({ count: rosterSize })}</Card.Title
+						>
+					</Card.Header>
+					<Card.Content class="max-h-72 overflow-y-auto">
+						<ol class="flex flex-col gap-2">
+							{#each scoreboard as row (row.participantId)}
+								<li class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+									<span class="min-w-0 flex-1 truncate font-medium">{row.participantId}</span>
+									{#if phase === 'active' || phase === 'closed'}
+										<span class="w-10 shrink-0 text-center font-mono text-muted-foreground">
+											{row.move ?? '…'}
+										</span>
+									{/if}
+									<span class="w-8 shrink-0 text-right font-mono tabular-nums">{row.score}</span>
+									<Button
+										variant="destructive"
+										size="icon-xs"
+										aria-label={m.host_kick_label({ name: row.participantId })}
+										onclick={() => client.kick(row.participantId)}
+									>
+										&times;
+									</Button>
+								</li>
+							{/each}
+						</ol>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+
 			{#if !client.ended && phase === 'reveal' && guessGroups.groups.length}
 				<Card.Root>
 					<Card.Header>
@@ -432,57 +485,6 @@
 								</li>
 							{/each}
 						</ul>
-					</Card.Content>
-				</Card.Root>
-			{/if}
-
-			{#if !client.ended && phase !== 'finished' && history.length}
-				<Card.Root>
-					<Card.Header>
-						<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						<ScoreSheet
-							rows={history}
-							event={game.headers.Event}
-							date={game.headers.Date}
-							white={game.headers.White}
-							black={game.headers.Black}
-						/>
-					</Card.Content>
-				</Card.Root>
-			{/if}
-		</div>
-
-		<div class="flex flex-col gap-6 md:col-start-1 md:row-start-1">
-			{#if rosterSize > 0 && phase !== 'finished'}
-				<Card.Root>
-					<Card.Header>
-						<Card.Title class="text-sm">{m.host_scoreboard_title({ count: rosterSize })}</Card.Title
-						>
-					</Card.Header>
-					<Card.Content class="max-h-72 overflow-y-auto">
-						<ol class="flex flex-col gap-2">
-							{#each scoreboard as row (row.participantId)}
-								<li class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
-									<span class="min-w-0 flex-1 truncate font-medium">{row.participantId}</span>
-									{#if phase === 'active' || phase === 'closed'}
-										<span class="w-10 shrink-0 text-center font-mono text-muted-foreground">
-											{row.move ?? '…'}
-										</span>
-									{/if}
-									<span class="w-8 shrink-0 text-right font-mono tabular-nums">{row.score}</span>
-									<Button
-										variant="destructive"
-										size="icon-xs"
-										aria-label={m.host_kick_label({ name: row.participantId })}
-										onclick={() => client.kick(row.participantId)}
-									>
-										&times;
-									</Button>
-								</li>
-							{/each}
-						</ol>
 					</Card.Content>
 				</Card.Root>
 			{/if}

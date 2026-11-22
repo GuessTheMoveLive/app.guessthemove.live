@@ -537,7 +537,7 @@
 						highlightScore={groupBreakdown.ownScore}
 					/>
 					<ul class="flex flex-col gap-1.5 text-sm">
-						{#each groupBreakdown.buckets as bucket (bucket.score)}
+						{#each [...groupBreakdown.buckets].reverse() as bucket (bucket.score)}
 							{@const isOwnBucket = bucket.score === groupBreakdown.ownScore}
 							{@const ownMove = groupBreakdown.sentence.san
 								? formatNumberedMove(groupBreakdown.sentence.san, quizStep?.ply ?? 1)

@@ -17,6 +17,7 @@
 		formatNumberedMove,
 		formatContinuation,
 		isDarkSquare,
+		containsEmoji,
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
 	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
@@ -50,6 +51,7 @@
 	const storageKey = `guess-the-move:name:${code}`;
 
 	let name = $state(page.url.searchParams.get('name') ?? '');
+	let nameError = $state(false);
 	let joined = $state(false);
 	let now = $state(Date.now());
 	let tick: ReturnType<typeof setInterval>;
@@ -57,9 +59,16 @@
 	let origin = $state<string | null>(null);
 	let pending = $state<ResolvedMove | null>(null);
 
+	// #86: emoji/pictographic display names are rejected with an inline error rather
+	// than silently stripped or accepted — the typed text is left untouched so the
+	// Participant can edit it instead of retyping from scratch.
 	function join() {
 		const id = name.trim();
 		if (!id) return;
+		if (containsEmoji(id)) {
+			nameError = true;
+			return;
+		}
 		joined = true;
 		if (browser) localStorage.setItem(storageKey, id);
 		name = id;
@@ -290,14 +299,20 @@
 				<Card.Description>{m.play_join_desc()}</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<form class="flex gap-2" onsubmit={(e) => (e.preventDefault(), join())}>
-					<input
-						class="flex-1 rounded-md border px-3 py-2 text-sm"
-						placeholder={m.play_name_placeholder()}
-						bind:value={name}
-						maxlength="24"
-					/>
-					<Button type="submit" disabled={!name.trim()}>{m.join_button()}</Button>
+				<form class="flex flex-col gap-2" onsubmit={(e) => (e.preventDefault(), join())}>
+					<div class="flex gap-2">
+						<input
+							class="flex-1 rounded-md border px-3 py-2 text-sm"
+							placeholder={m.play_name_placeholder()}
+							bind:value={name}
+							oninput={() => (nameError = false)}
+							maxlength="24"
+						/>
+						<Button type="submit" disabled={!name.trim()}>{m.join_button()}</Button>
+					</div>
+					{#if nameError}
+						<p class="text-sm text-destructive">{m.play_name_emoji_error()}</p>
+					{/if}
 				</form>
 			</Card.Content>
 		</Card.Root>

@@ -207,7 +207,7 @@
 	}
 </script>
 
-<main class="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+<main class="mx-auto flex max-w-6xl flex-col gap-6 p-6">
 	<header class="flex flex-wrap items-baseline justify-between gap-2">
 		<h1 class="text-2xl font-semibold">{m.host_title()}</h1>
 		<div class="flex items-center gap-3">
@@ -230,307 +230,323 @@
 		</div>
 	</header>
 
-	{#if client.ended}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{m.session_ended_title()}</Card.Title>
-				<Card.Description>{m.host_session_ended_desc()}</Card.Description>
-			</Card.Header>
-		</Card.Root>
-	{:else if phase === 'lobby'}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{m.host_lobby_title()}</Card.Title>
-				<Card.Description>
-					{rosterSize === 1
-						? m.host_lobby_players_one({ count: rosterSize })
-						: m.host_lobby_players_other({ count: rosterSize })}
-				</Card.Description>
-			</Card.Header>
-			<Card.Content class="flex flex-col items-center gap-3">
-				{#if qrDataUrl}
-					<img src={qrDataUrl} alt={m.host_qr_alt({ code })} class="h-60 w-60" />
-				{/if}
-				<p class="text-center text-sm text-muted-foreground">
-					{m.host_scan_hint()}
-				</p>
-				<div class="flex w-full max-w-sm items-center gap-2">
-					<a
-						href={joinPath}
-						target="_blank"
-						rel="noopener"
-						class="flex-1 truncate rounded-md border px-3 py-2 font-mono text-sm text-primary underline-offset-2 hover:underline"
-					>
-						{joinUrl}
-					</a>
-					<Button variant="outline" size="sm" onclick={copyJoinLink}>
-						{linkCopied ? m.host_link_copied() : m.host_copy_link()}
-					</Button>
-				</div>
-			</Card.Content>
-			<Card.Footer>
-				<Button onclick={() => client.startRound()}>{m.host_start_round()}</Button>
-			</Card.Footer>
-		</Card.Root>
-	{:else if phase === 'active'}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{m.host_active_title()}</Card.Title>
-				<Card.Description>
-					{m.host_active_desc()}
-				</Card.Description>
-			</Card.Header>
-			<Card.Content class="flex flex-col gap-4">
-				<div class="text-center">
-					<div class="font-mono text-5xl tabular-nums">{countdown}</div>
-					<div class="mt-2 text-sm text-muted-foreground">
-						{m.host_answered({ submitted: progress.submitted, total: progress.total })}
-					</div>
-					{#if answered}
-						<p class="mt-2 text-sm font-medium text-primary">
-							{m.host_everyone_answered()}
+	<!-- Three-lane desktop layout (#89, ≥768px): left = Scoreboard, center = the
+	     phase/Reveal card plus Guess Group breakdown, right = Answer Key and Score
+	     Sheet. Below 768px the grid collapses to one column (`grid-cols-1`), and
+	     since the three lane wrappers below carry no `md:col-start-N` effect at that
+	     width, they simply stack in DOM order — the same order the cards appeared
+	     in before this layout existed. -->
+	<div class="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start">
+		<div class="flex flex-col gap-6 md:col-start-2">
+			{#if client.ended}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.session_ended_title()}</Card.Title>
+						<Card.Description>{m.host_session_ended_desc()}</Card.Description>
+					</Card.Header>
+				</Card.Root>
+			{:else if phase === 'lobby'}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.host_lobby_title()}</Card.Title>
+						<Card.Description>
+							{rosterSize === 1
+								? m.host_lobby_players_one({ count: rosterSize })
+								: m.host_lobby_players_other({ count: rosterSize })}
+						</Card.Description>
+					</Card.Header>
+					<Card.Content class="flex flex-col items-center gap-3">
+						{#if qrDataUrl}
+							<img src={qrDataUrl} alt={m.host_qr_alt({ code })} class="h-60 w-60" />
+						{/if}
+						<p class="text-center text-sm text-muted-foreground">
+							{m.host_scan_hint()}
 						</p>
-					{/if}
-				</div>
-				<div class="flex justify-center gap-2">
-					<Button variant="outline" size="sm" onclick={() => client.adjustRound(-30_000)}>
-						−30s
-					</Button>
-					<Button variant="outline" size="sm" onclick={() => client.adjustRound(30_000)}>
-						+30s
-					</Button>
-				</div>
-			</Card.Content>
-			<Card.Footer>
-				<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
-			</Card.Footer>
-		</Card.Root>
-	{:else if phase === 'closed'}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{m.host_closed_title()}</Card.Title>
-				<Card.Description>{m.leaderboard_top5()}</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<Leaderboard entries={leaders} />
-			</Card.Content>
-			<Card.Footer>
-				<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
-			</Card.Footer>
-		</Card.Root>
-	{:else if phase === 'opponentResponse'}
-		<!-- Opponent Response (#48): the next move(s) played in the game, large, with the
+						<div class="flex w-full max-w-sm items-center gap-2">
+							<a
+								href={joinPath}
+								target="_blank"
+								rel="noopener"
+								class="flex-1 truncate rounded-md border px-3 py-2 font-mono text-sm text-primary underline-offset-2 hover:underline"
+							>
+								{joinUrl}
+							</a>
+							<Button variant="outline" size="sm" onclick={copyJoinLink}>
+								{linkCopied ? m.host_link_copied() : m.host_copy_link()}
+							</Button>
+						</div>
+					</Card.Content>
+					<Card.Footer>
+						<Button onclick={() => client.startRound()}>{m.host_start_round()}</Button>
+					</Card.Footer>
+				</Card.Root>
+			{:else if phase === 'active'}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.host_active_title()}</Card.Title>
+						<Card.Description>
+							{m.host_active_desc()}
+						</Card.Description>
+					</Card.Header>
+					<Card.Content class="flex flex-col gap-4">
+						<div class="text-center">
+							<div class="font-mono text-5xl tabular-nums">{countdown}</div>
+							<div class="mt-2 text-sm text-muted-foreground">
+								{m.host_answered({ submitted: progress.submitted, total: progress.total })}
+							</div>
+							{#if answered}
+								<p class="mt-2 text-sm font-medium text-primary">
+									{m.host_everyone_answered()}
+								</p>
+							{/if}
+						</div>
+						<div class="flex justify-center gap-2">
+							<Button variant="outline" size="sm" onclick={() => client.adjustRound(-30_000)}>
+								−30s
+							</Button>
+							<Button variant="outline" size="sm" onclick={() => client.adjustRound(30_000)}>
+								+30s
+							</Button>
+						</div>
+					</Card.Content>
+					<Card.Footer>
+						<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
+					</Card.Footer>
+				</Card.Root>
+			{:else if phase === 'closed'}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.host_closed_title()}</Card.Title>
+						<Card.Description>{m.leaderboard_top5()}</Card.Description>
+					</Card.Header>
+					<Card.Content>
+						<Leaderboard entries={leaders} />
+					</Card.Content>
+					<Card.Footer>
+						<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
+					</Card.Footer>
+				</Card.Root>
+			{:else if phase === 'opponentResponse'}
+				<!-- Opponent Response (#48): the next move(s) played in the game, large, with the
 		     Host's live Back / Next Round controls. Participants render the same card inert.
 		     On the Featured Game's final Round (#49) this shows the entire remaining real
 		     mainline, and the forward control reads "Finish" — there's no next Round to
 		     advance to, so it returns to the final Reveal/Leaderboard instead. -->
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{m.opponent_response_title()}</Card.Title>
-				<Card.Description>{m.opponent_response_desc()}</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<div class="text-center font-mono text-6xl tracking-tight tabular-nums">
-					{opponentMove ?? '—'}
-				</div>
-			</Card.Content>
-			<Card.Footer class="flex gap-2">
-				{#if isLastRound}
-					<Button onclick={() => client.finish()}>{m.host_finish_button()}</Button>
-				{:else}
-					<Button variant="outline" onclick={() => client.back()}>{m.back_button()}</Button>
-					<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
-				{/if}
-			</Card.Footer>
-		</Card.Root>
-	{:else if phase === 'finished'}
-		<!-- Finished (#50): the terminal, full-screen phase reached from the final Round's
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.opponent_response_title()}</Card.Title>
+						<Card.Description>{m.opponent_response_desc()}</Card.Description>
+					</Card.Header>
+					<Card.Content>
+						<div class="text-center font-mono text-6xl tracking-tight tabular-nums">
+							{opponentMove ?? '—'}
+						</div>
+					</Card.Content>
+					<Card.Footer class="flex gap-2">
+						{#if isLastRound}
+							<Button onclick={() => client.finish()}>{m.host_finish_button()}</Button>
+						{:else}
+							<Button variant="outline" onclick={() => client.back()}>{m.back_button()}</Button>
+							<Button onclick={() => client.nextRound()}>{m.host_next_round()}</Button>
+						{/if}
+					</Card.Footer>
+				</Card.Root>
+			{:else if phase === 'finished'}
+				<!-- Finished (#50): the terminal, full-screen phase reached from the final Round's
 		     Opponent Response via "Finish". Shows the Podium plus the full ranking of every
 		     Participant — the Host has no score of their own, so no personal message. -->
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{m.final_results_title()}</Card.Title>
-			</Card.Header>
-			<Card.Content class="flex flex-col gap-4">
-				<Podium entries={top3} />
-				<Leaderboard entries={everyone} />
-				{#if hostPgn}
-					<Button variant="outline" onclick={downloadHostPgn}>{m.host_download_pgn()}</Button>
-				{/if}
-			</Card.Content>
-		</Card.Root>
-	{:else}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title>
-				{#if isFinalRound || showLeaderboard}
-					<Card.Description>{m.leaderboard_top5()}</Card.Description>
-				{/if}
-			</Card.Header>
-			<Card.Content class="flex flex-col gap-4">
-				{#if isFinalRound}
-					<Podium entries={top3} />
-					<Leaderboard
-						entries={leaders}
-						priorTotals={snapshot?.context.priorTotals ?? {}}
-						{participants}
-					/>
-				{:else if showLeaderboard}
-					<Leaderboard
-						entries={leaders}
-						priorTotals={snapshot?.context.priorTotals ?? {}}
-						{participants}
-					/>
-				{/if}
-			</Card.Content>
-			<Card.Footer class="flex flex-wrap gap-2">
-				{#if isFinalRound}
-					<p class="text-sm font-medium text-muted-foreground">
-						{m.host_final_round()}
-					</p>
-					{#if !showRoomStatistics}
-						<Button variant="outline" onclick={() => client.showRoomStatistics()}>
-							{m.host_show_room_statistics()}
-						</Button>
-					{/if}
-					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
-				{:else}
-					{#if !showLeaderboard}
-						<Button variant="outline" onclick={() => client.showLeaderboard()}>
-							{m.host_show_leaderboard()}
-						</Button>
-					{/if}
-					{#if !showRoomStatistics}
-						<Button variant="outline" onclick={() => client.showRoomStatistics()}>
-							{m.host_show_room_statistics()}
-						</Button>
-					{/if}
-					<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
-				{/if}
-			</Card.Footer>
-		</Card.Root>
-	{/if}
-
-	{#if !client.ended && phase === 'reveal' && guessGroups.groups.length}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-sm">{m.guess_groups_title()}</Card.Title>
-			</Card.Header>
-			<Card.Content class="flex flex-col gap-4">
-				<GuessGroupChart buckets={guessGroups.buckets} />
-				<ul class="flex flex-col gap-2">
-					{#each guessGroups.groups as group (group.san ?? '\u0000')}
-						{@const isGameMove = group.san != null && group.san === quizStep?.san}
-						<li
-							class="flex flex-col gap-1 rounded-lg border px-3 py-2"
-							class:border-2={isGameMove}
-							class:border-amber-400={isGameMove}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.final_results_title()}</Card.Title>
+					</Card.Header>
+					<Card.Content class="flex flex-col gap-4">
+						<Podium entries={top3} />
+						<Leaderboard entries={everyone} />
+						{#if hostPgn}
+							<Button variant="outline" onclick={downloadHostPgn}>{m.host_download_pgn()}</Button>
+						{/if}
+					</Card.Content>
+				</Card.Root>
+			{:else}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title
 						>
-							<div class="flex items-baseline justify-between gap-2">
-								<span class="font-mono text-base">
-									{group.san
-										? formatNumberedMove(group.san, quizStep?.ply ?? 1)
-										: m.guess_groups_no_move()}
-								</span>
-								<span class="font-mono text-sm text-muted-foreground tabular-nums">
-									{group.score > 0 ? '+' : ''}{group.score}
-								</span>
-							</div>
-							<span class="text-sm text-muted-foreground">
-								{group.participantIds.join(', ')}
-							</span>
-						</li>
-					{/each}
-				</ul>
-			</Card.Content>
-		</Card.Root>
-	{/if}
-
-	{#if rosterSize > 0 && phase !== 'finished'}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-sm">{m.host_scoreboard_title({ count: rosterSize })}</Card.Title>
-			</Card.Header>
-			<Card.Content class="max-h-72 overflow-y-auto">
-				<ol class="flex flex-col gap-2">
-					{#each scoreboard as row (row.participantId)}
-						<li class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
-							<span class="min-w-0 flex-1 truncate font-medium">{row.participantId}</span>
-							{#if phase === 'active' || phase === 'closed'}
-								<span class="w-10 shrink-0 text-center font-mono text-muted-foreground">
-									{row.move ?? '…'}
-								</span>
+						{#if isFinalRound || showLeaderboard}
+							<Card.Description>{m.leaderboard_top5()}</Card.Description>
+						{/if}
+					</Card.Header>
+					<Card.Content class="flex flex-col gap-4">
+						{#if isFinalRound}
+							<Podium entries={top3} />
+							<Leaderboard
+								entries={leaders}
+								priorTotals={snapshot?.context.priorTotals ?? {}}
+								{participants}
+							/>
+						{:else if showLeaderboard}
+							<Leaderboard
+								entries={leaders}
+								priorTotals={snapshot?.context.priorTotals ?? {}}
+								{participants}
+							/>
+						{/if}
+					</Card.Content>
+					<Card.Footer class="flex flex-wrap gap-2">
+						{#if isFinalRound}
+							<p class="text-sm font-medium text-muted-foreground">
+								{m.host_final_round()}
+							</p>
+							{#if !showRoomStatistics}
+								<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+									{m.host_show_room_statistics()}
+								</Button>
 							{/if}
-							<span class="w-8 shrink-0 text-right font-mono tabular-nums">{row.score}</span>
-							<Button
-								variant="destructive"
-								size="icon-xs"
-								aria-label={m.host_kick_label({ name: row.participantId })}
-								onclick={() => client.kick(row.participantId)}
-							>
-								&times;
-							</Button>
-						</li>
-					{/each}
-				</ol>
-			</Card.Content>
-		</Card.Root>
-	{/if}
+							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
+						{:else}
+							{#if !showLeaderboard}
+								<Button variant="outline" onclick={() => client.showLeaderboard()}>
+									{m.host_show_leaderboard()}
+								</Button>
+							{/if}
+							{#if !showRoomStatistics}
+								<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+									{m.host_show_room_statistics()}
+								</Button>
+							{/if}
+							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
+						{/if}
+					</Card.Footer>
+				</Card.Root>
+			{/if}
 
-	{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-sm">{m.host_answer_key_title()}</Card.Title>
-				<Card.Description>
-					{m.host_answer_key_desc()}
-				</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<ol class="flex flex-col gap-1.5 text-sm">
-					{#each breakdown as row (row.san)}
-						<li
-							class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2"
-							class:border-2={row.isGameMove}
-							class:border-amber-400={row.isGameMove}
+			{#if !client.ended && phase === 'reveal' && guessGroups.groups.length}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.guess_groups_title()}</Card.Title>
+					</Card.Header>
+					<Card.Content class="flex flex-col gap-4">
+						<GuessGroupChart buckets={guessGroups.buckets} />
+						<ul class="flex flex-col gap-2">
+							{#each guessGroups.groups as group (group.san ?? '\u0000')}
+								{@const isGameMove = group.san != null && group.san === quizStep?.san}
+								<li
+									class="flex flex-col gap-1 rounded-lg border px-3 py-2"
+									class:border-2={isGameMove}
+									class:border-amber-400={isGameMove}
+								>
+									<div class="flex items-baseline justify-between gap-2">
+										<span class="font-mono text-base">
+											{group.san
+												? formatNumberedMove(group.san, quizStep?.ply ?? 1)
+												: m.guess_groups_no_move()}
+										</span>
+										<span class="font-mono text-sm text-muted-foreground tabular-nums">
+											{group.score > 0 ? '+' : ''}{group.score}
+										</span>
+									</div>
+									<span class="text-sm text-muted-foreground">
+										{group.participantIds.join(', ')}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+		</div>
+
+		<div class="flex flex-col gap-6 md:col-start-1">
+			{#if rosterSize > 0 && phase !== 'finished'}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.host_scoreboard_title({ count: rosterSize })}</Card.Title
 						>
-							<span class="w-16 shrink-0 font-mono font-medium tabular-nums">{row.tier}</span>
-							<span class="font-mono text-base">{row.glyph}</span>
-							{#if row.eval != null}
-								<span class="font-mono text-xs text-muted-foreground tabular-nums">
-									{row.eval > 0 ? '+' : ''}{row.eval}
-								</span>
-							{/if}
-							{#if row.continuation}
-								<span class="w-full font-mono text-xs text-muted-foreground">
-									{row.continuation}
-								</span>
-							{/if}
-							{#if row.remark}
-								<span class="w-full text-xs text-muted-foreground italic">
-									{row.remark}
-								</span>
-							{/if}
-						</li>
-					{/each}
-				</ol>
-			</Card.Content>
-		</Card.Root>
-	{/if}
+					</Card.Header>
+					<Card.Content class="max-h-72 overflow-y-auto">
+						<ol class="flex flex-col gap-2">
+							{#each scoreboard as row (row.participantId)}
+								<li class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+									<span class="min-w-0 flex-1 truncate font-medium">{row.participantId}</span>
+									{#if phase === 'active' || phase === 'closed'}
+										<span class="w-10 shrink-0 text-center font-mono text-muted-foreground">
+											{row.move ?? '…'}
+										</span>
+									{/if}
+									<span class="w-8 shrink-0 text-right font-mono tabular-nums">{row.score}</span>
+									<Button
+										variant="destructive"
+										size="icon-xs"
+										aria-label={m.host_kick_label({ name: row.participantId })}
+										onclick={() => client.kick(row.participantId)}
+									>
+										&times;
+									</Button>
+								</li>
+							{/each}
+						</ol>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+		</div>
 
-	{#if !client.ended && phase !== 'finished' && history.length}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
-			</Card.Header>
-			<Card.Content>
-				<ScoreSheet
-					rows={history}
-					event={game.headers.Event}
-					date={game.headers.Date}
-					white={game.headers.White}
-					black={game.headers.Black}
-				/>
-			</Card.Content>
-		</Card.Root>
-	{/if}
+		<div class="flex flex-col gap-6 md:col-start-3">
+			{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.host_answer_key_title()}</Card.Title>
+						<Card.Description>
+							{m.host_answer_key_desc()}
+						</Card.Description>
+					</Card.Header>
+					<Card.Content>
+						<ol class="flex flex-col gap-1.5 text-sm">
+							{#each breakdown as row (row.san)}
+								<li
+									class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2"
+									class:border-2={row.isGameMove}
+									class:border-amber-400={row.isGameMove}
+								>
+									<span class="w-16 shrink-0 font-mono font-medium tabular-nums">{row.tier}</span>
+									<span class="font-mono text-base">{row.glyph}</span>
+									{#if row.eval != null}
+										<span class="font-mono text-xs text-muted-foreground tabular-nums">
+											{row.eval > 0 ? '+' : ''}{row.eval}
+										</span>
+									{/if}
+									{#if row.continuation}
+										<span class="w-full font-mono text-xs text-muted-foreground">
+											{row.continuation}
+										</span>
+									{/if}
+									{#if row.remark}
+										<span class="w-full text-xs text-muted-foreground italic">
+											{row.remark}
+										</span>
+									{/if}
+								</li>
+							{/each}
+						</ol>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+
+			{#if !client.ended && phase !== 'finished' && history.length}
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<ScoreSheet
+							rows={history}
+							event={game.headers.Event}
+							date={game.headers.Date}
+							white={game.headers.White}
+							black={game.headers.Black}
+						/>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+		</div>
+	</div>
 </main>

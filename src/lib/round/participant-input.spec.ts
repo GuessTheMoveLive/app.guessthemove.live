@@ -12,13 +12,31 @@ import {
 	isWhitePly,
 	formatNumberedMove,
 	formatContinuation,
-	isDarkSquare
+	isDarkSquare,
+	containsEmoji
 } from './participant-input';
 import type { GameStep } from './game-data';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // Capablanca–Marshall after 4...Bg4, White to move its 5th move (#27 answer-key position).
 const QUIZ_FEN = 'r2qkbnr/ppp2ppp/2np4/1B2p3/4P1b1/2P2N2/PP1P1PPP/RNBQK2R w KQkq - 1 5';
+
+describe('containsEmoji (#86: reject emoji display names, allow non-Latin scripts)', () => {
+	it('allows a plain name with letters, digits, spaces, and basic punctuation', () => {
+		expect(containsEmoji("O'Brien 2")).toBe(false);
+	});
+
+	it('allows accented letters and non-Latin scripts', () => {
+		expect(containsEmoji('José')).toBe(false);
+		expect(containsEmoji('王')).toBe(false);
+		expect(containsEmoji('Иван')).toBe(false);
+	});
+
+	it('rejects a name containing an emoji', () => {
+		expect(containsEmoji('Bob 😀')).toBe(true);
+		expect(containsEmoji('❤️ Alice')).toBe(true);
+	});
+});
 
 describe('coordinate axes (#24: full a–h / 1–8 on both axes)', () => {
 	it('labels files a through h left to right', () => {

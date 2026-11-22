@@ -55,6 +55,7 @@
 	"play_join_title": "Join the room",
 	"play_join_desc": "Pick a display name — no account needed.",
 	"play_name_placeholder": "Your name",
+	"play_name_emoji_error": "No emoji in your name — letters, digits, spaces, and basic punctuation only.",
 	"play_guess_title": "Your guess",
 	"play_guess_desc": "Tap the square your move starts on, then where it lands.",
 	"play_locked": "Locked in — waiting for the Reveal.",

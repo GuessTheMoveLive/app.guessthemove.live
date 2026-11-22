@@ -17,6 +17,19 @@ export interface Piece {
 	color: PieceColor;
 }
 
+const PICTOGRAPHIC_PATTERN = /\p{Extended_Pictographic}/u;
+
+/**
+ * Whether a candidate Participant display name contains an emoji/pictographic
+ * character (#86) — rejected at join rather than silently stripped. Accented
+ * letters, non-Latin scripts, digits, spaces, and basic punctuation are all
+ * unaffected; only the Unicode `Extended_Pictographic` property (emoji and
+ * emoji-like symbols) is checked for.
+ */
+export function containsEmoji(name: string): boolean {
+	return PICTOGRAPHIC_PATTERN.test(name);
+}
+
 /** Files left-to-right across the grid. */
 export const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 /** Ranks top-to-bottom down the grid, White's view (#24: full coordinates on both axes). */

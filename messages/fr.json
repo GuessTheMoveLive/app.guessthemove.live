@@ -55,6 +55,7 @@
 	"play_join_title": "Rejoindre la salle",
 	"play_join_desc": "Choisis un nom d'affichage — aucun compte nécessaire.",
 	"play_name_placeholder": "Ton nom",
+	"play_name_emoji_error": "Pas d'emoji dans ton nom — seulement des lettres, chiffres, espaces et ponctuation de base.",
 	"play_guess_title": "Ton coup",
 	"play_guess_desc": "Touche la case de départ de ton coup, puis celle d'arrivée.",
 	"play_locked": "Validé — en attente de la révélation.",

@@ -55,6 +55,7 @@
 	"play_join_title": "Dem Raum beitreten",
 	"play_join_desc": "Wähle einen Anzeigenamen — kein Konto nötig.",
 	"play_name_placeholder": "Dein Name",
+	"play_name_emoji_error": "Keine Emojis im Namen — nur Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen.",
 	"play_guess_title": "Dein Zug",
 	"play_guess_desc": "Tippe auf das Startfeld deines Zuges, dann auf das Zielfeld.",
 	"play_locked": "Festgelegt — warte auf die Auflösung.",

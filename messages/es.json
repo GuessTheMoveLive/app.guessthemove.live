@@ -55,6 +55,7 @@
 	"play_join_title": "Unirse a la sala",
 	"play_join_desc": "Elige un nombre para mostrar — no se necesita cuenta.",
 	"play_name_placeholder": "Tu nombre",
+	"play_name_emoji_error": "No se permiten emojis en tu nombre — solo letras, números, espacios y puntuación básica.",
 	"play_guess_title": "Tu jugada",
 	"play_guess_desc": "Toca la casilla de salida de tu jugada y luego la de llegada.",
 	"play_locked": "Confirmada — esperando la resolución.",

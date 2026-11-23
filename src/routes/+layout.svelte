@@ -33,6 +33,11 @@
 	function switchLocale(value: string) {
 		setLocale(value as Locale);
 	}
+
+	// The Host's menu is the one piece of per-route data only the Host page ever sets
+	// (the Participant screen never reports menuItems), so it doubles as the "is this the
+	// Host screen" signal driving the fully inverted header/footer below.
+	const isHost = $derived(headerContext.menuItems != null);
 </script>
 
 <svelte:head>
@@ -46,14 +51,15 @@
 	     connection status, round progress and (Host only) a session-actions menu once a
 	     Host/Participant page has reported them via headerContext — null on routes with
 	     no Session (e.g. the home page), where the center/right columns stay empty. The
-	     Host's own menu (headerContext.menuItems) is the signal for the slightly gray
-	     background, since that's the one case this bar carries destructive actions.
-	     `sticky` rather than `fixed` so it occupies real layout space and never overlaps
-	     content even on a short/landscape viewport. -->
+	     Host screen gets this bar (and the footer below) fully inverted, by scoping the
+	     site's own `.dark` token set to just this element - every `bg-background`/
+	     `text-muted-foreground`/etc. below already flips consistently, no per-element
+	     color overrides needed. `sticky` rather than `fixed` so it occupies real layout
+	     space and never overlaps content even on a short/landscape viewport. -->
 	<header
 		class={[
-			'sticky top-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b px-4 py-2 backdrop-blur',
-			headerContext.menuItems ? 'bg-muted/60' : 'bg-background/95'
+			'sticky top-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b bg-background/95 px-4 py-2 text-foreground backdrop-blur',
+			isHost && 'dark'
 		]}
 	>
 		<div class="flex min-w-0 items-center gap-2 justify-self-start">
@@ -93,16 +99,22 @@
 
 	<!-- Sticky footer (#73): the running build's version plus the locale switcher, which
 	     used to float fixed over the bottom-right corner and could overlap content on a
-	     small screen — now part of the normal page flow instead. -->
+	     small screen — now part of the normal page flow instead. Inverted on the Host
+	     screen alongside the header, same `.dark`-scoping trick - except the Select's
+	     own dropdown panel, which bits-ui portals out to <body> and so sits outside this
+	     footer's DOM subtree; it gets the `dark` class directly so it still matches. -->
 	<footer
-		class="sticky bottom-0 z-40 flex items-center justify-between gap-2 border-t bg-background/95 px-4 py-2 backdrop-blur"
+		class={[
+			'sticky bottom-0 z-40 flex items-center justify-between gap-2 border-t bg-background/95 px-4 py-2 text-foreground backdrop-blur',
+			isHost && 'dark'
+		]}
 	>
 		<span class="text-xs text-muted-foreground">v{appVersion}</span>
 		<Select.Root type="single" value={getLocale()} onValueChange={switchLocale}>
 			<Select.Trigger size="sm" aria-label={m.locale_label()}>
 				{LOCALE_NAMES[getLocale()]}
 			</Select.Trigger>
-			<Select.Content>
+			<Select.Content class={isHost ? 'dark' : undefined}>
 				{#each locales as locale (locale)}
 					<Select.Item value={locale} label={LOCALE_NAMES[locale]} />
 				{/each}

@@ -25,6 +25,9 @@
 	import { headerContext } from '#lib/round/header-context.svelte.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
+	import ArrowCounterClockwise from 'phosphor-svelte/lib/ArrowCounterClockwise';
+	import UserMinus from 'phosphor-svelte/lib/UserMinus';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
 	import Podium from '#lib/components/podium.svelte';
 	import ScoreSheet from '#lib/components/score-sheet.svelte';
@@ -437,37 +440,59 @@
 						>
 					</Card.Header>
 					<Card.Content class="max-h-72 overflow-y-auto">
-						<ol class="flex flex-col gap-2">
-							{#each scoreboard as row (row.participantId)}
-								<li class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
-									<span class="min-w-0 flex-1 truncate font-medium">{row.participantId}</span>
-									{#if phase === 'active' || phase === 'closed'}
-										<span class="w-10 shrink-0 text-center font-mono text-muted-foreground">
-											{row.move ?? '…'}
-										</span>
-									{/if}
-									<span class="w-8 shrink-0 text-right font-mono tabular-nums">{row.score}</span>
-									{#if phase === 'active' && row.move != null}
-										<Button
-											variant="outline"
-											size="xs"
-											aria-label={m.host_reset_guess_label({ name: row.participantId })}
-											onclick={() => client.resetGuess(row.participantId)}
-										>
-											{m.reset_button()}
-										</Button>
-									{/if}
-									<Button
-										variant="destructive"
-										size="xs"
-										aria-label={m.host_kick_label({ name: row.participantId })}
-										onclick={() => client.kick(row.participantId)}
-									>
-										{m.host_kick_button()}
-									</Button>
-								</li>
-							{/each}
-						</ol>
+						<Tooltip.Provider delayDuration={150}>
+							<ol class="flex flex-col gap-2">
+								{#each scoreboard as row (row.participantId)}
+									<li class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+										<span class="min-w-0 flex-1 truncate font-medium">{row.participantId}</span>
+										{#if phase === 'active' || phase === 'closed'}
+											<span class="w-10 shrink-0 text-center font-mono text-muted-foreground">
+												{row.move ?? '…'}
+											</span>
+										{/if}
+										<span class="w-8 shrink-0 text-right font-mono tabular-nums">{row.score}</span>
+										{#if phase === 'active' && row.move != null}
+											<Tooltip.Root>
+												<Tooltip.Trigger>
+													{#snippet child({ props })}
+														<Button
+															{...props}
+															variant="outline"
+															size="sm"
+															aria-label={m.host_reset_guess_label({ name: row.participantId })}
+															onclick={() => client.resetGuess(row.participantId)}
+															class="w-7 justify-center gap-0 px-0 lg:w-auto lg:justify-start lg:gap-1.5 lg:px-3"
+														>
+															<ArrowCounterClockwise class="size-3.5" />
+															<span class="hidden lg:inline">{m.reset_button()}</span>
+														</Button>
+													{/snippet}
+												</Tooltip.Trigger>
+												<Tooltip.Content class="lg:hidden">{m.reset_button()}</Tooltip.Content>
+											</Tooltip.Root>
+										{/if}
+										<Tooltip.Root>
+											<Tooltip.Trigger>
+												{#snippet child({ props })}
+													<Button
+														{...props}
+														variant="destructive"
+														size="sm"
+														aria-label={m.host_kick_label({ name: row.participantId })}
+														onclick={() => client.kick(row.participantId)}
+														class="w-7 justify-center gap-0 px-0 lg:w-auto lg:justify-start lg:gap-1.5 lg:px-3"
+													>
+														<UserMinus class="size-3.5" />
+														<span class="hidden lg:inline">{m.host_kick_button()}</span>
+													</Button>
+												{/snippet}
+											</Tooltip.Trigger>
+											<Tooltip.Content class="lg:hidden">{m.host_kick_button()}</Tooltip.Content>
+										</Tooltip.Root>
+									</li>
+								{/each}
+							</ol>
+						</Tooltip.Provider>
 					</Card.Content>
 				</Card.Root>
 			{/if}

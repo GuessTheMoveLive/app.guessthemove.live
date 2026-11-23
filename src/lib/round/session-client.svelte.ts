@@ -121,16 +121,16 @@ export class SessionClient {
 		this.#send({ type: 'next_round' });
 	}
 
-	/** Host opens the Leaderboard on the shared Reveal screen and every Participant's
-	 *  phone (#51) — broadcast via the snapshot's `showLeaderboard`. One-way for the Round
-	 *  (#55): there's no corresponding hide. */
+	/** Host toggles the Leaderboard on the shared Reveal screen and every Participant's
+	 *  phone (#51) — broadcast via the snapshot's `showLeaderboard`. Independent of
+	 *  showRoomStatistics below; both can be open at once. */
 	showLeaderboard(): void {
 		this.#send({ type: 'show_leaderboard' });
 	}
 
-	/** Host opens the Guess Group breakdown card on the shared Reveal screen and every
-	 *  Participant's phone (#73) — same one-way-per-Round shape as showLeaderboard above,
-	 *  broadcast via the snapshot's `showRoomStatistics`, and independent of it. */
+	/** Host toggles the Guess Group breakdown card on the shared Reveal screen and every
+	 *  Participant's phone (#73) — same toggle shape as showLeaderboard above, broadcast via
+	 *  the snapshot's `showRoomStatistics`, and independent of it. */
 	showRoomStatistics(): void {
 		this.#send({ type: 'show_room_statistics' });
 	}

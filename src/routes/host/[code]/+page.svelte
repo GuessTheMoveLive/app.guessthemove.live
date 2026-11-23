@@ -383,23 +383,17 @@
 							<p class="text-sm font-medium text-muted-foreground">
 								{m.host_final_round()}
 							</p>
-							{#if !showRoomStatistics}
-								<Button variant="outline" onclick={() => client.showRoomStatistics()}>
-									{m.host_show_room_statistics()}
-								</Button>
-							{/if}
+							<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+								{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
+							</Button>
 							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 						{:else}
-							{#if !showLeaderboard}
-								<Button variant="outline" onclick={() => client.showLeaderboard()}>
-									{m.host_show_leaderboard()}
-								</Button>
-							{/if}
-							{#if !showRoomStatistics}
-								<Button variant="outline" onclick={() => client.showRoomStatistics()}>
-									{m.host_show_room_statistics()}
-								</Button>
-							{/if}
+							<Button variant="outline" onclick={() => client.showLeaderboard()}>
+								{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
+							</Button>
+							<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+								{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
+							</Button>
 							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 						{/if}
 					</Card.Footer>

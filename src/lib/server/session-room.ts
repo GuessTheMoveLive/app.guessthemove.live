@@ -45,12 +45,12 @@ const STORAGE_KEY_ROUND_INDEX = 'round-index';
 const STORAGE_KEY_TOTALS = 'totals';
 /** Whether the Host has opened the Leaderboard on the Reveal screen this Round - broadcast
  *  to every client so a Participant's phone only shows the Leaderboard once the Host has
- *  shown it (rather than unconditionally at every Reveal). One-way for the Round (#55): once
- *  true it stays true until a new Round starts and resets it back to false. */
+ *  shown it (rather than unconditionally at every Reveal). The Host can toggle it back off;
+ *  a new Round starting always resets it to false. */
 const STORAGE_KEY_SHOW_LEADERBOARD = 'show-leaderboard';
 /** Whether the Host has opened Room Statistics on the Reveal screen this Round (#73) —
- *  same one-way-per-Round shape as STORAGE_KEY_SHOW_LEADERBOARD above, but gates the
- *  Guess Group breakdown card instead, independently of the Leaderboard toggle. */
+ *  same toggle shape as STORAGE_KEY_SHOW_LEADERBOARD above, but gates the Guess Group
+ *  breakdown card instead, independently of the Leaderboard toggle. */
 const STORAGE_KEY_SHOW_ROOM_STATISTICS = 'show-room-statistics';
 /** Default visible Round length: 3 minutes (#22), shortenable/extendable by the Host. */
 const ROUND_DURATION_MS = 180_000;
@@ -262,19 +262,21 @@ export class SessionRoom extends DurableObject {
 				break;
 			}
 			case 'show_leaderboard': {
-				// Host-only (#51, one-way since #55): opens the Leaderboard on the shared
-				// Reveal screen and every Participant's phone. There's no hiding it back once
-				// shown - a repeat message (or a stray one from a Participant) is a no-op.
+				// Host-only: toggles the Leaderboard on the shared Reveal screen and every
+				// Participant's phone on/off, independently of Room Statistics below.
 				if (!this.isHostSocket(ws)) return;
-				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, true);
+				const current =
+					(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false;
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, !current);
 				break;
 			}
 			case 'show_room_statistics': {
-				// Host-only, one-way per Round (#73): same shape as show_leaderboard above,
-				// but opens the Guess Group breakdown card instead, independently of the
-				// Leaderboard toggle.
+				// Host-only: same toggle shape as show_leaderboard above, but for the Guess
+				// Group breakdown card, independently of the Leaderboard toggle.
 				if (!this.isHostSocket(ws)) return;
-				await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, true);
+				const current =
+					(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_ROOM_STATISTICS)) ?? false;
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, !current);
 				break;
 			}
 			case 'kick': {

@@ -536,7 +536,7 @@ describe('SessionRoom', () => {
 		expect(snapshot.context.scores).toHaveProperty('bob');
 	});
 
-	it('show_leaderboard is a one-way, Host-only flag, reset by a new Round (#51, #55)', async () => {
+	it('show_leaderboard is a Host-only toggle, reset by a new Round (#51, #55)', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
@@ -551,7 +551,10 @@ describe('SessionRoom', () => {
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'show_leaderboard' }));
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
 
-		// One-way: a repeat Host message doesn't hide it back.
+		// A repeat Host message toggles it back off.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
+		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
+
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
 
@@ -561,7 +564,7 @@ describe('SessionRoom', () => {
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
 	});
 
-	it('show_room_statistics is a one-way, Host-only flag, reset by a new Round (#73, mirrors show_leaderboard)', async () => {
+	it('show_room_statistics is a Host-only toggle, reset by a new Round (#73, mirrors show_leaderboard)', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
@@ -582,7 +585,12 @@ describe('SessionRoom', () => {
 			true
 		);
 
-		// One-way: a repeat Host message doesn't hide it back.
+		// A repeat Host message toggles it back off.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
+		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
+			false
+		);
+
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
 		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
 			true

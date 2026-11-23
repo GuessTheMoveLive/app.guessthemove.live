@@ -388,11 +388,11 @@
 							</Button>
 							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 						{:else}
-							<Button variant="outline" onclick={() => client.showLeaderboard()}>
-								{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
-							</Button>
 							<Button variant="outline" onclick={() => client.showRoomStatistics()}>
 								{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
+							</Button>
+							<Button variant="outline" onclick={() => client.showLeaderboard()}>
+								{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
 							</Button>
 							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
 						{/if}

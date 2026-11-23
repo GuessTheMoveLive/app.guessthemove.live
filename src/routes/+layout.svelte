@@ -12,9 +12,11 @@
 	import appleTouchIcon from '#lib/assets/apple-touch-icon.png';
 	import type { LayoutProps } from './$types';
 
-	// Served straight out of /static (#92) - no bundler import needed for a file already
-	// at a fixed, known URL.
-	const logo = '/logo.svg';
+	// Inlined (unlike the homepage's plain <img src="/logo.svg">) because the header needs
+	// the logo's second path to pick up `currentColor` from the Host's inverted `.dark`
+	// scope - an <img>'s external SVG document has no access to the page's CSS, so
+	// `currentColor` there just resolves to the initial black regardless of context.
+	import logoMarkup from '../../static/logo.svg?raw';
 
 	let { children }: LayoutProps = $props();
 
@@ -63,7 +65,10 @@
 		]}
 	>
 		<div class="flex min-w-0 items-center gap-2 justify-self-start">
-			<img src={logo} alt="" class="h-6 w-6 shrink-0" />
+			<span class="h-6 w-6 shrink-0 text-foreground [&>svg]:h-full [&>svg]:w-full">
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static build-time import of our own logo.svg, not user input -->
+				{@html logoMarkup}
+			</span>
 			<span class="truncate font-semibold">{m.app_title()}</span>
 		</div>
 		<div class="shrink-0 justify-self-center text-sm font-medium text-muted-foreground">

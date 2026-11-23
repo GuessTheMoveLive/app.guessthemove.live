@@ -117,10 +117,6 @@
 	"host_download_pgn": "Télécharger le PGN",
 	"host_answer_key_gm_remark_named": "Ce serait normalement {tier}, mais comme {name} a joué ce coup, c'est +3.",
 	"host_answer_key_gm_remark_generic": "Ce serait normalement {tier}, mais comme il s'agit du coup réellement joué, c'est +3.",
-	"play_standing_solo": "{name}, tu as {pointsLabel} — continue comme ça !",
-	"play_standing_lead": "{name}, tu as {pointsLabel} — pour l'instant tu es 1er, {diffLabel} devant {other}.",
-	"play_standing_lead_tied": "{name}, tu as {pointsLabel} — pour l'instant tu es à égalité en tête avec {other}.",
-	"play_standing_tied": "{name}, tu as {pointsLabel} — pour l'instant tu es à égalité avec {other} à la {rank} place.",
-	"play_standing_behind": "{name}, tu as {pointsLabel} — pour l'instant tu es {rank}, {diffLabel} derrière {other}.",
-	"play_points_remaining": "Il reste encore {pointsLabel} à gagner — reste concentré !"
+	"play_standing": "{name} : {pointsLabel}",
+	"play_points_remaining": "Encore {pointsLabel} à gagner"
 }

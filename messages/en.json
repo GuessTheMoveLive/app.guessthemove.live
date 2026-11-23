@@ -120,10 +120,6 @@
 	"host_download_pgn": "Download PGN",
 	"host_answer_key_gm_remark_named": "This would usually be {tier}, but since {name} played it, it's +3.",
 	"host_answer_key_gm_remark_generic": "This would usually be {tier}, but since this is the move actually played, it's +3.",
-	"play_standing_solo": "{name}, you have {pointsLabel} — keep it up!",
-	"play_standing_lead": "{name}, you have {pointsLabel} — for now you're 1st, {diffLabel} ahead of {other}.",
-	"play_standing_lead_tied": "{name}, you have {pointsLabel} — for now you're tied for 1st with {other}.",
-	"play_standing_tied": "{name}, you have {pointsLabel} — for now you're tied with {other} for {rank} place.",
-	"play_standing_behind": "{name}, you have {pointsLabel} — for now you're {rank}, {diffLabel} behind {other}.",
-	"play_points_remaining": "There are still {pointsLabel} to be won — stay sharp!"
+	"play_standing": "{name}: {pointsLabel}",
+	"play_points_remaining": "{pointsLabel} still up for grabs"
 }

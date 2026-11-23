@@ -8,12 +8,9 @@
 		formatCountdown,
 		topLeaderboard,
 		finishedMessageFor,
-		liveStandingFor,
 		pointsStillAvailable,
-		pointsLabel,
-		ordinalRank
+		pointsLabel
 	} from '#lib/host/host-view.js';
-	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
 	import {
 		displayRanks,
@@ -265,49 +262,14 @@
 		pending = null;
 	}
 
-	// The footer's running-standing line (#93): this Participant's own rank and point
-	// gap to whoever's closest to them, recomputed off every broadcast snapshot - shown
-	// throughout the Session rather than only at Finished (unlike finishedMessageFor
-	// above, which stays Podium-specific). Null before any Round has scored.
-	const standing = $derived(snapshot ? liveStandingFor(me, snapshot.context.totals ?? {}) : null);
-	const standingLine = $derived.by(() => {
-		if (!standing) return null;
-		const points = pointsLabel(standing.points);
-		switch (standing.kind) {
-			case 'solo':
-				return m.play_standing_solo({ name: me, pointsLabel: points });
-			case 'leadAlone':
-				return m.play_standing_lead({
-					name: me,
-					pointsLabel: points,
-					diffLabel: pointsLabel(standing.diff),
-					other: standing.otherName ?? ''
-				});
-			case 'leadTied':
-				return m.play_standing_lead_tied({
-					name: me,
-					pointsLabel: points,
-					other: standing.otherName ?? ''
-				});
-			case 'tied':
-				return m.play_standing_tied({
-					name: me,
-					pointsLabel: points,
-					other: standing.otherName ?? '',
-					rank: ordinalRank(standing.rank, getLocale())
-				});
-			case 'behind':
-				return m.play_standing_behind({
-					name: me,
-					pointsLabel: points,
-					diffLabel: pointsLabel(standing.diff),
-					other: standing.otherName ?? '',
-					rank: ordinalRank(standing.rank, getLocale())
-				});
-			default:
-				return null;
-		}
-	});
+	// The footer's standing line (#93): just this Participant's name and running total —
+	// kept deliberately terse rather than spelling out rank/gap-to-leader, which read as
+	// clutter in the footer's limited width.
+	const standingLine = $derived(
+		snapshot
+			? m.play_standing({ name: me, pointsLabel: pointsLabel(snapshot.context.totals[me] ?? 0) })
+			: null
+	);
 	// The footer's "points still to be made" nudge (#93): the ceiling on what's left to
 	// gain in the Rounds yet to come, so a Participant who's fallen behind still has a
 	// reason to stay engaged. Hidden once the Session is Finished - there's nothing left.

@@ -48,6 +48,10 @@ const TIER_POINTS: Record<Exclude<Tier, 'blunder'>, number> = {
 	'0': 0
 };
 
+/** The most a single Round can score (the '+3' tier) — the per-Round ceiling used
+ *  to project how many points are still up for grabs in the Rounds yet to come. */
+export const MAX_ROUND_SCORE = TIER_POINTS['+3'];
+
 /** Hard penalty for a Round not submitted by its deadline (issue #22). */
 export const TIMEOUT_PENALTY = -3;
 

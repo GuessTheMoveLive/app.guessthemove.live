@@ -7,8 +7,13 @@
 		remainingMs,
 		formatCountdown,
 		topLeaderboard,
-		finishedMessageFor
+		finishedMessageFor,
+		liveStandingFor,
+		pointsStillAvailable,
+		pointsLabel,
+		ordinalRank
 	} from '#lib/host/host-view.js';
+	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
 	import {
 		displayRanks,
@@ -260,20 +265,87 @@
 		pending = null;
 	}
 
-	// Hands this Session's Room Code, connection status and round progress up to the
-	// layout-level sticky header (#92's decision to keep that bar light, reversed) instead
-	// of this page rendering its own header row.
+	// The footer's running-standing line (#93): this Participant's own rank and point
+	// gap to whoever's closest to them, recomputed off every broadcast snapshot - shown
+	// throughout the Session rather than only at Finished (unlike finishedMessageFor
+	// above, which stays Podium-specific). Null before any Round has scored.
+	const standing = $derived(snapshot ? liveStandingFor(me, snapshot.context.totals ?? {}) : null);
+	const standingLine = $derived.by(() => {
+		if (!standing) return null;
+		const points = pointsLabel(standing.points);
+		switch (standing.kind) {
+			case 'solo':
+				return m.play_standing_solo({ name: me, pointsLabel: points });
+			case 'leadAlone':
+				return m.play_standing_lead({
+					name: me,
+					pointsLabel: points,
+					diffLabel: pointsLabel(standing.diff),
+					other: standing.otherName ?? ''
+				});
+			case 'leadTied':
+				return m.play_standing_lead_tied({
+					name: me,
+					pointsLabel: points,
+					other: standing.otherName ?? ''
+				});
+			case 'tied':
+				return m.play_standing_tied({
+					name: me,
+					pointsLabel: points,
+					other: standing.otherName ?? '',
+					rank: ordinalRank(standing.rank, getLocale())
+				});
+			case 'behind':
+				return m.play_standing_behind({
+					name: me,
+					pointsLabel: points,
+					diffLabel: pointsLabel(standing.diff),
+					other: standing.otherName ?? '',
+					rank: ordinalRank(standing.rank, getLocale())
+				});
+			default:
+				return null;
+		}
+	});
+	// The footer's "points still to be made" nudge (#93): the ceiling on what's left to
+	// gain in the Rounds yet to come, so a Participant who's fallen behind still has a
+	// reason to stay engaged. Hidden once the Session is Finished - there's nothing left.
+	const remainingPoints = $derived(
+		pointsStillAvailable(
+			roundIndex,
+			totalRounds,
+			phase === 'reveal' ||
+				phase === 'opponentResponse' ||
+				phase === 'closed' ||
+				phase === 'finished'
+		)
+	);
+	const remainingPointsLine = $derived(
+		phase !== 'finished' && totalRounds > 0
+			? m.play_points_remaining({ pointsLabel: pointsLabel(remainingPoints) })
+			: null
+	);
+
+	// Hands this Session's Room Code, connection status, round progress and (#93) this
+	// Participant's own running standing up to the layout-level sticky header/footer
+	// (#92's decision to keep that bar light, reversed) instead of this page rendering
+	// its own header row.
 	$effect(() => {
 		headerContext.roomCode = code;
 		headerContext.status = client.status;
 		headerContext.roundCurrent = totalRounds > 0 ? roundIndex + 1 : null;
 		headerContext.roundTotal = totalRounds > 0 ? totalRounds : null;
+		headerContext.footerLine1 = joined ? standingLine : null;
+		headerContext.footerLine2 = joined ? remainingPointsLine : null;
 	});
 	onDestroy(() => {
 		headerContext.roomCode = null;
 		headerContext.status = null;
 		headerContext.roundCurrent = null;
 		headerContext.roundTotal = null;
+		headerContext.footerLine1 = null;
+		headerContext.footerLine2 = null;
 	});
 </script>
 
@@ -331,7 +403,7 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title class="flex items-center justify-between">
-					<span>{m.play_guess_title()}</span>
+					<span>{m.play_guess_title({ name: me })}</span>
 					<span class="font-mono text-2xl tabular-nums">{countdown}</span>
 				</Card.Title>
 				<Card.Description>

@@ -60,7 +60,7 @@
 	"play_join_desc": "Wähle einen Anzeigenamen — kein Konto nötig.",
 	"play_name_placeholder": "Dein Name",
 	"play_name_emoji_error": "Keine Emojis im Namen — nur Buchstaben, Zahlen, Leerzeichen und einfache Satzzeichen.",
-	"play_guess_title": "Dein Zug",
+	"play_guess_title": "Dein Zug, {name}",
 	"play_guess_desc": "Tippe auf das Startfeld deines Zuges, dann auf das Zielfeld.",
 	"play_locked": "Festgelegt — warte auf die Auflösung.",
 	"play_confirm": "Bestätigen",
@@ -116,5 +116,11 @@
 	"play_download_pgn": "Meine PGN herunterladen",
 	"host_download_pgn": "PGN herunterladen",
 	"host_answer_key_gm_remark_named": "Das wäre normalerweise {tier}, aber da {name} diesen Zug gespielt hat, zählt er als +3.",
-	"host_answer_key_gm_remark_generic": "Das wäre normalerweise {tier}, aber da dies der tatsächlich gespielte Zug ist, zählt er als +3."
+	"host_answer_key_gm_remark_generic": "Das wäre normalerweise {tier}, aber da dies der tatsächlich gespielte Zug ist, zählt er als +3.",
+	"play_standing_solo": "{name}, du hast {pointsLabel} — weiter so!",
+	"play_standing_lead": "{name}, du hast {pointsLabel} — aktuell liegst du auf Platz 1, {diffLabel} vor {other}.",
+	"play_standing_lead_tied": "{name}, du hast {pointsLabel} — aktuell liegst du punktgleich mit {other} auf Platz 1.",
+	"play_standing_tied": "{name}, du hast {pointsLabel} — aktuell liegst du punktgleich mit {other} auf Platz {rank}.",
+	"play_standing_behind": "{name}, du hast {pointsLabel} — aktuell liegst du auf Platz {rank}, {diffLabel} hinter {other}.",
+	"play_points_remaining": "Es gibt noch {pointsLabel} zu gewinnen — bleib konzentriert!"
 }

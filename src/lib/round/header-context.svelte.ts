@@ -24,6 +24,11 @@ class HeaderContext {
 	// Host-only: the three-dot menu's items. Stays null on the Participant screen, which
 	// has no session-management actions of its own.
 	menuItems = $state<HeaderMenuItem[] | null>(null);
+	// Participant-only: the sticky footer's center column (the running-standing line
+	// and the "points still up for grabs" line). Stays null on the Host screen, which
+	// has no single participant's standing to show.
+	footerLine1 = $state<string | null>(null);
+	footerLine2 = $state<string | null>(null);
 }
 
 export const headerContext = new HeaderContext();

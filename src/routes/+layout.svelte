@@ -103,28 +103,42 @@
 		{@render children()}
 	</div>
 
-	<!-- Sticky footer (#73): the running build's version plus the locale switcher, which
-	     used to float fixed over the bottom-right corner and could overlap content on a
-	     small screen — now part of the normal page flow instead. Inverted on the Host
-	     screen alongside the header, same `.dark`-scoping trick - except the Select's
-	     own dropdown panel, which bits-ui portals out to <body> and so sits outside this
-	     footer's DOM subtree; it gets the `dark` class directly so it still matches. -->
+	<!-- Sticky footer (#73): the running build's version on the left and the locale
+	     switcher on the right, which used to float fixed over the bottom-right corner
+	     and could overlap content on a small screen — now part of the normal page flow
+	     instead. Center column (#93): the Participant's own running standing and the
+	     points-still-to-be-made nudge, set via headerContext same as the header above —
+	     stays empty on the Host screen and before any Round has scored. Inverted on the
+	     Host screen alongside the header, same `.dark`-scoping trick - except the
+	     Select's own dropdown panel, which bits-ui portals out to <body> and so sits
+	     outside this footer's DOM subtree; it gets the `dark` class directly so it still
+	     matches. -->
 	<footer
 		class={[
-			'sticky bottom-0 z-40 flex items-center justify-between gap-2 border-t bg-background/95 px-4 py-2 text-foreground backdrop-blur',
+			'sticky bottom-0 z-40 grid grid-cols-[auto_1fr_auto] items-center gap-2 border-t bg-background/95 px-4 py-2 text-foreground backdrop-blur',
 			isHost && 'dark'
 		]}
 	>
-		<span class="text-xs text-muted-foreground">v{appVersion}</span>
-		<Select.Root type="single" value={getLocale()} onValueChange={switchLocale}>
-			<Select.Trigger size="sm" aria-label={m.locale_label()}>
-				{LOCALE_NAMES[getLocale()]}
-			</Select.Trigger>
-			<Select.Content class={isHost ? 'dark' : undefined}>
-				{#each locales as locale (locale)}
-					<Select.Item value={locale} label={LOCALE_NAMES[locale]} />
-				{/each}
-			</Select.Content>
-		</Select.Root>
+		<span class="shrink-0 justify-self-start text-xs text-muted-foreground">v{appVersion}</span>
+		<div class="justify-self-center text-center text-xs leading-tight text-muted-foreground">
+			{#if headerContext.footerLine1}
+				<p>{headerContext.footerLine1}</p>
+			{/if}
+			{#if headerContext.footerLine2}
+				<p>{headerContext.footerLine2}</p>
+			{/if}
+		</div>
+		<div class="justify-self-end">
+			<Select.Root type="single" value={getLocale()} onValueChange={switchLocale}>
+				<Select.Trigger size="sm" aria-label={m.locale_label()}>
+					{LOCALE_NAMES[getLocale()]}
+				</Select.Trigger>
+				<Select.Content class={isHost ? 'dark' : undefined}>
+					{#each locales as locale (locale)}
+						<Select.Item value={locale} label={LOCALE_NAMES[locale]} />
+					{/each}
+				</Select.Content>
+			</Select.Root>
+		</div>
 	</footer>
 </div>

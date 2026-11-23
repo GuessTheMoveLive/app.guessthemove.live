@@ -1,5 +1,10 @@
 import type { ParticipantState } from '#lib/round/round-machine.js';
-import { scoreFromEval, playedMoveScore, type AnswerKeyStep } from '#lib/round/scoring.js';
+import {
+	scoreFromEval,
+	playedMoveScore,
+	MAX_ROUND_SCORE,
+	type AnswerKeyStep
+} from '#lib/round/scoring.js';
 import {
 	sanToGlyph,
 	formatNumberedMove,
@@ -112,6 +117,90 @@ export function finishedMessageFor(
 	const myIndex = ranked.findIndex((entry) => entry.participantId === participantId);
 	const above = ranked[myIndex - 1];
 	return { kind: 'behind', points: above.total - myTotal, name: above.participantId };
+}
+
+export type LiveStandingKind = 'solo' | 'leadAlone' | 'leadTied' | 'tied' | 'behind';
+
+export interface LiveStanding {
+	points: number;
+	rank: number;
+	totalParticipants: number;
+	kind: LiveStandingKind;
+	/** The point gap to `otherName` — 0 for 'solo' and 'leadTied'/'tied'. */
+	diff: number;
+	/** The participant immediately above (behind/tied) or, in the lead, immediately
+	 *  below — null only for 'solo', where there's no one else to compare against. */
+	otherName: string | null;
+}
+
+/**
+ * This Participant's live standing (footer banner, between Rounds as much as at
+ * Reveal): their running total, rank, and how that compares to whoever's closest
+ * to them — the Participant directly above when behind or tied with them, or
+ * (when already in the lead) the Participant directly below. Unlike {@link
+ * finishedMessageFor} (Finished-phase-only, always phrased as a gap to the leader)
+ * this runs throughout the Session and distinguishes a tie from a gap. Null before
+ * any Round has scored (`totals` empty) or if this participantId isn't in `totals`
+ * yet (first Round still in progress).
+ */
+export function liveStandingFor(
+	participantId: string,
+	totals: Record<string, number>
+): LiveStanding | null {
+	const ranked = rankedEntries(totals);
+	const myIndex = ranked.findIndex((entry) => entry.participantId === participantId);
+	if (myIndex === -1) return null;
+
+	const points = ranked[myIndex].total;
+	const rank = myIndex + 1;
+	const totalParticipants = ranked.length;
+
+	if (totalParticipants === 1) {
+		return { points, rank, totalParticipants, kind: 'solo', diff: 0, otherName: null };
+	}
+
+	if (myIndex === 0) {
+		const below = ranked[1];
+		const diff = points - below.total;
+		return diff === 0
+			? {
+					points,
+					rank,
+					totalParticipants,
+					kind: 'leadTied',
+					diff: 0,
+					otherName: below.participantId
+				}
+			: {
+					points,
+					rank,
+					totalParticipants,
+					kind: 'leadAlone',
+					diff,
+					otherName: below.participantId
+				};
+	}
+
+	const above = ranked[myIndex - 1];
+	const diff = above.total - points;
+	return diff === 0
+		? { points, rank, totalParticipants, kind: 'tied', diff: 0, otherName: above.participantId }
+		: { points, rank, totalParticipants, kind: 'behind', diff, otherName: above.participantId };
+}
+
+/**
+ * The maximum points still obtainable in the Rounds yet to come — the footer
+ * banner's "keep concentrated" nudge. `roundIndex` is the current Round
+ * (0-based); `roundScored` is true once that Round's own Guess Score is locked
+ * in (Reveal onward) so it's excluded from "still to come" alongside it.
+ */
+export function pointsStillAvailable(
+	roundIndex: number,
+	totalRounds: number,
+	roundScored: boolean
+): number {
+	const remainingRounds = totalRounds - roundIndex - (roundScored ? 1 : 0);
+	return Math.max(0, remainingRounds) * MAX_ROUND_SCORE;
 }
 
 export interface SubmissionProgress {
@@ -294,6 +383,33 @@ export function answerKeyBreakdown(
 	// original source order (#65) - the played move first, then alternatives as listed.
 	ranked.sort(byRankDescending);
 	return ranked.map(({ row }) => row);
+}
+
+/** "1 point" / "5 points", reusing the Guess Group chart's own plural pair
+ *  (chart_points_one/other) rather than a fresh message per caller. */
+export function pointsLabel(score: number): string {
+	return score === 1 ? m.chart_points_one({ score }) : m.chart_points_other({ score });
+}
+
+const ENGLISH_ORDINAL_SUFFIXES: Record<string, string> = {
+	one: 'st',
+	two: 'nd',
+	few: 'rd',
+	other: 'th'
+};
+
+/**
+ * A rank number formatted as this locale would say it in running prose — "3rd"
+ * in English, via `Intl.PluralRules`' ordinal category, since the suffix isn't a
+ * flat "th" (1st/2nd/3rd/21st/22nd/23rd...). Every other locale keeps the plain
+ * cardinal number: French/German/Spanish ordinals change the number's own form
+ * (not just a suffix) and read naturally as bare digits inside a translated
+ * sentence instead.
+ */
+export function ordinalRank(rank: number, locale: string): string {
+	if (locale !== 'en') return `${rank}`;
+	const category = new Intl.PluralRules('en-US', { type: 'ordinal' }).select(rank);
+	return `${rank}${ENGLISH_ORDINAL_SUFFIXES[category] ?? 'th'}`;
 }
 
 /** Milliseconds left on the Round clock, floored at 0; 0 when no Round is running. */

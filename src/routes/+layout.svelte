@@ -5,6 +5,7 @@
 	import { headerContext } from '#lib/round/header-context.svelte.js';
 	import { connectionColor, connectionLabel } from '#lib/round/connection-status.js';
 	import HeaderMenu from '#lib/components/header-menu.svelte';
+	import * as Select from '#lib/components/ui/select/index.js';
 	import './layout.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import favicon32 from '#lib/assets/favicon-32.png';
@@ -29,8 +30,8 @@
 	// Browser-language auto-detect happens via the `preferredLanguage` strategy; this
 	// manual override (#41) writes the `cookie` strategy's value (which takes precedence)
 	// and reloads so the whole tree re-renders in the chosen locale.
-	function switchLocale(event: Event) {
-		setLocale((event.currentTarget as HTMLSelectElement).value as Locale);
+	function switchLocale(value: string) {
+		setLocale(value as Locale);
 	}
 </script>
 
@@ -97,18 +98,15 @@
 		class="sticky bottom-0 z-40 flex items-center justify-between gap-2 border-t bg-background/95 px-4 py-2 backdrop-blur"
 	>
 		<span class="text-xs text-muted-foreground">v{appVersion}</span>
-		<label class="flex items-center gap-1 rounded-md border bg-background/90 px-2 py-1 text-xs">
-			<span class="sr-only">{m.locale_label()}</span>
-			<select
-				class="bg-transparent text-foreground focus:outline-none"
-				aria-label={m.locale_label()}
-				value={getLocale()}
-				onchange={switchLocale}
-			>
+		<Select.Root type="single" value={getLocale()} onValueChange={switchLocale}>
+			<Select.Trigger size="sm" aria-label={m.locale_label()}>
+				{LOCALE_NAMES[getLocale()]}
+			</Select.Trigger>
+			<Select.Content>
 				{#each locales as locale (locale)}
-					<option value={locale}>{LOCALE_NAMES[locale]}</option>
+					<Select.Item value={locale} label={LOCALE_NAMES[locale]} />
 				{/each}
-			</select>
-		</label>
+			</Select.Content>
+		</Select.Root>
 	</footer>
 </div>

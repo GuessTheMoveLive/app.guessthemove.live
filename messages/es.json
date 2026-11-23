@@ -17,6 +17,7 @@
 	"play_kicked_title": "Eliminado de esta sesión",
 	"play_kicked_desc": "El moderador te ha eliminado de este código de sala.",
 	"host_title": "Adivina la jugada — Moderador",
+	"host_menu_label": "Acciones de la sesión",
 	"reset_button": "Reiniciar",
 	"delete_button": "Eliminar",
 	"delete_confirm": "Vuelve a hacer clic para confirmar",

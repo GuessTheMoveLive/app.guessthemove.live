@@ -30,6 +30,7 @@
 	} from '#lib/round/guess-groups.js';
 	import { scoreColor } from '#lib/round/score-color.js';
 	import { connectionLabel } from '#lib/round/connection-status.js';
+	import { headerContext } from '#lib/round/header-context.svelte.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -258,19 +259,25 @@
 		client.submit(pending.san);
 		pending = null;
 	}
+
+	// Hands this Session's Room Code, connection status and round progress up to the
+	// layout-level sticky header (#92's decision to keep that bar light, reversed) instead
+	// of this page rendering its own header row.
+	$effect(() => {
+		headerContext.roomCode = code;
+		headerContext.status = client.status;
+		headerContext.roundCurrent = totalRounds > 0 ? roundIndex + 1 : null;
+		headerContext.roundTotal = totalRounds > 0 ? totalRounds : null;
+	});
+	onDestroy(() => {
+		headerContext.roomCode = null;
+		headerContext.status = null;
+		headerContext.roundCurrent = null;
+		headerContext.roundTotal = null;
+	});
 </script>
 
 <main class="mx-auto flex max-w-md flex-col gap-6 p-4">
-	<header class="flex items-baseline justify-between">
-		<h1 class="text-xl font-semibold">{m.app_title()}</h1>
-		<p class="text-xs text-muted-foreground">
-			{m.room_label()} <span class="font-mono tracking-widest">{code}</span>
-			{#if totalRounds > 0}
-				· {m.round_x_of_y({ current: roundIndex + 1, total: totalRounds })}
-			{/if}
-		</p>
-	</header>
-
 	{#if client.ended}
 		<Card.Root>
 			<Card.Header>

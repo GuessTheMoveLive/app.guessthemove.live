@@ -17,6 +17,7 @@
 	"play_kicked_title": "Retiré de cette session",
 	"play_kicked_desc": "L'animateur t'a retiré de ce code de salle.",
 	"host_title": "Devine le coup — Animateur",
+	"host_menu_label": "Actions de la session",
 	"reset_button": "Réinitialiser",
 	"delete_button": "Supprimer",
 	"delete_confirm": "Clique à nouveau pour confirmer",

@@ -2,6 +2,9 @@
 	import { getLocale, setLocale, locales, type Locale } from '#lib/paraglide/runtime.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { appVersion } from '#lib/app-version.js';
+	import { headerContext } from '#lib/round/header-context.svelte.js';
+	import { connectionColor, connectionLabel } from '#lib/round/connection-status.js';
+	import HeaderMenu from '#lib/components/header-menu.svelte';
 	import './layout.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import favicon32 from '#lib/assets/favicon-32.png';
@@ -38,17 +41,49 @@
 </svelte:head>
 
 <div class="flex min-h-screen flex-col">
-	<!-- Sticky header (#73): just the logo and app name — the Room Code/phase that used to
-	     show on the right (via headerContext) moved to the Host/Participant screens' own
-	     in-page header line instead (#92), next to the connection chip, so this bar stays
-	     the same on every route rather than only filling in on a Session page. `sticky`
-	     rather than `fixed` so it occupies real layout space and never overlaps content
-	     even on a short/landscape viewport. -->
+	<!-- Sticky header: logo/app name on the left always, plus the current Room Code,
+	     connection status, round progress and (Host only) a session-actions menu once a
+	     Host/Participant page has reported them via headerContext — null on routes with
+	     no Session (e.g. the home page), where the center/right columns stay empty. The
+	     Host's own menu (headerContext.menuItems) is the signal for the slightly gray
+	     background, since that's the one case this bar carries destructive actions.
+	     `sticky` rather than `fixed` so it occupies real layout space and never overlaps
+	     content even on a short/landscape viewport. -->
 	<header
-		class="sticky top-0 z-40 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur"
+		class={[
+			'sticky top-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b px-4 py-2 backdrop-blur',
+			headerContext.menuItems ? 'bg-muted/60' : 'bg-background/95'
+		]}
 	>
-		<img src={logo} alt="" class="h-6 w-6 shrink-0" />
-		<span class="truncate font-semibold">{m.app_title()}</span>
+		<div class="flex min-w-0 items-center gap-2 justify-self-start">
+			<img src={logo} alt="" class="h-6 w-6 shrink-0" />
+			<span class="truncate font-semibold">{m.app_title()}</span>
+		</div>
+		<div class="shrink-0 justify-self-center text-sm font-medium text-muted-foreground">
+			{#if headerContext.roundTotal != null && headerContext.roundCurrent != null}
+				{m.round_x_of_y({ current: headerContext.roundCurrent, total: headerContext.roundTotal })}
+			{/if}
+		</div>
+		<div class="flex items-center gap-2 justify-self-end">
+			{#if headerContext.roomCode}
+				<span class="flex items-center gap-1.5 text-xs text-muted-foreground">
+					{m.room_label()}
+					<span class="font-mono tracking-widest">{headerContext.roomCode}</span>
+					{#if headerContext.status}
+						<span class="inline-flex items-center gap-1 text-xs font-medium">
+							<span
+								class="size-2 shrink-0 rounded-full"
+								style="background-color: {connectionColor(headerContext.status)};"
+							></span>
+							{connectionLabel(headerContext.status)}
+						</span>
+					{/if}
+				</span>
+			{/if}
+			{#if headerContext.menuItems}
+				<HeaderMenu label={m.host_menu_label()} items={headerContext.menuItems} />
+			{/if}
+		</div>
 	</header>
 
 	<div class="flex-1">

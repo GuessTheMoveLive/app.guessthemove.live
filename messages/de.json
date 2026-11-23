@@ -17,6 +17,7 @@
 	"play_kicked_title": "Aus dieser Sitzung entfernt",
 	"play_kicked_desc": "Der Moderator hat dich aus diesem Raumcode entfernt.",
 	"host_title": "Rate den Zug — Moderator",
+	"host_menu_label": "Sitzungsaktionen",
 	"reset_button": "Zurücksetzen",
 	"delete_button": "Löschen",
 	"delete_confirm": "Zum Bestätigen erneut klicken",

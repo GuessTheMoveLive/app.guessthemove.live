@@ -22,7 +22,7 @@
 	} from '#lib/round/participant-input.js';
 	import { computeGuessGroupBreakdown } from '#lib/round/guess-groups.js';
 	import { buildHostPgn, roundsActuallyPlayed } from '#lib/round/pgn.js';
-	import { connectionColor, connectionLabel } from '#lib/round/connection-status.js';
+	import { headerContext } from '#lib/round/header-context.svelte.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
@@ -198,37 +198,46 @@
 		a.click();
 		URL.revokeObjectURL(url);
 	}
+
+	// Hands this Session's Room Code, connection status, round progress and the
+	// session-actions menu (Reset/End Game/Delete) up to the layout-level sticky header
+	// (#92's decision to keep that bar light, reversed) instead of this page rendering its
+	// own title/header row — leaving the main area to just the phase cards below.
+	$effect(() => {
+		headerContext.roomCode = code;
+		headerContext.status = client.status;
+		headerContext.roundCurrent = totalRounds > 0 ? roundIndex + 1 : null;
+		headerContext.roundTotal = totalRounds > 0 ? totalRounds : null;
+		headerContext.menuItems = [
+			{ label: m.reset_button(), onclick: reset },
+			...(phase !== 'finished'
+				? [
+						{
+							label: confirmingEndSession ? m.end_session_confirm() : m.end_session_button(),
+							onclick: endSessionEarly,
+							variant: 'destructive' as const,
+							closeOnClick: false
+						}
+					]
+				: []),
+			{
+				label: confirmingDelete ? m.delete_confirm() : m.delete_button(),
+				onclick: deleteSession,
+				variant: 'destructive' as const,
+				closeOnClick: false
+			}
+		];
+	});
+	onDestroy(() => {
+		headerContext.roomCode = null;
+		headerContext.status = null;
+		headerContext.roundCurrent = null;
+		headerContext.roundTotal = null;
+		headerContext.menuItems = null;
+	});
 </script>
 
 <main class="mx-auto flex max-w-6xl flex-col gap-6 p-6">
-	<header class="flex flex-wrap items-baseline justify-between gap-2">
-		<h1 class="text-2xl font-semibold">{m.host_title()}</h1>
-		<div class="flex items-center gap-3">
-			<p class="flex items-center gap-2 text-sm text-muted-foreground">
-				{m.room_label()} <span class="font-mono font-medium tracking-widest">{code}</span>
-				<span class="inline-flex items-center gap-1.5 text-xs font-medium">
-					<span
-						class="size-2 shrink-0 rounded-full"
-						style="background-color: {connectionColor(client.status)};"
-					></span>
-					{connectionLabel(client.status)}
-				</span>
-				{#if totalRounds > 0}
-					· {m.round_x_of_y({ current: roundIndex + 1, total: totalRounds })}
-				{/if}
-			</p>
-			<Button variant="outline" size="sm" onclick={reset}>{m.reset_button()}</Button>
-			{#if phase !== 'finished'}
-				<Button variant="destructive" size="sm" onclick={endSessionEarly}>
-					{confirmingEndSession ? m.end_session_confirm() : m.end_session_button()}
-				</Button>
-			{/if}
-			<Button variant="destructive" size="sm" onclick={deleteSession}>
-				{confirmingDelete ? m.delete_confirm() : m.delete_button()}
-			</Button>
-		</div>
-	</header>
-
 	<!-- Three-lane desktop layout (#89, ≥768px): left = Participants, Guess Group
 	     breakdown, and Ranking, center = the phase/Reveal card plus Score Sheet,
 	     right = Answer Key, full-height since it's the longest card. Below 768px

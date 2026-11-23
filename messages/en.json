@@ -18,6 +18,7 @@
 	"play_kicked_title": "Removed from this Session",
 	"play_kicked_desc": "The Host has removed you from this Room Code.",
 	"host_title": "Guess the Move — Host",
+	"host_menu_label": "Session actions",
 	"reset_button": "Reset",
 	"delete_button": "Delete",
 	"delete_confirm": "Click again to confirm",

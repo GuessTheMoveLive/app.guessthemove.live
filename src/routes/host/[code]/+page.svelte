@@ -439,6 +439,16 @@
 										</span>
 									{/if}
 									<span class="w-8 shrink-0 text-right font-mono tabular-nums">{row.score}</span>
+									{#if phase === 'active' && row.move != null}
+										<Button
+											variant="outline"
+											size="icon-xs"
+											aria-label={m.host_reset_guess_label({ name: row.participantId })}
+											onclick={() => client.resetGuess(row.participantId)}
+										>
+											↺
+										</Button>
+									{/if}
 									<Button
 										variant="destructive"
 										size="icon-xs"

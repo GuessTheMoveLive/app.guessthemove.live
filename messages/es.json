@@ -50,6 +50,7 @@
 	"host_answer_key_desc": "El desglose completo precalculado, visible para ti durante toda la ronda — tus puntos de conversación para la resolución.",
 	"host_scoreboard_title": "Participantes ({count})",
 	"host_kick_label": "Expulsar a {name}",
+	"host_reset_guess_label": "Restablecer la jugada de {name}",
 	"play_lobby_title": "Ya estás dentro",
 	"play_lobby_waiting": "Esperando a que el moderador inicie la ronda",
 	"play_join_title": "Unirse a la sala",

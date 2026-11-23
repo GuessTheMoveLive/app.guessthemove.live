@@ -249,6 +249,43 @@ describe('SessionRoom', () => {
 		expect(Object.keys(snapshot.context.participants)).toEqual(['alice', 'bob']);
 	});
 
+	it('a Host resetting a submitted Guess clears it in the next broadcast snapshot (#90)', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'submit', guess: 'd4' }));
+
+		await room.webSocketMessage(
+			hostWs as never,
+			JSON.stringify({ type: 'reset_guess', participantId: 'alice' })
+		);
+
+		const snapshot = aliceWs.lastSnapshot() as {
+			context: { participants: Record<string, { status: string }> };
+		};
+		expect(snapshot.context.participants.alice).toEqual({ status: 'pending' });
+	});
+
+	it('ignores a reset_guess attempt from a non-Host connection', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'submit', guess: 'd4' }));
+
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'reset_guess', participantId: 'alice' })
+		);
+
+		const snapshot = aliceWs.lastSnapshot() as {
+			context: { participants: Record<string, { status: string; guess?: string }> };
+		};
+		expect(snapshot.context.participants.alice).toEqual({ status: 'submitted', guess: 'd4' });
+	});
+
 	it('continue moves every client into the Opponent Response phase (#48)', async () => {
 		const { room, ctx } = await openRoom();
 		const { ws } = await join(room, ctx, 'alice');

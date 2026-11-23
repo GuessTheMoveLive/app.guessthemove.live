@@ -5,7 +5,7 @@ A live, multiplayer chess training format: participants guess the moves of a str
 ## Language
 
 **Session**:
-One live event instance, identified by a Room Code, opening straight into Round 1 of a pre-selected Featured Game and running through to a final Leaderboard. Not persisted once it ends; no accounts.
+One live event instance, identified by a Room Code, opening straight into Round 1 of a pre-selected Featured Game and running through to a final Ranking. Not persisted once it ends; no accounts.
 _Avoid_: Game (ambiguous with Featured Game), Room (that's the Room Code, not the Session itself)
 
 **Host**:
@@ -13,7 +13,7 @@ The person running the Session from the Host Display. May also join as a separat
 _Avoid_: Presenter, moderator
 
 **Host Display**:
-The shared screen (driven from a PC, shown on the beamer) a Session's Host uses to control Reveals and show the board and Leaderboard to the room. Never shows a Participant's Guess or Analysis Tree before Reveal, including the Host's own if they've joined as a Participant.
+The shared screen (driven from a PC, shown on the beamer) a Session's Host uses to control Reveals and show the board and Ranking to the room. Never shows a Participant's Analysis Tree before Reveal, including the Host's own if they've joined as a Participant.
 _Avoid_: Beamer, projector, control panel
 
 **Participant**:
@@ -37,17 +37,22 @@ The Candidate Game chosen to guess through for the rest of the Session, played m
 The color in the Featured Game whose moves Participants guess.
 
 **Scoring Start Move**:
-The move in the Featured Game from which Guesses begin to count. Rounds before it are still played in full — a Guess is still submitted, there's still a Reveal — but always score 0, regardless of accuracy. The Leaderboard only starts moving once it's reached.
+The move in the Featured Game from which Guesses begin to count. Rounds before it are still played in full — a Guess is still submitted, there's still a Reveal — but always score 0, regardless of accuracy. The Ranking only starts moving once it's reached.
 
 **Accuracy Score**:
 A computed quality gate on a Candidate Game: the Featured Side's average per-move win-probability loss, from the reached position through to the game's end, which must stay below the inaccuracy cutoff, with no single Featured Side move crossing the blunder cutoff. Only the Featured Side's moves count — the side other than the Featured Side is not scored.
 
 **Round**:
-One iteration of guessing a single Featured Side move: Participants submit Guesses and may extend Analysis Trees, the Host triggers Reveal, then a Round Score and updated Leaderboard follow. A Round not submitted by its deadline scores -3 for that Participant; there is no no-penalty abstain.
+One iteration of guessing a single Featured Side move: Participants submit Guesses and may extend Analysis Trees, the Host triggers Reveal, then a Round Score and updated Ranking follow. A Round not submitted by its deadline scores -3 for that Participant; there is no no-penalty abstain.
 
 **Guess**:
-A Participant's submitted move for the current Round's Featured Side move. Locked in once submitted; hidden from everyone (including the Host Display) until Reveal.
+A Participant's submitted move for the current Round's Featured Side move. Locked in once submitted; hidden from other Participants until Reveal — but not from the Host Display, whose Scoreboard shows a Participant's submitted move (glyph-rendered) as soon as they submit, before Reveal.
 _Avoid_: Answer, pick
+
+**Guess Reset**:
+A Host-only action, available only while a Round is `active` (never once it's `closed` or later), that clears one Participant's submitted Guess back to not-submitted so they get a genuine chance to resubmit. Rides the Round's one existing shared clock — no independent timer of its own — and has no effect on anyone else's Guess, score, or remaining time.
+_Avoid_: using "Reset" alone for this — that's the distinct, whole-Session wipe back to Lobby (see Session lifecycle, [#38](https://github.com/GuessTheMoveLive/app.guessthemove.live/issues/38)).
+_See_: [0008](docs/adr/0008-guess-reset-no-independent-timer.md) for why Guess Reset has no correction-specific timer of its own.
 
 **Analysis Tree**:
 A Participant's optional, unbounded-depth structure of moves branching off their Guess, extendable until Reveal even after the Guess itself is locked. Each branch point is either an Anticipated Reply or a Wildcard Reply, and each leaf carries an Assessment Symbol.
@@ -82,15 +87,15 @@ Points an Analysis Tree leaf's Assessment Symbol earns against the Evaluation at
 A Participant's total for one Round: Guess Score plus that Round's Analysis Tree contribution, where the contribution is the sum of all Soundness Bonuses and Assessment Bonuses earned, capped at +3 (one shared cap across both bonus types, not split between them). Every bonus is additive-only — floored at 0 per node/leaf, never subtracting — so nothing about the Analysis Tree can make a Round Score worse than Guess Score alone, and a strong Analysis Tree can carry a negative Guess Score to a net positive Round Score. Effective range: -3 (worst Guess, no tree credit) to +6 (best Guess, tree contribution capped).
 
 **Reveal**:
-The Host-triggered moment a Round's Guesses and Analysis Trees become visible to the room and the Leaderboard updates. Nothing is visible to anyone (Participants or the Host Display) before it. Automatically delivers each Participant their own Round Score, whether their Guess matched the Featured Side's actual move, and its Variant explanation — no separate Host step needed. The redacted Guess Group breakdown instead waits for the Host's separate Room Statistics toggle. The Host Display shows the full Guess Group breakdown (every Guess Group, every name) immediately, without needing Room Statistics itself.
+The Host-triggered moment a Round's Guesses and Analysis Trees become visible to the room and the Ranking updates. Nothing is visible to anyone (Participants or the Host Display) before it, except the Host Display's own Scoreboard, which already shows each Participant's submitted Guess live during the Round. Automatically delivers each Participant their own Round Score, whether their Guess matched the Featured Side's actual move, and its Variant explanation — no separate Host step needed. The redacted Guess Group breakdown instead waits for the Host's separate Room Statistics toggle. The Host Display shows the full Guess Group breakdown (every Guess Group, every name) immediately, without needing Room Statistics itself.
 _Avoid_: Feedback (retired as a separate phase — its explanation is now automatic and part of every Participant's Reveal).
 
-**Leaderboard**:
-The running total of Round Scores per Participant, shown after each Reveal alongside that Round's Momentum Highlight. The shared/Host view shows only the top 5; a Participant's own phone always additionally shows their own current score, even outside the top 5. On the Host Display it only appears once the Host toggles it open ("Show leaderboard"/"Hide leaderboard"); a Participant's own phone mirrors that same toggle, broadcast in the round snapshot, rather than always showing it at Reveal. Animated: each row counts up from the Participant's total coming into the Round to their post-Reveal total, and place changes animate rather than snap.
-_Avoid_: Ranking, Rangliste-as-"ranking" (use Leaderboard consistently in UI copy) — not to be confused with the Scoreboard.
+**Ranking**:
+The running total of Round Scores per Participant, shown after each Reveal alongside that Round's Momentum Highlight. The shared/Host view shows only the top 5; a Participant's own phone always additionally shows their own current score, even outside the top 5. On the Host Display it only appears once the Host toggles it open ("Show ranking", one-way for the Round — there is no corresponding hide); a Participant's own phone mirrors that same toggle, broadcast in the round snapshot, rather than always showing it at Reveal. Animated: each row counts up from the Participant's total coming into the Round to their post-Reveal total, and place changes animate rather than snap.
+_Avoid_: Leaderboard, Rangliste-as-"ranking" (use Ranking consistently in UI copy) — not to be confused with the Scoreboard.
 
 **Scoreboard** (Host Display):
-The Host's persistently-visible full-roster panel — every Participant, their running score, this Round's submitted move once in, and a Kick control — distinct from the Leaderboard, which is ranked-only and gated behind the Host's toggle. Unlike the Leaderboard it is never hidden and is never shown to Participants.
+The Host's persistently-visible full-roster panel — every Participant, their running score, this Round's submitted move (glyph-rendered, visible live as soon as a Participant submits — the one place the Host Display shows a Guess before Reveal), a Kick control, and a Guess Reset control — distinct from the Ranking, which is ranked-only and gated behind the Host's toggle. Unlike the Ranking it is never hidden and is never shown to Participants.
 
 **Variant** (Reveal):
 A short precomputed continuation of moves (with an end Evaluation) attached to an answer-key alternative, authored offline alongside the rest of the answer key and surfaced to a Participant automatically as part of their Reveal. Unrelated to the Analysis Tree's Participant-authored branches — this Variant comes from the answer key itself, not from anything a Participant wrote.
@@ -107,5 +112,5 @@ A bar chart with at most seven bars — one per distinct Round Score from -3 to 
 _Avoid_: Share Guess Groups (the original name for this gate, retired by [0003](docs/adr/0003-merge-feedback-into-reveal.md) and reinstated under the name Room Statistics by [0005](docs/adr/0005-gate-guess-group-breakdown-behind-room-statistics.md) — use Room Statistics going forward).
 
 **Room Statistics**:
-A Host-triggered toggle, broadcast to the whole room at once, that reveals the Guess Group breakdown card on every Participant's phone — same shape as the Leaderboard's toggle, and independent of it. Participants still get their own Round Score, actual-move match, and Variant explanation automatically at Reveal regardless of Room Statistics; only the room-wide breakdown waits for it.
+A Host-triggered toggle, broadcast to the whole room at once, that reveals the Guess Group breakdown card on every Participant's phone — same shape as the Ranking's toggle, and independent of it. Participants still get their own Round Score, actual-move match, and Variant explanation automatically at Reveal regardless of Room Statistics; only the room-wide breakdown waits for it.
 _Avoid_: Share Guess Groups (retired term — see Guess Group breakdown).

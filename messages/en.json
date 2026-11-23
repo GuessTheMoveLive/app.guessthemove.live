@@ -50,6 +50,7 @@
 	"host_answer_key_desc": "The full precomputed breakdown, visible to you throughout the Round — your talking points for the Reveal.",
 	"host_scoreboard_title": "Participants ({count})",
 	"host_kick_label": "Kick {name}",
+	"host_reset_guess_label": "Reset {name}'s Guess",
 	"play_lobby_title": "You're in",
 	"play_lobby_waiting": "Waiting for the Host to start the Round",
 	"play_join_title": "Join the room",

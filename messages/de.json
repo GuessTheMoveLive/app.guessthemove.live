@@ -50,6 +50,7 @@
 	"host_answer_key_desc": "Die vollständige, vorab berechnete Übersicht, dir während der gesamten Runde sichtbar — deine Gesprächspunkte für die Auflösung.",
 	"host_scoreboard_title": "Teilnehmer ({count})",
 	"host_kick_label": "{name} entfernen",
+	"host_reset_guess_label": "Antwort von {name} zurücksetzen",
 	"play_lobby_title": "Du bist dabei",
 	"play_lobby_waiting": "Warten, bis der Moderator die Runde startet",
 	"play_join_title": "Dem Raum beitreten",

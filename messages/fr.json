@@ -50,6 +50,7 @@
 	"host_answer_key_desc": "L'analyse complète précalculée, visible par toi pendant toute la manche — tes points à aborder pour la révélation.",
 	"host_scoreboard_title": "Participants ({count})",
 	"host_kick_label": "Exclure {name}",
+	"host_reset_guess_label": "Réinitialiser le coup de {name}",
 	"play_lobby_title": "Tu es prêt",
 	"play_lobby_waiting": "En attente que l'animateur démarre la manche",
 	"play_join_title": "Rejoindre la salle",

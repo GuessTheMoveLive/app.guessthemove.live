@@ -19,6 +19,7 @@ type ClientMessage =
 	| { type: 'show_leaderboard' }
 	| { type: 'show_room_statistics' }
 	| { type: 'kick'; participantId: string }
+	| { type: 'reset_guess'; participantId: string }
 	| { type: 'reset' }
 	| { type: 'delete_session' }
 	| { type: 'end_session_early' };
@@ -289,6 +290,16 @@ export class SessionRoom extends DurableObject {
 				for (const socket of this.ctx.getWebSockets(message.participantId)) {
 					socket.close(KICK_CLOSE_CODE, 'Removed by the Host');
 				}
+				break;
+			}
+			case 'reset_guess': {
+				// Host-only (#90), mirroring the kick guard above: clears one Participant's
+				// Guess back to pending so they can resubmit before the Round's shared
+				// deadline. No roster/storage bookkeeping of its own, unlike kick - the
+				// participant isn't being removed - so it just forwards to the actor and
+				// falls through to the shared persistSnapshot/broadcastSnapshot below.
+				if (!this.isHostSocket(ws)) return;
+				actor.send({ type: 'GUESS_RESET', participantId: message.participantId });
 				break;
 			}
 			case 'reset': {

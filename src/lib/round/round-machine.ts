@@ -32,7 +32,8 @@ export type RoundEvent =
 	| { type: 'BACK' }
 	| { type: 'FINISH' }
 	| { type: 'KICK'; participantId: string }
-	| { type: 'END_SESSION' };
+	| { type: 'END_SESSION' }
+	| { type: 'GUESS_RESET'; participantId: string };
 
 export interface RoundInput {
 	participantIds: string[];
@@ -129,6 +130,22 @@ export const roundMachine = setup({
 							...context.participants,
 							[event.participantId]: { status: 'submitted', guess: event.guess }
 						})
+					})
+				},
+				// The Host's Guess Reset (#90): clears one Participant's Guess back to
+				// pending without touching anyone else's state or the Round's shared alarm.
+				// Declared only here, not the root-level `on` block KICK/END_SESSION use,
+				// since it's deliberately inert once the Round has closed. A participant not
+				// in the roster (already kicked, never joined) is a no-op, same posture as KICK.
+				GUESS_RESET: {
+					actions: assign(({ context, event }) => {
+						if (!(event.participantId in context.participants)) return {};
+						return {
+							participants: {
+								...context.participants,
+								[event.participantId]: { status: 'pending' }
+							}
+						};
 					})
 				},
 				ROUND_TIMEOUT: {

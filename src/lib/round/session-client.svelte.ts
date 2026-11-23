@@ -117,6 +117,13 @@ export class SessionClient {
 		this.#send({ type: 'kick', participantId });
 	}
 
+	/** Host clears one Participant's mistaken Guess back to not-submitted so they can
+	 *  resubmit before the Round's shared deadline (#90) - no effect on anyone else's
+	 *  Guess, score, or remaining time, and no independent timer of its own. */
+	resetGuess(participantId: string): void {
+		this.#send({ type: 'reset_guess', participantId });
+	}
+
 	/** Host wipes roster/scores back to the Lobby, same Room Code and Featured Game (#38). */
 	reset(): void {
 		this.#send({ type: 'reset' });

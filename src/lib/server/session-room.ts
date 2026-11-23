@@ -180,6 +180,18 @@ export class SessionRoom extends DurableObject {
 			case 'adjust_round': {
 				// Host shortens/extends the running clock (#22). Re-schedule the authoritative
 				// timeout alarm, never letting it land in the past.
+				//
+				// A Round already `closed` has no alarm left to reschedule (it already fired) -
+				// a positive adjustment there instead reopens the Round (#92) so the Host's
+				// "+30s" keeps working after the clock has run out, giving anyone who missed
+				// the deadline a fresh chance to submit.
+				if (actor.getSnapshot().value === 'closed') {
+					if (message.deltaMs > 0) {
+						actor.send({ type: 'REOPEN' });
+						await this.ctx.storage.setAlarm(Date.now() + message.deltaMs);
+					}
+					break;
+				}
 				const current = await this.ctx.storage.getAlarm();
 				if (current != null) {
 					await this.ctx.storage.setAlarm(Math.max(Date.now() + 1_000, current + message.deltaMs));
@@ -479,6 +491,7 @@ export class SessionRoom extends DurableObject {
 			value: snapshot.value as RoundSnapshot['value'],
 			context: snapshot.context,
 			deadline: await this.ctx.storage.getAlarm(),
+			serverNow: Date.now(),
 			roundIndex: this.roundIndex,
 			totalRounds: quizSteps().length,
 			showLeaderboard: (await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false,

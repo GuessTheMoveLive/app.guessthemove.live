@@ -21,8 +21,8 @@
 		formatContinuation
 	} from '#lib/round/participant-input.js';
 	import { computeGuessGroupBreakdown } from '#lib/round/guess-groups.js';
-	import { headerContext } from '#lib/round/header-context.svelte.js';
 	import { buildHostPgn, roundsActuallyPlayed } from '#lib/round/pgn.js';
+	import { connectionColor, connectionLabel } from '#lib/round/connection-status.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
@@ -72,8 +72,6 @@
 		clearInterval(tick);
 		clearTimeout(copiedResetTimer);
 		client.disconnect();
-		headerContext.roomCode = null;
-		headerContext.phase = null;
 	});
 
 	function reset() {
@@ -101,13 +99,6 @@
 	const snapshot = $derived(client.snapshot);
 	const phase = $derived(snapshot?.value ?? 'lobby');
 
-	// Hands this Session's Room Code and current phase up to the layout-level sticky
-	// header (#73) — the Host Display has no other way to stay visible once scrolled.
-	$effect(() => {
-		headerContext.roomCode = code;
-		headerContext.phase = phase;
-	});
-
 	const participants = $derived(snapshot?.context.participants ?? {});
 	const progress = $derived(submissionProgress(participants));
 	const answered = $derived(everyoneAnswered(participants));
@@ -115,7 +106,9 @@
 	const top3 = $derived(topLeaderboard(snapshot?.context.totals ?? {}, 3));
 	// The Finished phase's full ranking (#50): every Participant, not just the top 5.
 	const everyone = $derived(fullRanking(snapshot?.context.totals ?? {}));
-	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
+	const countdown = $derived(
+		formatCountdown(remainingMs(snapshot?.deadline ?? null, now + client.clockOffsetMs))
+	);
 	// Broadcast rather than local (#51): synced through the snapshot so a Participant's
 	// phone can gate its own Leaderboard card on the same toggle (see play/[code]).
 	const showLeaderboard = $derived(snapshot?.showLeaderboard ?? false);
@@ -211,9 +204,15 @@
 	<header class="flex flex-wrap items-baseline justify-between gap-2">
 		<h1 class="text-2xl font-semibold">{m.host_title()}</h1>
 		<div class="flex items-center gap-3">
-			<p class="text-sm text-muted-foreground">
+			<p class="flex items-center gap-2 text-sm text-muted-foreground">
 				{m.room_label()} <span class="font-mono font-medium tracking-widest">{code}</span>
-				· {client.connected ? m.status_live() : m.status_connecting()}
+				<span class="inline-flex items-center gap-1.5 text-xs font-medium">
+					<span
+						class="size-2 shrink-0 rounded-full"
+						style="background-color: {connectionColor(client.status)};"
+					></span>
+					{connectionLabel(client.status)}
+				</span>
 				{#if totalRounds > 0}
 					· {m.round_x_of_y({ current: roundIndex + 1, total: totalRounds })}
 				{/if}
@@ -322,8 +321,14 @@
 					<Card.Header>
 						<Card.Title>{m.host_closed_title()}</Card.Title>
 					</Card.Header>
-					<Card.Footer>
+					<Card.Footer class="flex gap-2">
 						<Button onclick={() => client.reveal()}>{m.host_reveal_button()}</Button>
+						<!-- Reopens the Round rather than extending a clock that's already run out
+						     (#92) — gives anyone who missed the deadline a fresh chance to submit,
+						     at the Host's discretion, before moving on to the Reveal. -->
+						<Button variant="outline" onclick={() => client.adjustRound(30_000)}>
+							{m.host_reopen_round_button()}
+						</Button>
 					</Card.Footer>
 				</Card.Root>
 			{:else if phase === 'opponentResponse'}
@@ -442,20 +447,20 @@
 									{#if phase === 'active' && row.move != null}
 										<Button
 											variant="outline"
-											size="icon-xs"
+											size="xs"
 											aria-label={m.host_reset_guess_label({ name: row.participantId })}
 											onclick={() => client.resetGuess(row.participantId)}
 										>
-											↺
+											{m.reset_button()}
 										</Button>
 									{/if}
 									<Button
 										variant="destructive"
-										size="icon-xs"
+										size="xs"
 										aria-label={m.host_kick_label({ name: row.participantId })}
 										onclick={() => client.kick(row.participantId)}
 									>
-										&times;
+										{m.host_kick_button()}
 									</Button>
 								</li>
 							{/each}

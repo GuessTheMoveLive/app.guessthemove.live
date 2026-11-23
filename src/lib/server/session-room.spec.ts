@@ -395,6 +395,51 @@ describe('SessionRoom', () => {
 		expect(snapshot.context.scores.alice).toBe(-3);
 	});
 
+	it('reopens a closed Round on a positive adjust_round, giving a timed-out participant a fresh chance (#92)', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.alarm(); // closes the Round - alice never submitted, so she's timedOut.
+
+		await room.webSocketMessage(
+			ws as never,
+			JSON.stringify({ type: 'adjust_round', deltaMs: 30_000 })
+		);
+
+		const snapshot = ws.lastSnapshot() as {
+			value: string;
+			context: { participants: Record<string, { status: string }> };
+			deadline: number | null;
+		};
+		expect(snapshot.value).toBe('active');
+		expect(snapshot.context.participants.alice.status).toBe('pending');
+		expect(snapshot.deadline).not.toBeNull();
+
+		// The reopened Round now behaves like any other active one: alice can submit.
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'd4' }));
+		const afterSubmit = ws.lastSnapshot() as {
+			context: { participants: Record<string, { status: string }> };
+		};
+		expect(afterSubmit.context.participants.alice.status).toBe('submitted');
+	});
+
+	it('a non-positive adjust_round on a closed Round is a no-op - it stays closed', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.alarm();
+
+		await room.webSocketMessage(
+			ws as never,
+			JSON.stringify({ type: 'adjust_round', deltaMs: -30_000 })
+		);
+
+		const snapshot = ws.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('closed');
+	});
+
 	it('resets: wipes roster/scores/round-index back to lobby, same Room Code', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);

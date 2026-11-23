@@ -110,6 +110,23 @@ describe('roundMachine', () => {
 		expect(actor.getSnapshot().value).toBe('reveal');
 	});
 
+	it('reopens a closed round on REOPEN, resetting timedOut participants back to pending (#92)', () => {
+		const actor = actorWith(['alice', 'bob']);
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'e4' });
+		actor.send({ type: 'ROUND_TIMEOUT' }); // bob never submitted => timedOut
+
+		actor.send({ type: 'REOPEN' });
+
+		expect(actor.getSnapshot().value).toBe('active');
+		expect(actor.getSnapshot().context.participants.alice.status).toBe('submitted');
+		expect(actor.getSnapshot().context.participants.bob.status).toBe('pending');
+		// The stale close's scores/totals are cleared, not left showing bob's -3 while the
+		// reopened Round is still in flight.
+		expect(actor.getSnapshot().context.scores).toEqual({});
+		expect(actor.getSnapshot().context.totals).toEqual({});
+	});
+
 	it('moves to opponentResponse on CONTINUE, only from reveal (#48)', () => {
 		const actor = actorWith(['alice']);
 		actor.send({ type: 'START_ROUND' });

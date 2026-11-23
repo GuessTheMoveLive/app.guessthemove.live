@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { getLocale, setLocale, locales, type Locale } from '#lib/paraglide/runtime.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { headerContext } from '#lib/round/header-context.svelte.js';
-	import { phaseLabel } from '#lib/round/phase-label.js';
 	import { appVersion } from '#lib/app-version.js';
 	import './layout.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import favicon32 from '#lib/assets/favicon-32.png';
 	import appleTouchIcon from '#lib/assets/apple-touch-icon.png';
 	import type { LayoutProps } from './$types';
+
+	// Served straight out of /static (#92) - no bundler import needed for a file already
+	// at a fixed, known URL.
+	const logo = '/logo.svg';
 
 	let { children }: LayoutProps = $props();
 
@@ -36,23 +38,17 @@
 </svelte:head>
 
 <div class="flex min-h-screen flex-col">
-	<!-- Sticky header (#73): app name, plus the current Room Code/phase once a Host or
-	     Participant page has one to report (headerContext is null on routes with no
-	     Session, e.g. the home page) — `sticky` rather than `fixed` so it occupies real
-	     layout space and never overlaps content even on a short/landscape viewport. -->
+	<!-- Sticky header (#73): just the logo and app name — the Room Code/phase that used to
+	     show on the right (via headerContext) moved to the Host/Participant screens' own
+	     in-page header line instead (#92), next to the connection chip, so this bar stays
+	     the same on every route rather than only filling in on a Session page. `sticky`
+	     rather than `fixed` so it occupies real layout space and never overlaps content
+	     even on a short/landscape viewport. -->
 	<header
-		class="sticky top-0 z-40 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur"
+		class="sticky top-0 z-40 flex items-center gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur"
 	>
+		<img src={logo} alt="" class="h-6 w-6 shrink-0" />
 		<span class="truncate font-semibold">{m.app_title()}</span>
-		{#if headerContext.roomCode}
-			<span class="shrink-0 text-xs text-muted-foreground">
-				{m.room_label()}
-				<span class="font-mono tracking-widest">{headerContext.roomCode}</span>
-				{#if headerContext.phase}
-					· {phaseLabel(headerContext.phase)}
-				{/if}
-			</span>
-		{/if}
 	</header>
 
 	<div class="flex-1">

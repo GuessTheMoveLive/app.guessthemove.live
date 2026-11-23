@@ -33,7 +33,8 @@ export type RoundEvent =
 	| { type: 'FINISH' }
 	| { type: 'KICK'; participantId: string }
 	| { type: 'END_SESSION' }
-	| { type: 'GUESS_RESET'; participantId: string };
+	| { type: 'GUESS_RESET'; participantId: string }
+	| { type: 'REOPEN' };
 
 export interface RoundInput {
 	participantIds: string[];
@@ -172,7 +173,28 @@ export const roundMachine = setup({
 						})
 					})
 				},
-				REVEAL: 'reveal'
+				REVEAL: 'reveal',
+				// The Host's +30s on an already-closed Round (#92): reopens it rather than
+				// extending a clock that's already run out, giving anyone who missed the
+				// deadline (`timedOut`, no Guess at all) a fresh chance to submit on time
+				// instead of only ever landing `late`. Clears this Round's `scores`/`totals`
+				// back to empty - the same as before it ever closed - rather than leaving the
+				// Scoreboard showing stale numbers from the close that's being undone; they're
+				// repopulated correctly once this reopened Round closes again (ROUND_TIMEOUT's
+				// closeRoundScores reads whatever the participant statuses are at that later
+				// moment).
+				REOPEN: {
+					target: 'active',
+					actions: assign(({ context }) => ({
+						participants: Object.fromEntries(
+							Object.entries(context.participants).map(([id, state]) =>
+								state.status === 'timedOut' ? [id, { status: 'pending' as const }] : [id, state]
+							)
+						),
+						scores: {},
+						totals: {}
+					}))
+				}
 			}
 		},
 		// Reveal is no longer terminal (#48): the Host's "Continue" moves everyone on to the

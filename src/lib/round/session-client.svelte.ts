@@ -35,7 +35,25 @@ export class SessionClient {
 	/** True once the Host has deleted this Session entirely (#38) — every connection,
 	 *  Host included, sees "This session has ended" rather than just retrying. */
 	ended = $state(false);
+	/** Server clock minus this device's own clock, measured off each broadcast snapshot's
+	 *  `serverNow` (#92) - add this to a local `Date.now()` reading before comparing it to
+	 *  `deadline` so the Round countdown is accurate even when the device's own wall clock
+	 *  is off by a few seconds either way. */
+	clockOffsetMs = $state(0);
+	/** True once the very first connection has opened - distinguishes "still making the
+	 *  first connection" from "was connected, then dropped" below, so the connection chip
+	 *  (#92) can tell "connecting…" apart from "broken". */
+	#hasConnectedOnce = $state(false);
 	#ws: WebSocket | null = null;
+
+	/** The connection chip's three states (#92): `connecting` before the first connection
+	 *  has ever opened, `live` while connected, `broken` for a connection that opened once
+	 *  and has since dropped (and wasn't a kick/delete, which get their own dedicated
+	 *  screens instead of this chip). */
+	get status(): 'connecting' | 'live' | 'broken' {
+		if (this.connected) return 'live';
+		return this.#hasConnectedOnce ? 'broken' : 'connecting';
+	}
 
 	connect(options: ConnectOptions): void {
 		if (!browser || this.#ws) return;
@@ -49,14 +67,19 @@ export class SessionClient {
 		const ws = new WebSocket(`${scheme}://${location.host}/api/session/${code}?${query}`);
 		this.#ws = ws;
 
-		ws.addEventListener('open', () => (this.connected = true));
+		ws.addEventListener('open', () => {
+			this.connected = true;
+			this.#hasConnectedOnce = true;
+		});
 		ws.addEventListener('close', (event) => {
 			this.connected = false;
 			if (event.code === KICK_CLOSE_CODE) this.kicked = true;
 			else if (event.code === DELETE_CLOSE_CODE) this.ended = true;
 		});
 		ws.addEventListener('message', (event) => {
-			this.snapshot = JSON.parse(event.data as string) as RoundSnapshot;
+			const snapshot = JSON.parse(event.data as string) as RoundSnapshot;
+			this.clockOffsetMs = snapshot.serverNow - Date.now();
+			this.snapshot = snapshot;
 		});
 	}
 

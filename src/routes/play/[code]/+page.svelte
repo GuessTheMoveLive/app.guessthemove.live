@@ -29,7 +29,7 @@
 		chartParticipantLabel
 	} from '#lib/round/guess-groups.js';
 	import { scoreColor } from '#lib/round/score-color.js';
-	import { headerContext } from '#lib/round/header-context.svelte.js';
+	import { connectionLabel } from '#lib/round/connection-status.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -87,20 +87,13 @@
 	onDestroy(() => {
 		clearInterval(tick);
 		client.disconnect();
-		headerContext.roomCode = null;
-		headerContext.phase = null;
 	});
 
 	const snapshot = $derived(client.snapshot);
 	const phase = $derived(snapshot?.value ?? 'lobby');
-
-	// Hands this Session's Room Code and current phase up to the layout-level sticky
-	// header (#73), so they stay visible after scrolling down a long Reveal screen.
-	$effect(() => {
-		headerContext.roomCode = code;
-		headerContext.phase = phase;
-	});
-	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
+	const countdown = $derived(
+		formatCountdown(remainingMs(snapshot?.deadline ?? null, now + client.clockOffsetMs))
+	);
 	const me = $derived(name.trim());
 	const myState = $derived(snapshot?.context.participants[me]);
 	// The Round Score, broadcast on every snapshot once the Round closes - shown as
@@ -319,9 +312,11 @@
 	{:else if phase === 'lobby'}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>{m.play_lobby_title()}</Card.Title>
+				<Card.Title>{m.play_lobby_named({ name: me })}</Card.Title>
 				<Card.Description>
-					{m.play_lobby_waiting()}{client.connected ? '' : ` · ${m.status_connecting()}`}
+					{m.play_lobby_waiting()}{client.status === 'live'
+						? ''
+						: ` · ${connectionLabel(client.status)}`}
 				</Card.Description>
 			</Card.Header>
 		</Card.Root>

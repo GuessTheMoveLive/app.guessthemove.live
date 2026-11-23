@@ -69,7 +69,7 @@ async function main() {
 			await participantPage.click('button:has-text("Join")');
 			await participantPage.waitForTimeout(500);
 
-			await hostPage.locator('button:has-text("Start Round")').click();
+			await hostPage.locator('button:has-text("Start Session")').click();
 			await participantPage.waitForTimeout(500);
 
 			if (process.env.SCREENSHOT_DIR) {

@@ -15,6 +15,11 @@ export interface RoundSnapshot {
 	context: RoundContext;
 	/** Epoch ms when the current Round's clock runs out, or null when no Round is running. */
 	deadline: number | null;
+	/** Epoch ms on the server at the moment this snapshot was broadcast - lets a client
+	 *  correct for its own clock being off (so the Round clock always counts down from
+	 *  exactly its configured length, never a few seconds short or long because the
+	 *  device's wall clock disagrees with the server's). */
+	serverNow: number;
 	/** 0-based index of the current Round into the Featured Game's quiz steps. */
 	roundIndex: number;
 	/** Total number of Rounds in the Featured Game, so the UI can show "Guess 4 of 35". */

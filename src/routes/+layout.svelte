@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { getLocale, setLocale, locales, type Locale } from '#lib/paraglide/runtime.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { appVersion } from '#lib/app-version.js';
@@ -64,13 +65,13 @@
 			isHost && 'dark'
 		]}
 	>
-		<div class="flex min-w-0 items-center gap-2 justify-self-start">
+		<a href={resolve('/')} class="flex min-w-0 items-center gap-2 justify-self-start">
 			<span class="h-6 w-6 shrink-0 text-foreground [&>svg]:h-full [&>svg]:w-full">
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- static build-time import of our own logo.svg, not user input -->
 				{@html logoMarkup}
 			</span>
 			<span class="truncate font-semibold">{m.app_title()}</span>
-		</div>
+		</a>
 		<div class="shrink-0 justify-self-center text-sm font-medium text-muted-foreground">
 			{#if headerContext.roundTotal != null && headerContext.roundCurrent != null}
 				{m.round_x_of_y({ current: headerContext.roundCurrent, total: headerContext.roundTotal })}

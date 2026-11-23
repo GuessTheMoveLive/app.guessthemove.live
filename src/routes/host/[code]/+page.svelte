@@ -463,7 +463,7 @@
 				</Card.Root>
 			{/if}
 
-			{#if !client.ended && phase === 'reveal' && guessGroups.groups.length}
+			{#if !client.ended && phase === 'reveal' && guessGroups.groups.length && showRoomStatistics}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.guess_groups_title()}</Card.Title>

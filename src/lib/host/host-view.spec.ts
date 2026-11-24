@@ -458,7 +458,7 @@ describe('answerKeyBreakdown', () => {
 		// alternative, well within the +2 floor - is promoted to +3 alongside it (#70).
 		// 6...h6, 6...c6, 6...dxc4, 6...c5 and 6...a6 rank further behind and no longer
 		// independently qualify, unlike under the old flat loss<=2 band (#62).
-		const step = getAnswerKeyStep(12)!;
+		const step = getAnswerKeyStep('bernstein-capablanca', 12)!;
 		expect(step.san).toBe('Nbd7');
 
 		const rows = answerKeyBreakdown(step, 12, 'Bernstein', 'Capablanca');
@@ -474,7 +474,7 @@ describe('answerKeyBreakdown', () => {
 		// Black's move 5 in the actual answer key: 5...O-O was played, but 5...h6
 		// computes stronger, and 5...Nbd7 ties O-O's computed tier yet still sorts
 		// behind it - the exact upset the issue was filed against.
-		const step = getAnswerKeyStep(10)!;
+		const step = getAnswerKeyStep('bernstein-capablanca', 10)!;
 		expect(step.san).toBe('O-O');
 
 		const rows = answerKeyBreakdown(step, 10, 'Bernstein', 'Capablanca');

@@ -91,6 +91,13 @@ export class SessionClient {
 		this.#send({ type: 'start_round' });
 	}
 
+	/** Host selects the Featured Game from the Game Catalog, in the Lobby (#93) - freely
+	 *  re-selectable any number of times before Start, which SessionRoom refuses to allow
+	 *  until some selection has been made. */
+	selectGame(gameId: string): void {
+		this.#send({ type: 'select_game', gameId });
+	}
+
 	/** Shorten (negative) or extend (positive) the running Round clock, in ms (#22). */
 	adjustRound(deltaMs: number): void {
 		this.#send({ type: 'adjust_round', deltaMs });

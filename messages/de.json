@@ -118,5 +118,14 @@
 	"host_answer_key_gm_remark_named": "Das wäre normalerweise {tier}, aber da {name} diesen Zug gespielt hat, zählt er als +3.",
 	"host_answer_key_gm_remark_generic": "Das wäre normalerweise {tier}, aber da dies der tatsächlich gespielte Zug ist, zählt er als +3.",
 	"play_standing": "{name}: {pointsLabel}",
-	"play_points_remaining": "Noch {pointsLabel} zu gewinnen"
+	"play_points_remaining": "Noch {pointsLabel} zu gewinnen",
+	"host_catalog_title": "Spiel auswählen",
+	"host_catalog_desc": "Wähle, welches Spiel die Teilnehmer in dieser Session erraten.",
+	"host_catalog_selected_label": "Ausgewählt",
+	"host_catalog_col_white": "Weiß",
+	"host_catalog_col_black": "Schwarz",
+	"host_catalog_col_year": "Jahr",
+	"host_catalog_col_event": "Turnier",
+	"host_catalog_col_opening": "Eröffnung",
+	"host_catalog_col_moves": "Züge"
 }

@@ -50,4 +50,8 @@ export interface RoundSnapshot {
 	 *  (each screen derives its own view locally rather than the server pushing a
 	 *  per-client copy). */
 	guessHistory: GuessHistory;
+	/** The Featured Game the Host has selected from the Game Catalog (#93), or null
+	 *  before any selection — broadcast so the Host's own UI reflects the current pick
+	 *  after a reconnect. Never shown to a Participant's screen. */
+	selectedGameId: string | null;
 }

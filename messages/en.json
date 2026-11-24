@@ -121,5 +121,14 @@
 	"host_answer_key_gm_remark_named": "This would usually be {tier}, but since {name} played it, it's +3.",
 	"host_answer_key_gm_remark_generic": "This would usually be {tier}, but since this is the move actually played, it's +3.",
 	"play_standing": "{name}: {pointsLabel}",
-	"play_points_remaining": "{pointsLabel} still up for grabs"
+	"play_points_remaining": "{pointsLabel} still up for grabs",
+	"host_catalog_title": "Choose the Featured Game",
+	"host_catalog_desc": "Pick which game Participants will guess through this Session.",
+	"host_catalog_selected_label": "Selected",
+	"host_catalog_col_white": "White",
+	"host_catalog_col_black": "Black",
+	"host_catalog_col_year": "Year",
+	"host_catalog_col_event": "Tournament",
+	"host_catalog_col_opening": "Opening",
+	"host_catalog_col_moves": "Moves"
 }

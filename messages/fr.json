@@ -118,5 +118,14 @@
 	"host_answer_key_gm_remark_named": "Ce serait normalement {tier}, mais comme {name} a joué ce coup, c'est +3.",
 	"host_answer_key_gm_remark_generic": "Ce serait normalement {tier}, mais comme il s'agit du coup réellement joué, c'est +3.",
 	"play_standing": "{name} : {pointsLabel}",
-	"play_points_remaining": "Encore {pointsLabel} à gagner"
+	"play_points_remaining": "Encore {pointsLabel} à gagner",
+	"host_catalog_title": "Choisir la partie vedette",
+	"host_catalog_desc": "Choisissez la partie que les participants devront deviner pendant cette session.",
+	"host_catalog_selected_label": "Sélectionnée",
+	"host_catalog_col_white": "Blancs",
+	"host_catalog_col_black": "Noirs",
+	"host_catalog_col_year": "Année",
+	"host_catalog_col_event": "Tournoi",
+	"host_catalog_col_opening": "Ouverture",
+	"host_catalog_col_moves": "Coups"
 }

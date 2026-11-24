@@ -14,7 +14,13 @@
 		formatCountdown,
 		answerKeyBreakdown
 	} from '#lib/host/host-view.js';
-	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
+	import {
+		getGameData,
+		quizSteps,
+		opponentResponseSteps,
+		EMPTY_GAME_DATA
+	} from '#lib/round/game-data.js';
+	import { gameCatalog } from '#lib/round/game-catalog.js';
 	import {
 		buildMoveHistory,
 		formatNumberedMove,
@@ -28,6 +34,7 @@
 	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import ArrowCounterClockwise from 'phosphor-svelte/lib/ArrowCounterClockwise';
 	import UserMinus from 'phosphor-svelte/lib/UserMinus';
+	import Check from 'phosphor-svelte/lib/Check';
 	import Leaderboard from '#lib/components/leaderboard.svelte';
 	import Podium from '#lib/components/podium.svelte';
 	import ScoreSheet from '#lib/components/score-sheet.svelte';
@@ -37,7 +44,7 @@
 	const code = page.params.code ?? '';
 	const token = page.url.searchParams.get('token') ?? '';
 	const client = new SessionClient();
-	const game = getGameData();
+	const catalog = gameCatalog();
 
 	let now = $state(Date.now());
 	let tick: ReturnType<typeof setInterval>;
@@ -101,6 +108,12 @@
 
 	const snapshot = $derived(client.snapshot);
 	const phase = $derived(snapshot?.value ?? 'lobby');
+	// The Featured Game the Host has selected from the Game Catalog (#93), broadcast on
+	// the snapshot so a Host reconnect/refresh still shows the current pick. Falls back
+	// to an empty placeholder before any selection — real game data only loads once one
+	// has actually been made.
+	const selectedGameId = $derived(snapshot?.selectedGameId ?? null);
+	const game = $derived(selectedGameId ? getGameData(selectedGameId) : EMPTY_GAME_DATA);
 
 	const participants = $derived(snapshot?.context.participants ?? {});
 	const progress = $derived(submissionProgress(participants));
@@ -126,7 +139,7 @@
 	// know this while in its own `opponentResponse` phase, not just during `reveal`.
 	const isLastRound = $derived(!hasNextRound);
 	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
-	const quizStep = $derived(quizSteps()[roundIndex]);
+	const quizStep = $derived(quizSteps(selectedGameId)[roundIndex]);
 	const scoreboard = $derived(
 		scoreboardRows(
 			participants,
@@ -141,7 +154,9 @@
 	// Featured Game's final Round (#49), the entire remaining real mainline to the game's
 	// actual end. Reuses #43's formatContinuation rather than reimplementing move-number
 	// formatting (it also covers the single-move case).
-	const opponentSteps = $derived(quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []);
+	const opponentSteps = $derived(
+		quizStep ? opponentResponseSteps(selectedGameId, quizStep.ply, isLastRound) : []
+	);
 	const opponentMove = $derived(
 		opponentSteps.length
 			? formatContinuation(
@@ -209,8 +224,11 @@
 	$effect(() => {
 		headerContext.roomCode = code;
 		headerContext.status = client.status;
-		headerContext.roundCurrent = totalRounds > 0 ? roundIndex + 1 : null;
-		headerContext.roundTotal = totalRounds > 0 ? totalRounds : null;
+		// Gated on phase, not just totalRounds > 0 (#93): a Featured Game selection alone
+		// makes totalRounds available well before Start, but the Round counter shouldn't
+		// claim "Guess 1 of N" while still in the Lobby with no Round actually running.
+		headerContext.roundCurrent = totalRounds > 0 && phase !== 'lobby' ? roundIndex + 1 : null;
+		headerContext.roundTotal = totalRounds > 0 && phase !== 'lobby' ? totalRounds : null;
 		headerContext.menuItems = [
 			{ label: m.reset_button(), onclick: reset },
 			...(phase !== 'finished'
@@ -292,8 +310,79 @@
 						</div>
 					</Card.Content>
 					<Card.Footer>
-						<Button onclick={() => client.startRound()}>{m.host_start_round()}</Button>
+						<Button onclick={() => client.startRound()} disabled={!selectedGameId}>
+							{m.host_start_round()}
+						</Button>
 					</Card.Footer>
+				</Card.Root>
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{m.host_catalog_title()}</Card.Title>
+						<Card.Description>{m.host_catalog_desc()}</Card.Description>
+					</Card.Header>
+					<Card.Content>
+						<!-- Host-only Game Catalog table (#93): one row per cataloged Candidate
+						     Game, clicking anywhere on a row selects it as the Featured Game —
+						     no separate "confirm" step, and re-selectable any number of times
+						     before Start. Never shown to Participants. -->
+						<div
+							class="w-full overflow-x-auto rounded-md border"
+							role="radiogroup"
+							aria-label={m.host_catalog_title()}
+						>
+							<table class="w-full text-sm">
+								<thead class="border-b bg-muted/50 text-left text-muted-foreground">
+									<tr>
+										<th class="w-8 px-2 py-2">
+											<span class="sr-only">{m.host_catalog_selected_label()}</span>
+										</th>
+										<th class="px-2 py-2 font-medium">{m.host_catalog_col_white()}</th>
+										<th class="px-2 py-2 font-medium">{m.host_catalog_col_black()}</th>
+										<th class="px-2 py-2 font-medium">{m.host_catalog_col_year()}</th>
+										<th class="px-2 py-2 font-medium">{m.host_catalog_col_event()}</th>
+										<th class="px-2 py-2 font-medium">{m.host_catalog_col_opening()}</th>
+										<th class="px-2 py-2 text-right font-medium">{m.host_catalog_col_moves()}</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each catalog as row (row.id)}
+										<tr
+											role="radio"
+											aria-checked={selectedGameId === row.id}
+											tabindex={0}
+											onclick={() => client.selectGame(row.id)}
+											onkeydown={(e) => {
+												if (e.key === 'Enter' || e.key === ' ') {
+													e.preventDefault();
+													client.selectGame(row.id);
+												}
+											}}
+											class="cursor-pointer border-b last:border-0 hover:bg-muted/50 {selectedGameId ===
+											row.id
+												? 'bg-muted'
+												: ''}"
+										>
+											<td class="px-2 py-2">
+												{#if selectedGameId === row.id}
+													<Check class="size-4 text-primary" />
+												{/if}
+											</td>
+											<td class="px-2 py-2"
+												>{row.white}{row.whiteElo ? ` (${row.whiteElo})` : ''}</td
+											>
+											<td class="px-2 py-2"
+												>{row.black}{row.blackElo ? ` (${row.blackElo})` : ''}</td
+											>
+											<td class="px-2 py-2">{row.year ?? ''}</td>
+											<td class="px-2 py-2">{row.event ?? ''}</td>
+											<td class="px-2 py-2">{row.openingDisplay}</td>
+											<td class="px-2 py-2 text-right">{row.moveCount}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					</Card.Content>
 				</Card.Root>
 			{:else if phase === 'active'}
 				<Card.Root>

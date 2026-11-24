@@ -11,7 +11,12 @@
 		pointsStillAvailable,
 		pointsLabel
 	} from '#lib/host/host-view.js';
-	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
+	import {
+		getGameData,
+		quizSteps,
+		opponentResponseSteps,
+		EMPTY_GAME_DATA
+	} from '#lib/round/game-data.js';
 	import {
 		displayRanks,
 		displayFiles,
@@ -43,7 +48,6 @@
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();
-	const game = getGameData();
 
 	// A rejoin (dropped connection, refresh, closed tab) must land back on the same
 	// identity, or the Participant's whole running total appears to vanish - it's
@@ -94,6 +98,11 @@
 
 	const snapshot = $derived(client.snapshot);
 	const phase = $derived(snapshot?.value ?? 'lobby');
+	// The Host's Game Catalog selection (#93) — never shown to this Participant beyond
+	// its effect on the actual Round data below. Falls back to an empty placeholder
+	// before the Host has picked anything, same as the Host's own screen.
+	const selectedGameId = $derived(snapshot?.selectedGameId ?? null);
+	const game = $derived(selectedGameId ? getGameData(selectedGameId) : EMPTY_GAME_DATA);
 	const countdown = $derived(
 		formatCountdown(remainingMs(snapshot?.deadline ?? null, now + client.clockOffsetMs))
 	);
@@ -147,13 +156,15 @@
 	// know this while in its own `opponentResponse` phase, not just during `reveal`.
 	const isLastRound = $derived(roundIndex + 1 >= totalRounds);
 	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
-	const quizStep = $derived(quizSteps()[roundIndex]);
+	const quizStep = $derived(quizSteps(selectedGameId)[roundIndex]);
 	// The Opponent Response (#48): the single next move played in the game after this Round's
 	// Featured move, shown large in numbered notation — or, on the Featured Game's final Round
 	// (#49), the entire remaining real mainline to the game's actual end. Participants see the
 	// same move(s) the Host does, with no live controls. Reuses #43's formatContinuation (it
 	// also covers the single-move case).
-	const opponentSteps = $derived(quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []);
+	const opponentSteps = $derived(
+		quizStep ? opponentResponseSteps(selectedGameId, quizStep.ply, isLastRound) : []
+	);
 	const opponentMove = $derived(
 		opponentSteps.length
 			? formatContinuation(
@@ -296,8 +307,11 @@
 	$effect(() => {
 		headerContext.roomCode = code;
 		headerContext.status = client.status;
-		headerContext.roundCurrent = totalRounds > 0 ? roundIndex + 1 : null;
-		headerContext.roundTotal = totalRounds > 0 ? totalRounds : null;
+		// Gated on phase, not just totalRounds > 0 (#93): a Featured Game selection alone
+		// makes totalRounds available well before Start, but the Round counter shouldn't
+		// claim "Guess 1 of N" while still in the Lobby with no Round actually running.
+		headerContext.roundCurrent = totalRounds > 0 && phase !== 'lobby' ? roundIndex + 1 : null;
+		headerContext.roundTotal = totalRounds > 0 && phase !== 'lobby' ? totalRounds : null;
 		headerContext.footerLine1 = joined ? standingLine : null;
 		headerContext.footerLine2 = joined ? remainingPointsLine : null;
 	});

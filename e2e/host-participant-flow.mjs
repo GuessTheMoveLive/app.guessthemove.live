@@ -65,10 +65,20 @@ async function main() {
 
 			const participantPage = await browser.newPage();
 			await participantPage.goto(`${BASE}/play/${code}?name=E2E`);
+			// Wait for hydration to actually attach the Join form's handlers - wrangler
+			// dev's lazy first-compile of a route can take longer than a fixed sleep, and
+			// a `.fill()`/`.click()` landing before that leaves the pre-hydration DOM
+			// looking filled-in while Svelte's own `name` state (and the submit handler)
+			// never actually sees it.
+			await participantPage.waitForLoadState('networkidle');
 			await participantPage.fill('input[placeholder]', 'E2E');
 			await participantPage.click('button:has-text("Join")');
 			await participantPage.waitForTimeout(500);
 
+			// The Game Catalog (#93): Start is disabled until the Host picks a Featured
+			// Game - select the bundled Bernstein-Capablanca row (analysed for Black, which
+			// the board-flip assertion below depends on) before starting.
+			await hostPage.locator('tr:has-text("Bernstein")').click();
 			await hostPage.locator('button:has-text("Start Session")').click();
 			await participantPage.waitForTimeout(500);
 

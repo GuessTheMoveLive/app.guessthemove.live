@@ -323,7 +323,12 @@ something the live app doesn't do:
   which real game to feature. None of this exists in code: `scoring.ts`
   explicitly notes "no Plenum Selection in v1," and `game-data.ts` only ever
   loads one fixed, pre-chosen game file. Today, the featured game is chosen
-  and prepared entirely offline, before the event starts.
+  and prepared entirely offline, before the event starts. (A separate, much
+  smaller mechanism — the Game Catalog, a simple Host-facing table in the
+  Lobby for picking among a short manifest of already-built games, with no
+  live search and no Accuracy Score gate — has been scoped in `GLOSSARY.md`
+  but is not yet implemented either; don't conflate the two when this gap is
+  eventually closed.)
 - **Analysis Tree (with Anticipated Replies, Wildcard Replies, Assessment
   Symbols, Soundness Bonus, Assessment Bonus)** — the glossary describes an
   optional, deep system where a player can branch out their own predicted

@@ -5,8 +5,11 @@ A live, multiplayer chess training format: participants guess the moves of a str
 ## Language
 
 **Session**:
-One live event instance, identified by a Room Code, opening straight into Round 1 of a pre-selected Featured Game and running through to a final Ranking. Not persisted once it ends; no accounts.
+One live event instance, identified by a Room Code, moving from the Lobby through Round 1 and onward to a final Ranking. Not persisted once it ends; no accounts.
 _Avoid_: Game (ambiguous with Featured Game), Room (that's the Room Code, not the Session itself)
+
+**Lobby**:
+The Session phase before Round 1 begins: Participants join via the Room Code while the Host picks the Featured Game from the Game Catalog. A whole-Session reset (distinct from Guess Reset) returns here.
 
 **Host**:
 The person running the Session from the Host Display. May also join as a separate Participant on their own phone, but the Host role itself never submits Guesses.
@@ -27,11 +30,16 @@ _Avoid_: using this interchangeably with Host Token; they're different credentia
 **Host Token**:
 The secret credential, embedded only in the Host's own Session URL, that proves control of a Session. Never shown on the shared/QR view. Distinct from the Room Code, which anyone can see and use to join as a Participant.
 
+**Game Catalog**:
+The short, developer-maintained list of Candidate Games the Host can choose from in the Lobby. Each entry points at one pre-built, pre-analyzed game file; a game only appears here once someone has deliberately added it — there is no automatic surfacing of every analyzed game that exists. Its display facts (players, year, tournament, ECO code and opening name, move count, Elo ratings when the source game has them) are read straight from that game's own data rather than re-typed by hand, so the source game stays the single source of truth.
+_See_: [feature-catalog.md](docs/feature-catalog.md#named-but-not-yet-built) for how this differs from the still-unbuilt Plenum Selection Phase.
+_Avoid_: Game list, game library — those get used loosely; Game Catalog is the canonical term.
+
 **Candidate Game**:
-A real game in the Host's pre-analyzed library, carrying a computed Accuracy Score. Before the Session starts, the Host picks one Candidate Game meeting the minimum Accuracy Score to become the Featured Game.
+A real game listed in the Game Catalog, available for the Host to pick as the Featured Game. The Accuracy Score quality gate described below is part of the aspirational Plenum Selection Phase, not the Game Catalog — today any cataloged game can be picked, with no Accuracy Score check.
 
 **Featured Game**:
-The Candidate Game chosen to guess through for the rest of the Session, played move by move across successive Rounds.
+The Candidate Game the Host selects, from the Game Catalog, to guess through for the rest of the Session, played move by move across successive Rounds. Selected in the Lobby, freely re-selectable until Round 1 starts; a Host-only choice never shown to Participants beforehand.
 
 **Featured Side**:
 The color in the Featured Game whose moves Participants guess.

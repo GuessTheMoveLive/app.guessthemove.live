@@ -14,11 +14,18 @@ describe('Game Catalog (#93)', () => {
 		expect(row.moveCount).toBe(29); // PlyCount 58 ÷ 2
 	});
 
-	it('leaves WhiteElo/BlackElo blank (null, not a placeholder) when the source PGN predates ratings', () => {
+	it('leaves WhiteElo/BlackElo blank (empty string, not null, not a placeholder) when the source PGN predates ratings', () => {
 		const row = gameCatalog().find((r) => r.id === 'bernstein-capablanca')!;
 
-		expect(row.whiteElo).toBeNull();
-		expect(row.blackElo).toBeNull();
+		expect(row.whiteElo).toBe('');
+		expect(row.blackElo).toBe('');
+	});
+
+	it('leaves WhiteElo/BlackElo blank on capablanca-marshall too — both cataloged games predate rated chess', () => {
+		const row = gameCatalog().find((r) => r.id === 'capablanca-marshall')!;
+
+		expect(row.whiteElo).toBe('');
+		expect(row.blackElo).toBe('');
 	});
 
 	it('rounds Move Count up on an odd PlyCount', () => {

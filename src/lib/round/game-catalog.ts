@@ -23,9 +23,10 @@ export interface CatalogRow {
 	id: string;
 	white: string;
 	black: string;
-	/** Blank (null, never a placeholder) on a game whose PGN predates Elo ratings. */
-	whiteElo: string | null;
-	blackElo: string | null;
+	/** Blank (empty string, never null, never a placeholder) on a game whose PGN
+	 *  predates Elo ratings. */
+	whiteElo: string;
+	blackElo: string;
 	year: string | null;
 	event: string | null;
 	/** The bare ECO code, e.g. "D63", or null if the game's PGN carries none. */
@@ -80,8 +81,8 @@ export function gameCatalog(): CatalogRow[] {
 			id,
 			white: headers.White ?? '',
 			black: headers.Black ?? '',
-			whiteElo: headers.WhiteElo ?? null,
-			blackElo: headers.BlackElo ?? null,
+			whiteElo: headers.WhiteElo ?? '',
+			blackElo: headers.BlackElo ?? '',
 			year: yearFromPgnDate(headers.Date),
 			event: headers.Event ?? null,
 			eco,

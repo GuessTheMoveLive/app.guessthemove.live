@@ -15,6 +15,23 @@ describe('game-data (ported Bernstein–Capablanca answer key)', () => {
 		expect(() => getGameData('not-a-real-game')).toThrow();
 	});
 
+	it('loads each of the two manifested games by id, returning distinct, correct headers/steps (#95)', () => {
+		const bernsteinCapablanca = getGameData('bernstein-capablanca');
+		const capablancaMarshall = getGameData('capablanca-marshall');
+
+		expect(bernsteinCapablanca.headers.White).toBe('Bernstein, Ossip Samuel');
+		expect(bernsteinCapablanca.headers.Black).toBe('Capablanca, Jose Raul');
+		expect(bernsteinCapablanca.steps.length).toBe(58);
+		expect(bernsteinCapablanca.steps[0].san).toBe('d4');
+
+		expect(capablancaMarshall.headers.White).toBe('Jose Raul Capablanca');
+		expect(capablancaMarshall.headers.Black).toBe('Frank James Marshall');
+		expect(capablancaMarshall.steps.length).toBe(77);
+		expect(capablancaMarshall.steps[0].san).toBe('e4');
+
+		expect(bernsteinCapablanca).not.toEqual(capablancaMarshall);
+	});
+
 	it('looks up a step by ply and returns null out of range', () => {
 		const step = getAnswerKeyStep(GAME_ID, 10);
 		expect(step?.san).toBe('O-O');

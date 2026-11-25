@@ -2,12 +2,15 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/env';
 	import { page } from '$app/state';
+	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { SessionClient } from '#lib/round/session-client.svelte.js';
 	import {
 		remainingMs,
 		formatCountdown,
 		topLeaderboard,
 		finishedMessageFor,
+		belowTopStanding,
+		localizedOrdinal,
 		pointsStillAvailable,
 		pointsLabel
 	} from '#lib/host/host-view.js';
@@ -33,7 +36,8 @@
 	import {
 		computeGuessGroupBreakdown,
 		bucketedBreakdownFor,
-		chartParticipantLabel
+		chartParticipantLabel,
+		groupOthersSentence
 	} from '#lib/round/guess-groups.js';
 	import { scoreColor } from '#lib/round/score-color.js';
 	import { connectionLabel } from '#lib/round/connection-status.js';
@@ -140,6 +144,12 @@
 	const finishedMessage = $derived(
 		snapshot ? finishedMessageFor(me, snapshot.context.totals) : null
 	);
+	// The Ranking view's own personal message (#98): the shared Leaderboard only ever
+	// shows the top 5, so a Participant ranked 6th or below gets no feedback about
+	// themselves from the list alone — this fills that gap with their actual rank and
+	// the point gap to whoever's immediately above them. `null` for anyone inside the
+	// top 5, who already sees their own highlighted row.
+	const belowTop = $derived(snapshot ? belowTopStanding(me, snapshot.context.totals) : null);
 
 	// Once kicked, forget the saved name - a refresh must land back on the Join screen,
 	// not silently retry into a connection the Host has already blocked server-side.
@@ -646,10 +656,7 @@
 								{#if isOwnBucket}
 									<span class="text-xs text-muted-foreground">
 										{#if groupBreakdown.sentence.others.length}
-											{m.play_guess_group_sentence_others({
-												names: groupBreakdown.sentence.others.join(', '),
-												move: ownMove
-											})}
+											{groupOthersSentence(groupBreakdown.sentence.others, ownMove)}
 										{:else}
 											{m.play_guess_group_sentence_alone({ move: ownMove })}
 										{/if}
@@ -678,6 +685,15 @@
 						priorTotals={snapshot?.context.priorTotals ?? {}}
 						participants={snapshot?.context.participants ?? {}}
 					/>
+					{#if belowTop}
+						<p class="text-center text-sm font-medium">
+							{m.leaderboard_below_rank({
+								rank: localizedOrdinal(belowTop.rank, getLocale()),
+								points: belowTop.points,
+								name: belowTop.name
+							})}
+						</p>
+					{/if}
 				</Card.Content>
 			</Card.Root>
 		{/if}

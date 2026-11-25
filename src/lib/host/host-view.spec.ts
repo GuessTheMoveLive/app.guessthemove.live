@@ -5,6 +5,8 @@ import {
 	priorRanking,
 	roundDeltas,
 	finishedMessageFor,
+	belowTopStanding,
+	localizedOrdinal,
 	scoreboardRows,
 	submissionProgress,
 	everyoneAnswered,
@@ -162,6 +164,49 @@ describe('finishedMessageFor (#50)', () => {
 		const totals = { alice: 20, bob: 7, carol: 2 };
 
 		expect(finishedMessageFor('carol', totals)).toEqual({ kind: 'behind', points: 5, name: 'bob' });
+	});
+});
+
+describe('belowTopStanding (#98)', () => {
+	it('returns null for anyone inside the top-N, who already sees their own row', () => {
+		const totals = { alpha: 10, betsy: 9, bravo: 8, charlie: 7, delta: 6, eugene: 5 };
+
+		expect(belowTopStanding('alpha', totals)).toBeNull();
+		expect(belowTopStanding('delta', totals)).toBeNull();
+	});
+
+	it('gives the real rank and the gap to whoever is immediately above, for anyone ranked below the top-N', () => {
+		const totals = { betsy: 3, bravo: 3, charlie: 3, delta: 3, eugene: 3, alpha: 1 };
+
+		expect(belowTopStanding('alpha', totals)).toEqual({ rank: 6, points: 2, name: 'eugene' });
+	});
+
+	it('respects a custom limit', () => {
+		const totals = { alice: 10, bob: 7, carol: 2 };
+
+		expect(belowTopStanding('bob', totals, 1)).toEqual({ rank: 2, points: 3, name: 'alice' });
+	});
+
+	it('returns null for a participant missing from totals', () => {
+		expect(belowTopStanding('ghost', { alice: 10 })).toBeNull();
+	});
+});
+
+describe('localizedOrdinal', () => {
+	it('renders English ordinal suffixes', () => {
+		expect(localizedOrdinal(1, 'en')).toBe('1st');
+		expect(localizedOrdinal(2, 'en')).toBe('2nd');
+		expect(localizedOrdinal(3, 'en')).toBe('3rd');
+		expect(localizedOrdinal(4, 'en')).toBe('4th');
+		expect(localizedOrdinal(11, 'en')).toBe('11th');
+		expect(localizedOrdinal(22, 'en')).toBe('22nd');
+	});
+
+	it('renders each other supported locale in its own ordinal convention', () => {
+		expect(localizedOrdinal(6, 'fr')).toBe('6e');
+		expect(localizedOrdinal(1, 'fr')).toBe('1er');
+		expect(localizedOrdinal(6, 'de')).toBe('6.');
+		expect(localizedOrdinal(6, 'es')).toBe('6.º');
 	});
 });
 

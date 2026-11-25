@@ -119,6 +119,66 @@ export function finishedMessageFor(
 	return { kind: 'behind', points: above.total - myTotal, name: above.participantId };
 }
 
+export interface BelowTopStanding {
+	/** This Participant's actual rank, one-based (6, 7, ...) — render with
+	 *  {@link localizedOrdinal} rather than as a bare number. */
+	rank: number;
+	/** Point gap to the Participant directly above them in the ranking — not the
+	 *  overall leader, same convention as {@link finishedMessageFor}'s 'behind' case. */
+	points: number;
+	name: string;
+}
+
+/**
+ * A Participant's standing when they've fallen outside the Leaderboard's top-N
+ * (#98): the shared Leaderboard only ever renders the top 5, so a Participant
+ * ranked 6th or below would otherwise see the Ranking card with no feedback
+ * about themselves at all. Returns `null` for anyone inside the top-N — they
+ * already see their own highlighted row there, nothing extra to say. Ties are
+ * broken by participantId, same as {@link topLeaderboard}.
+ */
+export function belowTopStanding(
+	participantId: string,
+	totals: Record<string, number>,
+	limit = 5
+): BelowTopStanding | null {
+	const ranked = rankedEntries(totals);
+	const myIndex = ranked.findIndex((entry) => entry.participantId === participantId);
+	if (myIndex === -1 || myIndex < limit) return null;
+
+	const above = ranked[myIndex - 1];
+	return {
+		rank: myIndex + 1,
+		points: above.total - ranked[myIndex].total,
+		name: above.participantId
+	};
+}
+
+/**
+ * `rank` rendered as that locale's own ordinal ("6th"/"6e"/"6.º"/"6."), for
+ * {@link belowTopStanding}'s message — the only locale-sensitive formatting
+ * this project does outside the generated Paraglide messages themselves, since
+ * ordinal suffixes aren't expressible as an inlang message-format plural.
+ */
+export function localizedOrdinal(rank: number, locale: string): string {
+	if (locale === 'fr') return rank === 1 ? `${rank}er` : `${rank}e`;
+	if (locale === 'de') return `${rank}.`;
+	if (locale === 'es') return `${rank}.º`;
+
+	const mod100 = rank % 100;
+	if (mod100 >= 11 && mod100 <= 13) return `${rank}th`;
+	switch (rank % 10) {
+		case 1:
+			return `${rank}st`;
+		case 2:
+			return `${rank}nd`;
+		case 3:
+			return `${rank}rd`;
+		default:
+			return `${rank}th`;
+	}
+}
+
 /**
  * The maximum points still obtainable in the Rounds yet to come — the footer
  * banner's "keep concentrated" nudge. `roundIndex` is the current Round

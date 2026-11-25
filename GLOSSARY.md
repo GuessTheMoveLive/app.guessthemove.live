@@ -77,13 +77,24 @@ The standard chess annotation (`+-`, `±`, `=`, `∓`, `-+`) a Participant choos
 _Avoid_: Eval, evaluation (reserve those for the engine's computed Evaluation, not the Participant's Assessment Symbol)
 
 **Evaluation**:
-The engine's own computed assessment of a position or move, produced live and on demand. Distinct from a Participant's Assessment Symbol, which is compared against it for credit.
+The engine's own computed assessment of a position or move (centipawns, White's perspective), produced live and on demand. Distinct from a Participant's Assessment Symbol, which is compared against it for credit. Drives Feedback's Assessment Symbol bands and the Variant's displayed end position; not the figure Guess Score's tiering runs on — see Engine Win Probability and Book Win Probability.
+
+**Engine Win Probability**:
+A move's mover-relative win probability as read directly from the engine's own WDL (win/draw/loss) output at analysis time, rather than derived from its centipawn Evaluation by a formula. The win-probability figure Guess Score tiers against for any move that isn't In Book.
+_See_: [0009](docs/adr/0009-engine-wdl-and-book-win-probability-for-guess-score.md) for why Guess Score moved off a centipawn-derived win-probability.
+
+**Book Win Probability**:
+A move's mover-relative win probability while it's In Book: the outcome stats (win/draw/loss rate) of games reaching its resulting position in the Lichess Masters database, rather than anything from the engine. Used in place of Engine Win Probability for Guess Score's tiering while In Book — on the view that whether a move holds up in master practice is a sounder "is this good" signal, this early in a game, than an engine's own evaluation.
+_Avoid_: book frequency, popularity — Book Win Probability is read from outcomes, not how often a move was played.
+
+**In Book**:
+A move's resulting position is In Book when the Lichess Masters database's pool of games reaching it numbers at least 50 — a pool that size needed before its outcome stats are trusted as Book Win Probability. Below that count, or once a position leaves known theory entirely, the position is out of Book and Guess Score falls back to Engine Win Probability.
 
 **Guess Score**:
-The -3..+3 points a Guess earns, from win-probability-loss computed against the Evaluation of the best graded move at that position (the Featured Side's actual move and every listed alternative). A move's Evaluation converts to a mover-relative win-probability via `winPercent = 50 + 50 × (2 / (1 + e^(−0.00368 × centipawns)) − 1)`; `loss` is the best win-probability minus the guessed move's own.
+The -3..+3 points a Guess earns, from win-probability-loss computed against the win-probability of the best graded move at that position (the Featured Side's actual move and every listed alternative) — Book Win Probability while the position is In Book, Engine Win Probability otherwise. `loss` is the best win-probability minus the guessed move's own.
 
 `+3` is rank-based, not a loss band: it goes to the move actually played (a fixed exception, scoring +3 regardless of its own standing — "did you guess what was actually played"), to any move at least as good as the move played (tied or better), and to the single next-best move ranked right after it — but only when the played move is itself within `loss ≤ 2` of the position's best, and that next-best move's own `loss` stays within `≤ 5`. This keeps a lone distant second place from riding a merely-excellent played move to the top score. Everything else bands by `loss` alone: `≤ 5` → `+2`, `≤ 10` → `+1`, `≤ 20` → `0`, otherwise a blunder, itself graduated by the same `loss`: `≤ 35` → `-1`, `≤ 50` → `-2`, otherwise `-3`.
-_See_: [0006](docs/adr/0006-rank-based-plus-3-ceiling.md) for why `+3` moved off a flat band.
+_See_: [0006](docs/adr/0006-rank-based-plus-3-ceiling.md) for why `+3` moved off a flat band; [0009](docs/adr/0009-engine-wdl-and-book-win-probability-for-guess-score.md) for why its win-probability no longer comes from a centipawn formula alone.
 
 **Soundness Bonus**:
 +0.5 earned by an Analysis Tree node beyond the Guess itself — the Guess's own root is never scored for Soundness, since Guess Score already covers it — whose win-probability loss against the best available reply stays under the blunder cutoff (see Accuracy Score). A Wildcard Reply earns no Soundness Bonus of its own, having no specific move to check; only Anticipated Reply nodes do.

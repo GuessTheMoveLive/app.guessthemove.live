@@ -91,15 +91,19 @@ export function roundDeltas(
 }
 
 export type FinishedMessage =
-	{ kind: 'lead' } | { kind: 'tiedLead' } | { kind: 'behind'; points: number; name: string };
+	| { kind: 'lead' }
+	| { kind: 'tiedLead' }
+	| { kind: 'behind'; rank: number; points: number; name: string };
 
 /**
  * A Participant's personal message on the Finished phase's full-screen Podium
  * (#50): whoever shares the top score is told they're (tied for) in the lead;
- * everyone else is told the point gap to whoever's immediately above them in the
- * ranking — not the overall leader, the next-highest participant above them — and
- * that participant's display name (participantId doubles as the display name
- * captured at join, per GLOSSARY).
+ * everyone else is told their actual rank (#98 — the Podium itself only ever
+ * shows the top 3, so anyone further down otherwise has no idea where they
+ * landed) plus the point gap to whoever's immediately above them in the
+ * ranking — not the overall leader, the next-highest participant above them —
+ * and that participant's display name (participantId doubles as the display
+ * name captured at join, per GLOSSARY).
  */
 export function finishedMessageFor(
 	participantId: string,
@@ -116,7 +120,12 @@ export function finishedMessageFor(
 
 	const myIndex = ranked.findIndex((entry) => entry.participantId === participantId);
 	const above = ranked[myIndex - 1];
-	return { kind: 'behind', points: above.total - myTotal, name: above.participantId };
+	return {
+		kind: 'behind',
+		rank: myIndex + 1,
+		points: above.total - myTotal,
+		name: above.participantId
+	};
 }
 
 export interface BelowTopStanding {

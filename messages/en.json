@@ -117,7 +117,6 @@
 	"back_button": "Back",
 	"finished_lead": "You're in the lead!",
 	"finished_tied_lead": "You're tied for the lead!",
-	"finished_behind": "You are {points} points behind {name}",
 	"leaderboard_below_rank": "You are ranked {rank}, {points} points behind {name}",
 	"play_download_pgn": "Download my PGN",
 	"host_download_pgn": "Download PGN",

@@ -150,11 +150,21 @@ describe('finishedMessageFor (#50)', () => {
 		expect(finishedMessageFor('bob', totals)).toEqual({ kind: 'tiedLead' });
 	});
 
-	it('tells everyone else how far behind the participant immediately above them they are', () => {
+	it('tells everyone else their actual rank and how far behind the participant immediately above them they are', () => {
 		const totals = { alice: 10, bob: 7, carol: 2 };
 
-		expect(finishedMessageFor('bob', totals)).toEqual({ kind: 'behind', points: 3, name: 'alice' });
-		expect(finishedMessageFor('carol', totals)).toEqual({ kind: 'behind', points: 5, name: 'bob' });
+		expect(finishedMessageFor('bob', totals)).toEqual({
+			kind: 'behind',
+			rank: 2,
+			points: 3,
+			name: 'alice'
+		});
+		expect(finishedMessageFor('carol', totals)).toEqual({
+			kind: 'behind',
+			rank: 3,
+			points: 5,
+			name: 'bob'
+		});
 	});
 
 	it('names the participant immediately above, not the overall leader', () => {
@@ -163,7 +173,12 @@ describe('finishedMessageFor (#50)', () => {
 		// of "how far from first", one of "how far from whoever's just ahead").
 		const totals = { alice: 20, bob: 7, carol: 2 };
 
-		expect(finishedMessageFor('carol', totals)).toEqual({ kind: 'behind', points: 5, name: 'bob' });
+		expect(finishedMessageFor('carol', totals)).toEqual({
+			kind: 'behind',
+			rank: 3,
+			points: 5,
+			name: 'bob'
+		});
 	});
 });
 

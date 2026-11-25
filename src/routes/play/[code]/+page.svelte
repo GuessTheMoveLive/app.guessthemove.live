@@ -536,7 +536,11 @@
 						{:else if finishedMessage.kind === 'tiedLead'}
 							{m.finished_tied_lead()}
 						{:else}
-							{m.finished_behind({ points: finishedMessage.points, name: finishedMessage.name })}
+							{m.leaderboard_below_rank({
+								rank: localizedOrdinal(finishedMessage.rank, getLocale()),
+								points: finishedMessage.points,
+								name: finishedMessage.name
+							})}
 						{/if}
 					</p>
 				{/if}

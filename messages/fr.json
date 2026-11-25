@@ -114,7 +114,6 @@
 	"back_button": "Retour",
 	"finished_lead": "Tu es en tête !",
 	"finished_tied_lead": "Tu es à égalité en tête !",
-	"finished_behind": "Tu as {points} points de retard sur {name}",
 	"leaderboard_below_rank": "Tu es classé {rank}, à {points} points de {name}",
 	"play_download_pgn": "Télécharger mon PGN",
 	"host_download_pgn": "Télécharger le PGN",

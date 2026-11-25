@@ -139,6 +139,21 @@
 	// know this while in its own `opponentResponse` phase, not just during `reveal`.
 	const isLastRound = $derived(!hasNextRound);
 	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
+	// Reveal/Statistics/Ranking are exclusive focuses of the Reveal phase (#96): whichever
+	// is current gets the room's full attention, so every other card on this screen - the
+	// Reveal card itself, the Score Sheet, the Scoreboard roster and the Answer Key - steps
+	// aside while it's up. The Final Round defaults to 'ranking' when neither toggle is open,
+	// matching its existing always-on Podium/Leaderboard. `null` outside the Reveal phase,
+	// where none of this gating applies.
+	const revealFocus = $derived(
+		phase === 'reveal'
+			? showRoomStatistics
+				? 'statistics'
+				: showLeaderboard || isFinalRound
+					? 'ranking'
+					: 'reveal'
+			: null
+	);
 	const quizStep = $derived(quizSteps(selectedGameId)[roundIndex]);
 	const scoreboard = $derived(
 		scoreboardRows(
@@ -486,12 +501,11 @@
 			{:else}
 				<!-- The Podium/Ranking for this Reveal lives in the Ranking card (left column)
 		     instead of inline here — see the #89 three-lane layout. Reveal/Statistics/Ranking
-		     are exclusive focuses (#96): once the Host opens Statistics or the Leaderboard
-		     (mutually exclusive with each other, enforced server-side), this card's own
-		     title and the Score Sheet below it step aside so whichever is open gets the
-		     room's full attention — the toggle buttons stay put so the Host can switch back. -->
+		     are exclusive focuses (#96, see revealFocus): whichever is open gets the room's
+		     full attention, so this card's own title steps aside while it's up — the toggle
+		     buttons in the footer stay put so the Host can switch back. -->
 				<Card.Root>
-					{#if !showRoomStatistics && !showLeaderboard}
+					{#if revealFocus === 'reveal'}
 						<Card.Header>
 							<Card.Title
 								>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title
@@ -520,7 +534,7 @@
 				</Card.Root>
 			{/if}
 
-			{#if !client.ended && phase !== 'finished' && history.length && !(phase === 'reveal' && (showRoomStatistics || showLeaderboard))}
+			{#if !client.ended && phase !== 'finished' && history.length && revealFocus !== 'statistics' && revealFocus !== 'ranking'}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
@@ -541,7 +555,7 @@
 		<!-- Left lane order matches the Participant's own Reveal card order (#90): Guess
 		     Groups, then Ranking (Leaderboard/Podium) — see src/routes/play/[code]/+page.svelte. -->
 		<div class="flex flex-col gap-6 md:col-start-1 md:row-start-1">
-			{#if rosterSize > 0 && phase !== 'finished'}
+			{#if rosterSize > 0 && phase !== 'finished' && revealFocus !== 'statistics' && revealFocus !== 'ranking'}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.host_scoreboard_title({ count: rosterSize })}</Card.Title
@@ -603,7 +617,7 @@
 				</Card.Root>
 			{/if}
 
-			{#if !client.ended && phase === 'reveal' && guessGroups.groups.length && showRoomStatistics}
+			{#if !client.ended && revealFocus === 'statistics' && guessGroups.groups.length}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.guess_groups_title()}</Card.Title>
@@ -658,7 +672,7 @@
 						<Leaderboard entries={everyone} />
 					</Card.Content>
 				</Card.Root>
-			{:else if !client.ended && phase !== 'lobby' && phase !== 'active' && phase !== 'opponentResponse' && (isFinalRound || showLeaderboard)}
+			{:else if !client.ended && revealFocus === 'ranking'}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.leaderboard_title()}</Card.Title>
@@ -679,7 +693,7 @@
 		</div>
 
 		<div class="flex flex-col gap-6 md:col-start-3 md:row-start-1">
-			{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length}
+			{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length && revealFocus !== 'statistics' && revealFocus !== 'ranking'}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.host_answer_key_title()}</Card.Title>

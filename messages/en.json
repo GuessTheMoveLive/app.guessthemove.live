@@ -28,6 +28,7 @@
 	"host_lobby_players_one": "{count} player joined",
 	"host_lobby_players_other": "{count} players joined",
 	"host_qr_alt": "QR code to join Room {code}",
+	"host_room_code_label": "Room Code",
 	"host_scan_hint": "Scan to join, or copy the link below",
 	"host_copy_link": "Copy link",
 	"host_link_copied": "Copied!",

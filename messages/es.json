@@ -27,6 +27,7 @@
 	"host_lobby_players_one": "{count} jugador se ha unido",
 	"host_lobby_players_other": "{count} jugadores se han unido",
 	"host_qr_alt": "Código QR para unirse a la sala {code}",
+	"host_room_code_label": "Código de sala",
 	"host_scan_hint": "Escanea para unirte, o copia el enlace de abajo",
 	"host_copy_link": "Copiar enlace",
 	"host_link_copied": "¡Copiado!",

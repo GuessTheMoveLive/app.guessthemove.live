@@ -27,6 +27,7 @@
 	"host_lobby_players_one": "{count} Spieler beigetreten",
 	"host_lobby_players_other": "{count} Spieler beigetreten",
 	"host_qr_alt": "QR-Code zum Beitreten von Raum {code}",
+	"host_room_code_label": "Raumcode",
 	"host_scan_hint": "Scannen zum Beitreten oder den Link unten kopieren",
 	"host_copy_link": "Link kopieren",
 	"host_link_copied": "Kopiert!",

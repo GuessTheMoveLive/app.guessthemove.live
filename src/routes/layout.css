@@ -123,6 +123,17 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+	/* Tailwind v4's preflight dropped the v3 default of `cursor: pointer` on
+	   buttons, so every clickable control needs it restored explicitly or it
+	   hovers with the plain arrow cursor like static text. */
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']),
+	[role='radio']:not([aria-disabled='true']) {
+		cursor: pointer;
+	}
+	button:disabled {
+		cursor: not-allowed;
+	}
 	html {
 		@apply font-sans;
 		/* Bump the root font-size from the 16px browser default to 18px (112.5%)

@@ -289,6 +289,18 @@
 						</Card.Description>
 					</Card.Header>
 					<Card.Content class="flex flex-col items-center gap-3">
+						<!-- Prominent Room Code (#99): a Participant who lands on the bare base
+						     URL instead of scanning/following the link has nothing to type into
+						     the home page's Room Code field unless it's shown big and legible
+						     here too, not just in the small header chip. -->
+						<div class="flex flex-col items-center gap-1">
+							<span class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+								{m.host_room_code_label()}
+							</span>
+							<span class="font-mono text-4xl font-bold tracking-[0.2em] tabular-nums">
+								{code}
+							</span>
+						</div>
 						{#if qrDataUrl}
 							<img src={qrDataUrl} alt={m.host_qr_alt({ code })} class="h-60 w-60" />
 						{/if}
@@ -554,17 +566,16 @@
 														<Button
 															{...props}
 															variant="outline"
-															size="sm"
+															size="icon"
 															aria-label={m.host_reset_guess_label({ name: row.participantId })}
 															onclick={() => client.resetGuess(row.participantId)}
-															class="w-7 justify-center gap-0 px-0 lg:w-auto lg:justify-start lg:gap-1.5 lg:px-3"
+															class="size-7"
 														>
 															<ArrowCounterClockwise class="size-3.5" />
-															<span class="hidden lg:inline">{m.reset_button()}</span>
 														</Button>
 													{/snippet}
 												</Tooltip.Trigger>
-												<Tooltip.Content class="lg:hidden">{m.reset_button()}</Tooltip.Content>
+												<Tooltip.Content>{m.reset_button()}</Tooltip.Content>
 											</Tooltip.Root>
 										{/if}
 										<Tooltip.Root>
@@ -573,17 +584,16 @@
 													<Button
 														{...props}
 														variant="destructive"
-														size="sm"
+														size="icon"
 														aria-label={m.host_kick_label({ name: row.participantId })}
 														onclick={() => client.kick(row.participantId)}
-														class="w-7 justify-center gap-0 px-0 lg:w-auto lg:justify-start lg:gap-1.5 lg:px-3"
+														class="size-7"
 													>
 														<UserMinus class="size-3.5" />
-														<span class="hidden lg:inline">{m.host_kick_button()}</span>
 													</Button>
 												{/snippet}
 											</Tooltip.Trigger>
-											<Tooltip.Content class="lg:hidden">{m.host_kick_button()}</Tooltip.Content>
+											<Tooltip.Content>{m.host_kick_button()}</Tooltip.Content>
 										</Tooltip.Root>
 									</li>
 								{/each}

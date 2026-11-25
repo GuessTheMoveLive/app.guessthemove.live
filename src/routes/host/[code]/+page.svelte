@@ -499,39 +499,47 @@
 					{/if}
 				</Card.Root>
 			{:else}
-				<!-- The Podium/Ranking for this Reveal lives in the Ranking card (left column)
-		     instead of inline here — see the #89 three-lane layout. Reveal/Statistics/Ranking
-		     are exclusive focuses (#96, see revealFocus): whichever is open gets the room's
-		     full attention, so this card's own title steps aside while it's up — the toggle
-		     buttons in the footer stay put so the Host can switch back. -->
-				<Card.Root>
-					{#if revealFocus === 'reveal'}
+				<!-- Reveal/Statistics/Ranking are exclusive focuses of the Reveal phase (#96, see
+		     revealFocus): whichever is open gets the room's full attention, so when
+		     Statistics or the Leaderboard is open this card doesn't render at all — not
+		     even as an empty box — leaving just the toggle/Continue controls in a plain
+		     row so the Host can still switch back. The Podium/Ranking for this Reveal
+		     lives in the Ranking card (left column) instead of inline here, per #89. -->
+				{#snippet revealControls()}
+					{#if isFinalRound}
+						<p class="text-sm font-medium text-muted-foreground">
+							{m.host_final_round()}
+						</p>
+						<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+							{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
+						</Button>
+						<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
+					{:else}
+						<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+							{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
+						</Button>
+						<Button variant="outline" onclick={() => client.showLeaderboard()}>
+							{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
+						</Button>
+						<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
+					{/if}
+				{/snippet}
+				{#if revealFocus === 'reveal'}
+					<Card.Root>
 						<Card.Header>
 							<Card.Title
 								>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title
 							>
 						</Card.Header>
-					{/if}
-					<Card.Footer class="flex flex-wrap gap-2">
-						{#if isFinalRound}
-							<p class="text-sm font-medium text-muted-foreground">
-								{m.host_final_round()}
-							</p>
-							<Button variant="outline" onclick={() => client.showRoomStatistics()}>
-								{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
-							</Button>
-							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
-						{:else}
-							<Button variant="outline" onclick={() => client.showRoomStatistics()}>
-								{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
-							</Button>
-							<Button variant="outline" onclick={() => client.showLeaderboard()}>
-								{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
-							</Button>
-							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
-						{/if}
-					</Card.Footer>
-				</Card.Root>
+						<Card.Footer class="flex flex-wrap gap-2">
+							{@render revealControls()}
+						</Card.Footer>
+					</Card.Root>
+				{:else}
+					<div class="flex flex-wrap gap-2">
+						{@render revealControls()}
+					</div>
+				{/if}
 			{/if}
 
 			{#if !client.ended && phase !== 'finished' && history.length && revealFocus !== 'statistics' && revealFocus !== 'ranking'}

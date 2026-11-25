@@ -81,6 +81,7 @@ function parseAlternative(slice) {
 	const tier = fields[0]; // "+3" | "+2" | "+1" | "0" | "blunder"
 	const evalField = fields.find((f) => /^[+-]?\d+\.\d+$/.test(f));
 	const materialField = fields.find((f) => /^[+-]\d+p$/.test(f));
+	const winProbField = fields.find((f) => /^(?:book|eng)\d+(?:\.\d+)?$/i.test(f));
 	const assessment = fields[fields.length - 1];
 	const continuation = slice
 		.slice(idx)
@@ -91,19 +92,25 @@ function parseAlternative(slice) {
 		tier,
 		eval: evalField ? parseFloat(evalField) : null,
 		material: materialField || null,
+		// ADR 0009: mover-relative win-probability, sourced from either the engine's
+		// native WDL ("eng62.3") or, while In Book, Lichess Masters outcome stats
+		// ("book58.1") — null for every game authored before 0009.
+		winProb: winProbField ? parseFloat(winProbField.replace(/^(?:book|eng)/i, '')) : null,
 		assessment,
 		continuation
 	};
 }
 
 function parsePlayedComment(commentValue) {
-	// e.g. "Played, +0.49, best d4, +=" or "Played, +8.09, best Rb7, +-"
+	// e.g. "Played, +0.49, best d4, +=" or "Played, eng62.3, +8.09, best Rb7, +-"
 	const fields = commentValue.split(',').map((s) => s.trim());
 	const evalField = fields.find((f) => /^[+-]?\d+\.\d+$/.test(f));
+	const winProbField = fields.find((f) => /^(?:book|eng)\d+(?:\.\d+)?$/i.test(f));
 	const bestField = fields.find((f) => f.startsWith('best '));
 	const assessment = fields[fields.length - 1];
 	return {
 		eval: evalField ? parseFloat(evalField) : null,
+		winProb: winProbField ? parseFloat(winProbField.replace(/^(?:book|eng)/i, '')) : null,
 		best: bestField ? bestField.replace(/^best\s+/, '') : null,
 		assessment
 	};

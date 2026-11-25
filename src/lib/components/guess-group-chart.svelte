@@ -28,6 +28,10 @@
 		return score === 0 ? 0.5 : score;
 	}
 
+	// `yDomain` is widened past the real [-3, 3] range so even a max-height (±3) bar stops
+	// short of the plot edge — its outside participant-count label (offset away from zero)
+	// otherwise lands right on the x-axis score tick sitting just past that edge.
+
 	interface Props {
 		buckets: ScoreBucket[];
 		/** The viewer's own Round Score, to pick out their bar; null on the Host Display. */
@@ -63,7 +67,7 @@
 			xScale={scaleBand().padding(0.3)}
 			y={(d: ScoreBucket) => barValue(d.score)}
 			yBaseline={0}
-			yDomain={[-3, 3]}
+			yDomain={[-3.6, 3.6]}
 			c="score"
 			cDomain={SCORES}
 			cRange={scoreColorRange}

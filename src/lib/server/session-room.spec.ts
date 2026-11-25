@@ -2,6 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SessionRoom } from './session-room.js';
 import { quizSteps } from '#lib/round/game-data.js';
 
+// The default Candidate Game selected for every test below except the Game Catalog
+// seam's own tests (#93) - openRoom() selects it immediately after creating the Session,
+// simulating a Host who already picked a Featured Game before the rest of a given
+// test's story begins, so the other 30+ existing scenarios don't each need their own
+// select_game round-trip.
+const GAME_ID = 'bernstein-capablanca';
+
 // SessionRoom is a Cloudflare Durable Object: its base class and the WebSocket
 // upgrade machinery it uses (WebSocketPair, hibernatable tags, a 101 Response
 // carrying a `webSocket`) only exist inside the Workers runtime (`cloudflare:workers`)
@@ -118,11 +125,13 @@ describe('SessionRoom', () => {
 		vi.useRealTimers();
 	});
 
-	async function openRoom() {
+	async function openRoom(options: { selectGame?: boolean } = {}) {
+		const { selectGame = true } = options;
 		const ctx = new FakeDurableObjectState();
 		// @ts-expect-error - fakes stand in for the real DurableObjectState/Env
 		const room = new SessionRoom(ctx, {});
 		const token = await room.createSession();
+		if (selectGame) await ctx.storage.put('selected-game-id', GAME_ID);
 		return { room, ctx, token: token! };
 	}
 
@@ -249,6 +258,43 @@ describe('SessionRoom', () => {
 		expect(Object.keys(snapshot.context.participants)).toEqual(['alice', 'bob']);
 	});
 
+	it('a Host resetting a submitted Guess clears it in the next broadcast snapshot (#90)', async () => {
+		const { room, ctx, token } = await openRoom();
+		const { ws: hostWs } = await joinHost(room, ctx, token);
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'submit', guess: 'd4' }));
+
+		await room.webSocketMessage(
+			hostWs as never,
+			JSON.stringify({ type: 'reset_guess', participantId: 'alice' })
+		);
+
+		const snapshot = aliceWs.lastSnapshot() as {
+			context: { participants: Record<string, { status: string }> };
+		};
+		expect(snapshot.context.participants.alice).toEqual({ status: 'pending' });
+	});
+
+	it('ignores a reset_guess attempt from a non-Host connection', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'submit', guess: 'd4' }));
+
+		await room.webSocketMessage(
+			aliceWs as never,
+			JSON.stringify({ type: 'reset_guess', participantId: 'alice' })
+		);
+
+		const snapshot = aliceWs.lastSnapshot() as {
+			context: { participants: Record<string, { status: string; guess?: string }> };
+		};
+		expect(snapshot.context.participants.alice).toEqual({ status: 'submitted', guess: 'd4' });
+	});
+
 	it('continue moves every client into the Opponent Response phase (#48)', async () => {
 		const { room, ctx } = await openRoom();
 		const { ws } = await join(room, ctx, 'alice');
@@ -276,7 +322,7 @@ describe('SessionRoom', () => {
 
 	it('finish moves every client into the Finished phase, only on the Featured Game’s final Round (#50)', async () => {
 		const { room, ctx } = await openRoom();
-		await ctx.storage.put('round-index', quizSteps().length - 1);
+		await ctx.storage.put('round-index', quizSteps(GAME_ID).length - 1);
 		const { ws } = await join(room, ctx, 'alice');
 
 		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
@@ -303,7 +349,7 @@ describe('SessionRoom', () => {
 
 	it('ignores finish outside Opponent Response, even on the final Round (#50)', async () => {
 		const { room, ctx } = await openRoom();
-		await ctx.storage.put('round-index', quizSteps().length - 1);
+		await ctx.storage.put('round-index', quizSteps(GAME_ID).length - 1);
 		const { ws } = await join(room, ctx, 'alice');
 
 		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
@@ -356,6 +402,51 @@ describe('SessionRoom', () => {
 		expect(snapshot.value).toBe('closed');
 		expect(snapshot.context.participants.alice.status).toBe('timedOut');
 		expect(snapshot.context.scores.alice).toBe(-3);
+	});
+
+	it('reopens a closed Round on a positive adjust_round, giving a timed-out participant a fresh chance (#92)', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.alarm(); // closes the Round - alice never submitted, so she's timedOut.
+
+		await room.webSocketMessage(
+			ws as never,
+			JSON.stringify({ type: 'adjust_round', deltaMs: 30_000 })
+		);
+
+		const snapshot = ws.lastSnapshot() as {
+			value: string;
+			context: { participants: Record<string, { status: string }> };
+			deadline: number | null;
+		};
+		expect(snapshot.value).toBe('active');
+		expect(snapshot.context.participants.alice.status).toBe('pending');
+		expect(snapshot.deadline).not.toBeNull();
+
+		// The reopened Round now behaves like any other active one: alice can submit.
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'submit', guess: 'd4' }));
+		const afterSubmit = ws.lastSnapshot() as {
+			context: { participants: Record<string, { status: string }> };
+		};
+		expect(afterSubmit.context.participants.alice.status).toBe('submitted');
+	});
+
+	it('a non-positive adjust_round on a closed Round is a no-op - it stays closed', async () => {
+		const { room, ctx } = await openRoom();
+		const { ws } = await join(room, ctx, 'alice');
+
+		await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+		await room.alarm();
+
+		await room.webSocketMessage(
+			ws as never,
+			JSON.stringify({ type: 'adjust_round', deltaMs: -30_000 })
+		);
+
+		const snapshot = ws.lastSnapshot() as { value: string };
+		expect(snapshot.value).toBe('closed');
 	});
 
 	it('resets: wipes roster/scores/round-index back to lobby, same Room Code', async () => {
@@ -454,7 +545,7 @@ describe('SessionRoom', () => {
 		expect(snapshot.context.scores).toHaveProperty('bob');
 	});
 
-	it('show_leaderboard is a one-way, Host-only flag, reset by a new Round (#51, #55)', async () => {
+	it('show_leaderboard is a Host-only toggle, reset by a new Round (#51, #55)', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
@@ -469,7 +560,10 @@ describe('SessionRoom', () => {
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'show_leaderboard' }));
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
 
-		// One-way: a repeat Host message doesn't hide it back.
+		// A repeat Host message toggles it back off.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
+		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
+
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(true);
 
@@ -479,7 +573,7 @@ describe('SessionRoom', () => {
 		expect((hostWs.lastSnapshot() as { showLeaderboard: boolean }).showLeaderboard).toBe(false);
 	});
 
-	it('show_room_statistics is a one-way, Host-only flag, reset by a new Round (#73, mirrors show_leaderboard)', async () => {
+	it('show_room_statistics is a Host-only toggle, reset by a new Round (#73, mirrors show_leaderboard)', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
@@ -500,7 +594,12 @@ describe('SessionRoom', () => {
 			true
 		);
 
-		// One-way: a repeat Host message doesn't hide it back.
+		// A repeat Host message toggles it back off.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
+		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
+			false
+		);
+
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
 		expect((hostWs.lastSnapshot() as { showRoomStatistics: boolean }).showRoomStatistics).toBe(
 			true
@@ -514,20 +613,28 @@ describe('SessionRoom', () => {
 		);
 	});
 
-	it('show_room_statistics is independent of show_leaderboard — toggling one leaves the other untouched (#73)', async () => {
+	it('show_room_statistics and show_leaderboard are mutually exclusive — opening one closes the other (#96)', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 
+		const lastFlags = () =>
+			hostWs.lastSnapshot() as { showLeaderboard: boolean; showRoomStatistics: boolean };
+
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
+		expect(lastFlags().showRoomStatistics).toBe(true);
+		expect(lastFlags().showLeaderboard).toBe(false);
 
-		const snapshot = hostWs.lastSnapshot() as {
-			showLeaderboard: boolean;
-			showRoomStatistics: boolean;
-		};
-		expect(snapshot.showRoomStatistics).toBe(true);
-		expect(snapshot.showLeaderboard).toBe(false);
+		// Opening the Leaderboard closes Room Statistics in turn.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
+		expect(lastFlags().showLeaderboard).toBe(true);
+		expect(lastFlags().showRoomStatistics).toBe(false);
+
+		// Toggling the open one back off doesn't reopen the other.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
+		expect(lastFlags().showLeaderboard).toBe(false);
+		expect(lastFlags().showRoomStatistics).toBe(false);
 	});
 
 	it('end_session_early: jumps every client straight to Final Results, keeping the Room Code alive (#57)', async () => {
@@ -750,7 +857,7 @@ describe('SessionRoom', () => {
 
 		it('captures finishedAt exactly once, the moment finish lands the Session on the terminal phase', async () => {
 			const { room, ctx } = await openRoom();
-			await ctx.storage.put('round-index', quizSteps().length - 1);
+			await ctx.storage.put('round-index', quizSteps(GAME_ID).length - 1);
 			const { ws } = await join(room, ctx, 'alice');
 
 			vi.useFakeTimers();
@@ -828,6 +935,155 @@ describe('SessionRoom', () => {
 				guessHistory: Record<number, Record<string, string>>;
 			};
 			expect(snapshot.guessHistory).toEqual({});
+		});
+	});
+
+	describe('Game Catalog selection (#93)', () => {
+		it('a host select_game stores the id and reflects it on the broadcast snapshot', async () => {
+			const { room, ctx, token } = await openRoom({ selectGame: false });
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'capablanca-marshall' })
+			);
+
+			expect(await ctx.storage.get('selected-game-id')).toBe('capablanca-marshall');
+			expect((hostWs.lastSnapshot() as { selectedGameId: string | null }).selectedGameId).toBe(
+				'capablanca-marshall'
+			);
+		});
+
+		it('is freely re-selectable before Start', async () => {
+			const { room, ctx, token } = await openRoom({ selectGame: false });
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'bernstein-capablanca' })
+			);
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'capablanca-marshall' })
+			);
+
+			expect(await ctx.storage.get('selected-game-id')).toBe('capablanca-marshall');
+		});
+
+		it('ignores a select_game attempt from a non-Host connection', async () => {
+			const { room, ctx } = await openRoom({ selectGame: false });
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(
+				aliceWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'capablanca-marshall' })
+			);
+
+			expect(await ctx.storage.get('selected-game-id')).toBeUndefined();
+		});
+
+		it('ignores a select_game for an id outside the Game Catalog manifest', async () => {
+			const { room, ctx, token } = await openRoom({ selectGame: false });
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'not-a-cataloged-game' })
+			);
+
+			expect(await ctx.storage.get('selected-game-id')).toBeUndefined();
+		});
+
+		it('start_round is rejected with no prior select_game - the Round never actually starts', async () => {
+			const { room, ctx } = await openRoom({ selectGame: false });
+			const { ws } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(ws as never, JSON.stringify({ type: 'start_round' }));
+
+			const snapshot = ws.lastSnapshot() as { value: string };
+			expect(snapshot.value).toBe('lobby');
+		});
+
+		it('start_round succeeds after a valid select_game, and the Round plays the selected game', async () => {
+			const { room, ctx, token } = await openRoom({ selectGame: false });
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'capablanca-marshall' })
+			);
+			await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+
+			const snapshot = aliceWs.lastSnapshot() as {
+				value: string;
+				totalRounds: number;
+			};
+			expect(snapshot.value).toBe('active');
+			expect(snapshot.totalRounds).toBe(quizSteps('capablanca-marshall').length);
+			// Distinct from the other cataloged game's Round count, so this is actually
+			// exercising the selected game, not a coincidence.
+			expect(snapshot.totalRounds).not.toBe(quizSteps('bernstein-capablanca').length);
+		});
+
+		it('Round 1 scores correctly even though joining before select_game already built the actor', async () => {
+			// Regression for a bug where Round 1 always scored 0: `fetch`'s
+			// broadcastSnapshot (triggered by every join) calls getActor(), which
+			// caches an actor built from whatever selectedGameId was in storage at
+			// that moment (none yet, here) - and the select_game handler persisted the
+			// new id without invalidating that cache, so start_round's Round 1 kept
+			// scoring off the stale (unselected) answer key.
+			const { room, ctx, token } = await openRoom({ selectGame: false });
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'capablanca-marshall' })
+			);
+			await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+
+			const bestMove = quizSteps('capablanca-marshall')[0].san;
+			await room.webSocketMessage(
+				aliceWs as never,
+				JSON.stringify({ type: 'submit', guess: bestMove })
+			);
+			await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'reveal' }));
+
+			const snapshot = aliceWs.lastSnapshot() as { context: { scores: Record<string, number> } };
+			expect(snapshot.context.scores.alice).toBe(3);
+		});
+
+		it('ignores a select_game once the Session has left the Lobby', async () => {
+			const { room, ctx, token } = await openRoom({ selectGame: false });
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'bernstein-capablanca' })
+			);
+			await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'capablanca-marshall' })
+			);
+
+			expect(await ctx.storage.get('selected-game-id')).toBe('bernstein-capablanca');
+		});
+
+		it('reset clears the selected game id, requiring it to be re-selected before Start works again', async () => {
+			const { room, ctx, token } = await openRoom();
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'reset' }));
+			expect(await ctx.storage.get('selected-game-id')).toBeUndefined();
+
+			await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+			const snapshot = aliceWs.lastSnapshot() as { value: string };
+			expect(snapshot.value).toBe('lobby');
 		});
 	});
 });

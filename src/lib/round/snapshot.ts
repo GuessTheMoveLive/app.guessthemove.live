@@ -15,18 +15,24 @@ export interface RoundSnapshot {
 	context: RoundContext;
 	/** Epoch ms when the current Round's clock runs out, or null when no Round is running. */
 	deadline: number | null;
+	/** Epoch ms on the server at the moment this snapshot was broadcast - lets a client
+	 *  correct for its own clock being off (so the Round clock always counts down from
+	 *  exactly its configured length, never a few seconds short or long because the
+	 *  device's wall clock disagrees with the server's). */
+	serverNow: number;
 	/** 0-based index of the current Round into the Featured Game's quiz steps. */
 	roundIndex: number;
 	/** Total number of Rounds in the Featured Game, so the UI can show "Guess 4 of 35". */
 	totalRounds: number;
 	/** Whether the Host has toggled the Leaderboard open on the current Reveal — a
 	 *  Participant's phone only shows the Leaderboard once this is true (GLOSSARY:
-	 *  Leaderboard). Reset to false whenever a new Round starts. */
+	 *  Leaderboard). Reset to false whenever a new Round starts. Mutually exclusive with
+	 *  showRoomStatistics below: the server never has both true at once. */
 	showLeaderboard: boolean;
 	/** Whether the Host has toggled Room Statistics open on the current Reveal (#73) — a
 	 *  Participant's phone only shows the Guess Group breakdown card once this is true
 	 *  (GLOSSARY: Room Statistics). Reset to false whenever a new Round starts, same
-	 *  one-way-per-Round shape as showLeaderboard, but independent of it. */
+	 *  toggle shape as showLeaderboard, and mutually exclusive with it. */
 	showRoomStatistics: boolean;
 	/** True once the Host has ended the Session early (#57) rather than it reaching
 	 *  Final Results naturally — kept for the PGN export tickets (#59/#60) to flag.
@@ -45,4 +51,8 @@ export interface RoundSnapshot {
 	 *  (each screen derives its own view locally rather than the server pushing a
 	 *  per-client copy). */
 	guessHistory: GuessHistory;
+	/** The Featured Game the Host has selected from the Game Catalog (#93), or null
+	 *  before any selection — broadcast so the Host's own UI reflects the current pick
+	 *  after a reconnect. Never shown to a Participant's screen. */
+	selectedGameId: string | null;
 }

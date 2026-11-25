@@ -5,6 +5,8 @@ import {
 	priorRanking,
 	roundDeltas,
 	finishedMessageFor,
+	belowTopStanding,
+	localizedOrdinal,
 	scoreboardRows,
 	submissionProgress,
 	everyoneAnswered,
@@ -148,11 +150,21 @@ describe('finishedMessageFor (#50)', () => {
 		expect(finishedMessageFor('bob', totals)).toEqual({ kind: 'tiedLead' });
 	});
 
-	it('tells everyone else how far behind the participant immediately above them they are', () => {
+	it('tells everyone else their actual rank and how far behind the participant immediately above them they are', () => {
 		const totals = { alice: 10, bob: 7, carol: 2 };
 
-		expect(finishedMessageFor('bob', totals)).toEqual({ kind: 'behind', points: 3, name: 'alice' });
-		expect(finishedMessageFor('carol', totals)).toEqual({ kind: 'behind', points: 5, name: 'bob' });
+		expect(finishedMessageFor('bob', totals)).toEqual({
+			kind: 'behind',
+			rank: 2,
+			points: 3,
+			name: 'alice'
+		});
+		expect(finishedMessageFor('carol', totals)).toEqual({
+			kind: 'behind',
+			rank: 3,
+			points: 5,
+			name: 'bob'
+		});
 	});
 
 	it('names the participant immediately above, not the overall leader', () => {
@@ -161,7 +173,55 @@ describe('finishedMessageFor (#50)', () => {
 		// of "how far from first", one of "how far from whoever's just ahead").
 		const totals = { alice: 20, bob: 7, carol: 2 };
 
-		expect(finishedMessageFor('carol', totals)).toEqual({ kind: 'behind', points: 5, name: 'bob' });
+		expect(finishedMessageFor('carol', totals)).toEqual({
+			kind: 'behind',
+			rank: 3,
+			points: 5,
+			name: 'bob'
+		});
+	});
+});
+
+describe('belowTopStanding (#98)', () => {
+	it('returns null for anyone inside the top-N, who already sees their own row', () => {
+		const totals = { alpha: 10, betsy: 9, bravo: 8, charlie: 7, delta: 6, eugene: 5 };
+
+		expect(belowTopStanding('alpha', totals)).toBeNull();
+		expect(belowTopStanding('delta', totals)).toBeNull();
+	});
+
+	it('gives the real rank and the gap to whoever is immediately above, for anyone ranked below the top-N', () => {
+		const totals = { betsy: 3, bravo: 3, charlie: 3, delta: 3, eugene: 3, alpha: 1 };
+
+		expect(belowTopStanding('alpha', totals)).toEqual({ rank: 6, points: 2, name: 'eugene' });
+	});
+
+	it('respects a custom limit', () => {
+		const totals = { alice: 10, bob: 7, carol: 2 };
+
+		expect(belowTopStanding('bob', totals, 1)).toEqual({ rank: 2, points: 3, name: 'alice' });
+	});
+
+	it('returns null for a participant missing from totals', () => {
+		expect(belowTopStanding('ghost', { alice: 10 })).toBeNull();
+	});
+});
+
+describe('localizedOrdinal', () => {
+	it('renders English ordinal suffixes', () => {
+		expect(localizedOrdinal(1, 'en')).toBe('1st');
+		expect(localizedOrdinal(2, 'en')).toBe('2nd');
+		expect(localizedOrdinal(3, 'en')).toBe('3rd');
+		expect(localizedOrdinal(4, 'en')).toBe('4th');
+		expect(localizedOrdinal(11, 'en')).toBe('11th');
+		expect(localizedOrdinal(22, 'en')).toBe('22nd');
+	});
+
+	it('renders each other supported locale in its own ordinal convention', () => {
+		expect(localizedOrdinal(6, 'fr')).toBe('6e');
+		expect(localizedOrdinal(1, 'fr')).toBe('1er');
+		expect(localizedOrdinal(6, 'de')).toBe('6.');
+		expect(localizedOrdinal(6, 'es')).toBe('6.º');
 	});
 });
 
@@ -172,7 +232,7 @@ const timedOut: ParticipantState = { status: 'timedOut' };
 
 describe('scoreboardRows', () => {
 	it('orders by running total, highest first, falling back to priorTotals pre-close', () => {
-		const result = scoreboardRows({ alice: pending, bob: pending }, {}, { alice: 2, bob: 7 });
+		const result = scoreboardRows({ alice: pending, bob: pending }, {}, { alice: 2, bob: 7 }, 'w');
 
 		expect(result).toEqual([
 			{ participantId: 'bob', score: 7, move: null },
@@ -181,7 +241,7 @@ describe('scoreboardRows', () => {
 	});
 
 	it('prefers totals over priorTotals once the round has closed', () => {
-		const result = scoreboardRows({ alice: submitted }, { alice: 9 }, { alice: 2 });
+		const result = scoreboardRows({ alice: submitted }, { alice: 9 }, { alice: 2 }, 'w');
 
 		expect(result).toEqual([{ participantId: 'alice', score: 9, move: 'e4' }]);
 	});
@@ -190,7 +250,8 @@ describe('scoreboardRows', () => {
 		const result = scoreboardRows(
 			{ alice: submitted, bob: late, carol: pending, dave: timedOut },
 			{},
-			{}
+			{},
+			'w'
 		);
 
 		expect(result.map((r) => [r.participantId, r.move])).toEqual([
@@ -201,8 +262,15 @@ describe('scoreboardRows', () => {
 		]);
 	});
 
+	it("glyph-renders a submitted move in the Featured Side's own color (#88)", () => {
+		const knightGuess: ParticipantState = { status: 'submitted', guess: 'Nf3' };
+
+		expect(scoreboardRows({ alice: knightGuess }, {}, {}, 'w')[0].move).toBe('♘f3');
+		expect(scoreboardRows({ alice: knightGuess }, {}, {}, 'b')[0].move).toBe('♞f3');
+	});
+
 	it('breaks score ties by participantId', () => {
-		const result = scoreboardRows({ zoe: pending, amy: pending }, {}, { zoe: 3, amy: 3 });
+		const result = scoreboardRows({ zoe: pending, amy: pending }, {}, { zoe: 3, amy: 3 }, 'w');
 
 		expect(result.map((r) => r.participantId)).toEqual(['amy', 'zoe']);
 	});
@@ -276,7 +344,7 @@ describe('answerKeyBreakdown', () => {
 		playedComment: { eval: 0.85 },
 		alternatives: [
 			{ san: 'Bb5', eval: 0.64, continuation: ['a6', 'Bxc6'] }, // loss ~1.9 => +3
-			{ san: 'Qd4', eval: -9.13, continuation: [] } // loss ~54.4 => blunder
+			{ san: 'Qd4', eval: -9.13, continuation: [] } // loss ~54.4 => -3
 		]
 	};
 
@@ -284,7 +352,7 @@ describe('answerKeyBreakdown', () => {
 		const rows = answerKeyBreakdown(step, 9);
 		expect(rows[0]).toEqual({
 			san: 'Nf3',
-			glyph: '5.♞f3',
+			glyph: '5.♘f3',
 			tier: '+3',
 			eval: 0.85,
 			continuation: '',
@@ -300,16 +368,33 @@ describe('answerKeyBreakdown', () => {
 		// - so it is never flagged even though it shares the same +3 label.
 		expect(rows[1]).toEqual({
 			san: 'Bb5',
-			glyph: '5.♝b5',
+			glyph: '5.♗b5',
 			tier: '+3',
 			eval: 0.64,
-			continuation: '5...a6 6.♝xc6',
+			continuation: '5...a6 6.♗xc6',
 			isGameMove: false,
 			remark: null
 		});
-		expect(rows[2].tier).toBe('blunder');
+		expect(rows[2].tier).toBe('-3');
 		expect(rows[2].continuation).toBe('');
 		expect(rows[2].isGameMove).toBe(false);
+	});
+
+	it('labels blunders by their graduated depth, sorted the same as every other tier, not bucketed behind one flat label (#91)', () => {
+		const step: AnswerKeyStep = {
+			san: 'Nf3',
+			color: 'w',
+			playedComment: { eval: 0.85 },
+			alternatives: [
+				{ san: 'Mild', eval: -3, continuation: [] }, // loss ~32.9 => -1
+				{ san: 'Medium', eval: -5, continuation: [] }, // loss ~44.1 => -2
+				{ san: 'Severe', eval: -7, continuation: [] } // loss ~50.7 => -3
+			]
+		};
+
+		const rows = answerKeyBreakdown(step, 9);
+		expect(rows.map((r) => r.san)).toEqual(['Nf3', 'Mild', 'Medium', 'Severe']);
+		expect(rows.map((r) => r.tier)).toEqual(['+3', '-1', '-2', '-3']);
 	});
 
 	it('is empty for a Round with no answer key', () => {
@@ -427,17 +512,18 @@ describe('answerKeyBreakdown', () => {
 		expect(remark).not.toContain('Capablanca');
 	});
 
-	it('gold-borders only the move actually played, even when real game data shares its tier across several rows (#62)', () => {
+	it('gold-borders only the move actually played, even when it shares its tier with the next-ranked alternative (#62, narrowed by #70)', () => {
 		// Black's move 6 in the actual Bernstein-Capablanca answer key: 6...Nbd7 was
-		// played, but 6...b6, 6...h6, 6...c6, 6...dxc4, 6...c5 and 6...a6 all also
-		// compute to +3 - exactly the ambiguous case #62 was filed against.
-		const step = getAnswerKeyStep(12)!;
+		// played and is itself the best move here, so 6...b6 - the single next-ranked
+		// alternative, well within the +2 floor - is promoted to +3 alongside it (#70).
+		// 6...h6, 6...c6, 6...dxc4, 6...c5 and 6...a6 rank further behind and no longer
+		// independently qualify, unlike under the old flat loss<=2 band (#62).
+		const step = getAnswerKeyStep('bernstein-capablanca', 12)!;
 		expect(step.san).toBe('Nbd7');
 
 		const rows = answerKeyBreakdown(step, 12, 'Bernstein', 'Capablanca');
 		const plusThreeSans = rows.filter((r) => r.tier === '+3').map((r) => r.san);
-		expect(plusThreeSans).toEqual(expect.arrayContaining(['b6', 'h6', 'Nbd7']));
-		expect(plusThreeSans.length).toBeGreaterThan(1);
+		expect(plusThreeSans.sort()).toEqual(['Nbd7', 'b6']);
 
 		const goldRows = rows.filter((r) => r.isGameMove);
 		expect(goldRows).toHaveLength(1);
@@ -448,7 +534,7 @@ describe('answerKeyBreakdown', () => {
 		// Black's move 5 in the actual answer key: 5...O-O was played, but 5...h6
 		// computes stronger, and 5...Nbd7 ties O-O's computed tier yet still sorts
 		// behind it - the exact upset the issue was filed against.
-		const step = getAnswerKeyStep(10)!;
+		const step = getAnswerKeyStep('bernstein-capablanca', 10)!;
 		expect(step.san).toBe('O-O');
 
 		const rows = answerKeyBreakdown(step, 10, 'Bernstein', 'Capablanca');

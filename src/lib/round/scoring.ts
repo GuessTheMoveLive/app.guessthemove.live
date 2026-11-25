@@ -9,12 +9,24 @@ import type { ParticipantState } from './round-machine';
 // bands (GLOSSARY: Guess Score) rather than read from a hand-typed PGN label — this
 // module is the single seam every consumer (live scoring, the Answer Key display,
 // Reveal feedback) derives tier from, so none of them can drift out of sync.
+//
+// As of #70, '+3' eligibility is no longer a flat loss<=2 band: live Sessions showed
+// too many alternatives independently qualifying, crowding the Guess Group breakdown's
+// top bar and diluting "did you guess what was actually played". '+3' is now rank-based
+// (GLOSSARY: Guess Score) — see isTopTier — while '+2'/'+1'/'0'/blunder still cascade off
+// the original loss-from-best bands.
 
 export type Tier = '+3' | '+2' | '+1' | '0' | 'blunder';
 
 export interface AnswerKeyAlternative {
 	san: string;
 	eval: number | null;
+	/** Mover-relative win-probability (0-100), sourced per ADR 0009 from the engine's
+	 *  native WDL (Engine Win Probability) or, while still In Book, from Lichess Masters
+	 *  outcome stats (Book Win Probability) — authored offline alongside `eval`. Null for
+	 *  every game authored before 0009, which keeps deriving win-probability from `eval`
+	 *  via the logistic curve ({@link winPercentForMover}). */
+	winProb?: number | null;
 	/** The precomputed continuation (Feedback's Variant, #36): the SANs played after this
 	 *  alternative, authored offline alongside the rest of the answer key. Empty when the
 	 *  PGN's variation carried no further moves. */
@@ -31,7 +43,7 @@ export interface AnswerKeyStep {
 	/** Whose move this is — needed to mirror an Evaluation (always White's pawns
 	 *  perspective) into the mover's own win-probability (#61). */
 	color: 'w' | 'b';
-	playedComment: { eval: number | null } | null;
+	playedComment: { eval: number | null; winProb?: number | null } | null;
 	alternatives: AnswerKeyAlternative[];
 }
 
@@ -41,6 +53,10 @@ const TIER_POINTS: Record<Exclude<Tier, 'blunder'>, number> = {
 	'+1': 1,
 	'0': 0
 };
+
+/** The most a single Round can score (the '+3' tier) — the per-Round ceiling used
+ *  to project how many points are still up for grabs in the Rounds yet to come. */
+export const MAX_ROUND_SCORE = TIER_POINTS['+3'];
 
 /** Hard penalty for a Round not submitted by its deadline (issue #22). */
 export const TIMEOUT_PENALTY = -3;
@@ -59,25 +75,130 @@ function winPercentForMover(evalPawns: number, color: 'w' | 'b'): number {
 	return 50 + 50 * (2 / (1 + Math.exp(-WIN_PERCENT_K * centipawns)) - 1);
 }
 
+/** `winProb` when authored (ADR 0009's Engine/Book Win Probability), otherwise the
+ *  logistic-curve derivation from `evalPawns` (#61) — the one place every mover-relative
+ *  win-probability in this module is resolved, so old (eval-only) and new
+ *  (winProb-authored) Featured Games share every other computation unchanged. */
+function moverWinPercent(
+	step: AnswerKeyStep,
+	evalPawns: number | null,
+	winProb?: number | null
+): number | null {
+	if (winProb != null) return winProb;
+	if (evalPawns == null) return null;
+	return winPercentForMover(evalPawns, step.color);
+}
+
+/** Every move at this position with a known Evaluation or win-probability (the played
+ *  move plus every graded alternative), as the mover's own win-probability. */
+function allWinPercents(step: AnswerKeyStep): number[] {
+	const percents: number[] = [];
+	const played = moverWinPercent(
+		step,
+		step.playedComment?.eval ?? null,
+		step.playedComment?.winProb
+	);
+	if (played != null) percents.push(played);
+	for (const alt of step.alternatives) {
+		const percent = moverWinPercent(step, alt.eval, alt.winProb);
+		if (percent != null) percents.push(percent);
+	}
+	return percents;
+}
+
 /** The highest mover-relative win-probability among the Featured Side's actual
  *  move and every graded alternative at this position — the reference every
  *  other move's win-probability-loss is measured against. Null when no move at
  *  this position carries a known Evaluation. */
 function bestWinPercent(step: AnswerKeyStep): number | null {
-	const evals: number[] = [];
-	if (step.playedComment?.eval != null) evals.push(step.playedComment.eval);
-	for (const alt of step.alternatives) if (alt.eval != null) evals.push(alt.eval);
-	if (!evals.length) return null;
-	return Math.max(...evals.map((e) => winPercentForMover(e, step.color)));
+	const percents = allWinPercents(step);
+	return percents.length ? Math.max(...percents) : null;
 }
 
-/** Win-probability-loss -> tier, per #61's Implementation Decisions. */
+/** The played move's own win-probability. Null when neither its winProb nor its
+ *  Evaluation is known. */
+function playedWinPercent(step: AnswerKeyStep): number | null {
+	return moverWinPercent(step, step.playedComment?.eval ?? null, step.playedComment?.winProb);
+}
+
+/** The highest win-probability strictly below the played move's — i.e. the move
+ *  ranked immediately after it. Null when the played move's Evaluation is
+ *  unknown, or nothing else at this position ranks below it. */
+function nextAfterWinPercent(step: AnswerKeyStep): number | null {
+	const played = playedWinPercent(step);
+	if (played == null) return null;
+	const below = allWinPercents(step).filter((p) => p < played);
+	return below.length ? Math.max(...below) : null;
+}
+
+/** Win-probability-loss -> tier for anything that isn't rank-eligible for '+3'
+ *  (see {@link isTopTier}); the '+2'/'+1'/'0'/blunder bands are unchanged from
+ *  #61. */
 function tierFromLoss(loss: number): Tier {
-	if (loss <= 2) return '+3';
 	if (loss <= 5) return '+2';
 	if (loss <= 10) return '+1';
 	if (loss <= 20) return '0';
 	return 'blunder';
+}
+
+/**
+ * The played move's own tier by the original flat loss<=2 band (#61), ignoring
+ * both the fixed-+3 override and the rank-based promotion rule (#70) — i.e.
+ * "would this move have earned +3 on its own merits, without any of that."
+ * This is the one question {@link isTopTier}'s next-after gate needs (is the
+ * played move already elite?), and the one the Answer Key's GM-bonus remark
+ * needs (is the override actually doing work?) — neither can reuse
+ * {@link computeTier} for this, since querying it with the played move's own
+ * eval trivially satisfies rank rule 1 ("at least as good as itself") and
+ * would always answer '+3'. Null when the played move's Evaluation, or every
+ * Evaluation at this position, is unknown.
+ */
+export function playedMoveTier(step: AnswerKeyStep): Tier | null {
+	const played = playedWinPercent(step);
+	const best = bestWinPercent(step);
+	if (played == null || best == null) return null;
+	const loss = best - played;
+	return loss <= 2 ? '+3' : tierFromLoss(loss);
+}
+
+/**
+ * The numeric sibling of {@link playedMoveTier}: the played move's own -3..+3
+ * score by the same rules (flat loss<=2 band for +3, {@link tierFromLoss}
+ * otherwise), except a 'blunder' band is resolved to its graduated depth via
+ * {@link blunderScoreFromLoss} instead of staying a bucket label - so a caller
+ * that wants "how bad, exactly" (the Answer Key's GM-bonus remark, #91) doesn't
+ * have to re-derive the loss itself. Null under the same conditions as {@link
+ * playedMoveTier}.
+ */
+export function playedMoveScore(step: AnswerKeyStep): number | null {
+	const played = playedWinPercent(step);
+	const best = bestWinPercent(step);
+	if (played == null || best == null) return null;
+	const loss = best - played;
+	if (loss <= 2) return TIER_POINTS['+3'];
+	const tier = tierFromLoss(loss);
+	if (tier !== 'blunder') return TIER_POINTS[tier];
+	return blunderScoreFromLoss(loss);
+}
+
+/**
+ * Whether `movePercent` earns the rank-based '+3' (#70, GLOSSARY: Guess Score):
+ * the played move itself, anything at least as good as it (tied or strictly
+ * better), or — only when the played move is itself elite by {@link
+ * playedMoveTier} — the single next-best rank below it, provided that move's
+ * own loss-from-best stays within the loss<=5 ('+2') floor. This keeps a lone
+ * distant second place from being promoted just because the played move
+ * happened to be excellent.
+ */
+function isTopTier(step: AnswerKeyStep, movePercent: number): boolean {
+	const played = playedWinPercent(step);
+	if (played != null && movePercent >= played) return true;
+	if (playedMoveTier(step) !== '+3') return false;
+
+	const nextAfter = nextAfterWinPercent(step);
+	if (nextAfter == null || movePercent !== nextAfter) return false;
+	const best = bestWinPercent(step);
+	return best != null && best - movePercent <= 5;
 }
 
 /** Graduated blunder penalty: the further a blunder's win-probability-loss
@@ -94,20 +215,17 @@ function blunderScoreFromLoss(loss: number): number {
  * replacing the hand-typed PGN tier label. Null when the Evaluation, or every
  * Evaluation at this position, is unknown — there's nothing to band.
  */
-/** This Evaluation's win-probability-loss against {@link bestWinPercent} — the
- *  shared computation {@link computeTier} and {@link scoreFromEval} both band.
- *  Null when the Evaluation, or every Evaluation at this position, is unknown. */
-function lossFromBest(step: AnswerKeyStep, evalPawns: number): number | null {
+export function computeTier(
+	step: AnswerKeyStep,
+	evalPawns: number | null,
+	winProb?: number | null
+): Tier | null {
+	const movePercent = moverWinPercent(step, evalPawns, winProb);
+	if (movePercent == null) return null;
 	const best = bestWinPercent(step);
 	if (best == null) return null;
-	return best - winPercentForMover(evalPawns, step.color);
-}
-
-export function computeTier(step: AnswerKeyStep, evalPawns: number | null): Tier | null {
-	if (evalPawns == null) return null;
-	const loss = lossFromBest(step, evalPawns);
-	if (loss == null) return null;
-	return tierFromLoss(loss);
+	if (isTopTier(step, movePercent)) return '+3';
+	return tierFromLoss(best - movePercent);
 }
 
 /**
@@ -115,10 +233,17 @@ export function computeTier(step: AnswerKeyStep, evalPawns: number | null): Tier
  * computed tier (#61) — the graded-alternative half of {@link scoreGuess}, its
  * only caller. Null when there's no Evaluation to compute from.
  */
-export function scoreFromEval(step: AnswerKeyStep, evalPawns: number | null): number | null {
-	if (evalPawns == null) return null;
-	const loss = lossFromBest(step, evalPawns);
-	if (loss == null) return null;
+export function scoreFromEval(
+	step: AnswerKeyStep,
+	evalPawns: number | null,
+	winProb?: number | null
+): number | null {
+	const movePercent = moverWinPercent(step, evalPawns, winProb);
+	if (movePercent == null) return null;
+	const best = bestWinPercent(step);
+	if (best == null) return null;
+	if (isTopTier(step, movePercent)) return TIER_POINTS['+3'];
+	const loss = best - movePercent;
 	const tier = tierFromLoss(loss);
 	if (tier !== 'blunder') return TIER_POINTS[tier];
 	return blunderScoreFromLoss(loss);
@@ -135,7 +260,7 @@ export function scoreGuess(step: AnswerKeyStep, guessSan: string): number {
 	if (guessSan === step.san) return 3;
 	const alt = step.alternatives.find((a) => a.san === guessSan);
 	if (!alt) return 0;
-	return scoreFromEval(step, alt.eval) ?? 0;
+	return scoreFromEval(step, alt.eval, alt.winProb) ?? 0;
 }
 
 /**

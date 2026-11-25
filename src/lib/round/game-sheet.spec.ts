@@ -40,7 +40,7 @@ describe('buildGameSheet (#58: per-move Guess/points decoration)', () => {
 			alternatives: [alt({ san: 'Nf3', eval: 0.4 })]
 		});
 		const rows = buildGameSheet([quiz], { 0: { alice: 'Nf3' } }, 'alice');
-		expect(rows[0].white).toEqual({ san: 'e4', guess: { text: '♞f3', points: 1 } });
+		expect(rows[0].white).toEqual({ san: 'e4', guess: { text: '♘f3', points: 1 } });
 	});
 
 	it('shows an em-dash with the timeout penalty when no Guess was submitted', () => {
@@ -78,7 +78,7 @@ describe('buildGameSheet (#58: per-move Guess/points decoration)', () => {
 			},
 			{
 				number: 2,
-				white: { san: '♞f3', guess: { text: '♝c4', points: 0 } },
+				white: { san: '♘f3', guess: { text: '♗c4', points: 0 } },
 				black: null
 			}
 		]);

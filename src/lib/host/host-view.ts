@@ -1,9 +1,15 @@
 import type { ParticipantState } from '#lib/round/round-machine.js';
-import { computeTier, type AnswerKeyStep, type Tier } from '#lib/round/scoring.js';
+import {
+	scoreFromEval,
+	playedMoveScore,
+	MAX_ROUND_SCORE,
+	type AnswerKeyStep
+} from '#lib/round/scoring.js';
 import {
 	sanToGlyph,
 	formatNumberedMove,
-	formatContinuation
+	formatContinuation,
+	type PieceColor
 } from '#lib/round/participant-input.js';
 import { m } from '#lib/paraglide/messages.js';
 
@@ -85,15 +91,19 @@ export function roundDeltas(
 }
 
 export type FinishedMessage =
-	{ kind: 'lead' } | { kind: 'tiedLead' } | { kind: 'behind'; points: number; name: string };
+	| { kind: 'lead' }
+	| { kind: 'tiedLead' }
+	| { kind: 'behind'; rank: number; points: number; name: string };
 
 /**
  * A Participant's personal message on the Finished phase's full-screen Podium
  * (#50): whoever shares the top score is told they're (tied for) in the lead;
- * everyone else is told the point gap to whoever's immediately above them in the
- * ranking — not the overall leader, the next-highest participant above them — and
- * that participant's display name (participantId doubles as the display name
- * captured at join, per GLOSSARY).
+ * everyone else is told their actual rank (#98 — the Podium itself only ever
+ * shows the top 3, so anyone further down otherwise has no idea where they
+ * landed) plus the point gap to whoever's immediately above them in the
+ * ranking — not the overall leader, the next-highest participant above them —
+ * and that participant's display name (participantId doubles as the display
+ * name captured at join, per GLOSSARY).
  */
 export function finishedMessageFor(
 	participantId: string,
@@ -110,7 +120,87 @@ export function finishedMessageFor(
 
 	const myIndex = ranked.findIndex((entry) => entry.participantId === participantId);
 	const above = ranked[myIndex - 1];
-	return { kind: 'behind', points: above.total - myTotal, name: above.participantId };
+	return {
+		kind: 'behind',
+		rank: myIndex + 1,
+		points: above.total - myTotal,
+		name: above.participantId
+	};
+}
+
+export interface BelowTopStanding {
+	/** This Participant's actual rank, one-based (6, 7, ...) — render with
+	 *  {@link localizedOrdinal} rather than as a bare number. */
+	rank: number;
+	/** Point gap to the Participant directly above them in the ranking — not the
+	 *  overall leader, same convention as {@link finishedMessageFor}'s 'behind' case. */
+	points: number;
+	name: string;
+}
+
+/**
+ * A Participant's standing when they've fallen outside the Leaderboard's top-N
+ * (#98): the shared Leaderboard only ever renders the top 5, so a Participant
+ * ranked 6th or below would otherwise see the Ranking card with no feedback
+ * about themselves at all. Returns `null` for anyone inside the top-N — they
+ * already see their own highlighted row there, nothing extra to say. Ties are
+ * broken by participantId, same as {@link topLeaderboard}.
+ */
+export function belowTopStanding(
+	participantId: string,
+	totals: Record<string, number>,
+	limit = 5
+): BelowTopStanding | null {
+	const ranked = rankedEntries(totals);
+	const myIndex = ranked.findIndex((entry) => entry.participantId === participantId);
+	if (myIndex === -1 || myIndex < limit) return null;
+
+	const above = ranked[myIndex - 1];
+	return {
+		rank: myIndex + 1,
+		points: above.total - ranked[myIndex].total,
+		name: above.participantId
+	};
+}
+
+/**
+ * `rank` rendered as that locale's own ordinal ("6th"/"6e"/"6.º"/"6."), for
+ * {@link belowTopStanding}'s message — the only locale-sensitive formatting
+ * this project does outside the generated Paraglide messages themselves, since
+ * ordinal suffixes aren't expressible as an inlang message-format plural.
+ */
+export function localizedOrdinal(rank: number, locale: string): string {
+	if (locale === 'fr') return rank === 1 ? `${rank}er` : `${rank}e`;
+	if (locale === 'de') return `${rank}.`;
+	if (locale === 'es') return `${rank}.º`;
+
+	const mod100 = rank % 100;
+	if (mod100 >= 11 && mod100 <= 13) return `${rank}th`;
+	switch (rank % 10) {
+		case 1:
+			return `${rank}st`;
+		case 2:
+			return `${rank}nd`;
+		case 3:
+			return `${rank}rd`;
+		default:
+			return `${rank}th`;
+	}
+}
+
+/**
+ * The maximum points still obtainable in the Rounds yet to come — the footer
+ * banner's "keep concentrated" nudge. `roundIndex` is the current Round
+ * (0-based); `roundScored` is true once that Round's own Guess Score is locked
+ * in (Reveal onward) so it's excluded from "still to come" alongside it.
+ */
+export function pointsStillAvailable(
+	roundIndex: number,
+	totalRounds: number,
+	roundScored: boolean
+): number {
+	const remainingRounds = totalRounds - roundIndex - (roundScored ? 1 : 0);
+	return Math.max(0, remainingRounds) * MAX_ROUND_SCORE;
 }
 
 export interface SubmissionProgress {
@@ -131,18 +221,24 @@ export interface ScoreboardRow {
  * and (once submitted) this Round's move, highest score first, ties broken by
  * participantId. Unlike {@link topLeaderboard} this is the full roster, not a
  * top-N, and it's meant to stay on screen across every phase, not just between
- * Rounds — kick stays available per-row alongside it.
+ * Rounds — kick stays available per-row alongside it. `featuredColor` is the current
+ * Round's mover (#88) — every submitted guess is a guess at that same move, so one
+ * color glyph-renders the whole column.
  */
 export function scoreboardRows(
 	participants: Record<string, ParticipantState>,
 	totals: Record<string, number>,
-	priorTotals: Record<string, number>
+	priorTotals: Record<string, number>,
+	featuredColor: PieceColor
 ): ScoreboardRow[] {
 	return Object.entries(participants)
 		.map(([participantId, state]) => ({
 			participantId,
 			score: totals[participantId] ?? priorTotals[participantId] ?? 0,
-			move: state.status === 'submitted' || state.status === 'late' ? sanToGlyph(state.guess) : null
+			move:
+				state.status === 'submitted' || state.status === 'late'
+					? sanToGlyph(state.guess, featuredColor)
+					: null
 		}))
 		.sort((a, b) => b.score - a.score || a.participantId.localeCompare(b.participantId));
 }
@@ -168,13 +264,27 @@ export function everyoneAnswered(participants: Record<string, ParticipantState>)
 	return roster.length > 0 && roster.every((p) => p.status === 'submitted' || p.status === 'late');
 }
 
+/** The Answer Key's own display label: the -3..+3 score written out explicitly
+ *  (#91) rather than bucketed behind the word "blunder" - so a graduated
+ *  penalty sorts and reads as the move's actual rank, same as every other
+ *  score band. */
+export type AnswerKeyTierLabel = '+3' | '+2' | '+1' | '0' | '-1' | '-2' | '-3';
+
+/** A -3..+3 score, formatted as the Answer Key displays it: a leading '+' for
+ *  anything above zero, the bare number otherwise (so '0' reads as '0', never
+ *  '+0', and a blunder's depth reads as '-1'/'-2'/'-3' instead of a flat
+ *  "blunder" label, #91). */
+function formatScoreLabel(score: number): AnswerKeyTierLabel {
+	return (score > 0 ? `+${score}` : `${score}`) as AnswerKeyTierLabel;
+}
+
 export interface AnswerKeyRow {
 	/** The raw SAN (kept for a stable {#each} key). */
 	san: string;
 	/** The move, glyph-rendered and move-number-prefixed the same way as the
 	 *  Participant's Continuation (#43/#51), e.g. "5.Nf3". */
 	glyph: string;
-	tier: Tier;
+	tier: AnswerKeyTierLabel;
 	eval: number | null;
 	/** The continuation Variant, glyph-rendered and numbered the same way as the
 	 *  Participant's Continuation (#43/#51); empty for the move played. */
@@ -195,7 +305,12 @@ export interface AnswerKeyRow {
  *  all compute to tier +2) still rank apart instead of being treated as tied. Null
  *  when the move's own Evaluation is unknown - an unanalyzed eval can't be placed by
  *  strength, and sorts last via the comparator below. */
-function strengthRank(step: AnswerKeyStep, evalPawns: number | null): number | null {
+function strengthRank(
+	step: AnswerKeyStep,
+	evalPawns: number | null,
+	winProb?: number | null
+): number | null {
+	if (winProb != null) return winProb;
 	if (evalPawns == null) return null;
 	return step.color === 'w' ? evalPawns : -evalPawns;
 }
@@ -232,22 +347,24 @@ export function answerKeyBreakdown(
 	if (!step) return [];
 
 	const playedEval = step.playedComment?.eval ?? null;
-	const playedTier = computeTier(step, playedEval);
+	const playedWinProb = step.playedComment?.winProb ?? null;
+	const playedScore = playedMoveScore(step);
+	const playedLabel = playedScore != null ? formatScoreLabel(playedScore) : null;
 	const moverName = step.color === 'w' ? whiteName : blackName;
 	const remark =
-		playedTier != null && playedTier !== '+3'
+		playedLabel != null && playedLabel !== '+3'
 			? moverName
-				? m.host_answer_key_gm_remark_named({ tier: playedTier, name: moverName })
-				: m.host_answer_key_gm_remark_generic({ tier: playedTier })
+				? m.host_answer_key_gm_remark_named({ tier: playedLabel, name: moverName })
+				: m.host_answer_key_gm_remark_generic({ tier: playedLabel })
 			: null;
 
 	const ranked = [
 		{
-			rank: strengthRank(step, playedEval),
+			rank: strengthRank(step, playedEval, playedWinProb),
 			row: {
 				san: step.san,
 				glyph: formatNumberedMove(step.san, ply),
-				tier: '+3' as Tier,
+				tier: '+3' as AnswerKeyTierLabel,
 				eval: playedEval,
 				continuation: '',
 				isGameMove: true,
@@ -255,11 +372,11 @@ export function answerKeyBreakdown(
 			}
 		},
 		...step.alternatives.map((alt) => ({
-			rank: strengthRank(step, alt.eval),
+			rank: strengthRank(step, alt.eval, alt.winProb),
 			row: {
 				san: alt.san,
 				glyph: formatNumberedMove(alt.san, ply),
-				tier: computeTier(step, alt.eval) ?? ('0' as Tier),
+				tier: formatScoreLabel(scoreFromEval(step, alt.eval, alt.winProb) ?? 0),
 				eval: alt.eval,
 				continuation: alt.continuation.length ? formatContinuation(alt.continuation, ply + 1) : '',
 				isGameMove: alt.san === step.san,
@@ -272,6 +389,12 @@ export function answerKeyBreakdown(
 	// original source order (#65) - the played move first, then alternatives as listed.
 	ranked.sort(byRankDescending);
 	return ranked.map(({ row }) => row);
+}
+
+/** "1 point" / "5 points", reusing the Guess Group chart's own plural pair
+ *  (chart_points_one/other) rather than a fresh message per caller. */
+export function pointsLabel(score: number): string {
+	return score === 1 ? m.chart_points_one({ score }) : m.chart_points_other({ score });
 }
 
 /** Milliseconds left on the Round clock, floored at 0; 0 when no Round is running. */

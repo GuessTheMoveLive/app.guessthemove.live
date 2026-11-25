@@ -13,6 +13,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Agent-driver screenshots (.claude/skills/run-guessthemove-live)
+.claude/skills/run-guessthemove-live/artifacts/
+
 # Env
 .env
 .env.*
@@ -26,3 +29,4 @@ vite.config.ts.timestamp-*
 # Paraglide
 src/lib/paraglide
 project.inlang/cache/
+.tmp-analysis/

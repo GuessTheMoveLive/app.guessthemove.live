@@ -22,7 +22,8 @@ const answerKey: AnswerKeyStep = {
 	color: 'w',
 	playedComment: { eval: 0.85 },
 	alternatives: [
-		// Computed tier (#61): win-probability-loss ~3.6 => +2.
+		// Computed tier: next-ranked alternative, loss ~3.6 (within the +2 floor) and
+		// d4 itself is elite, so h3 is promoted to +3 (#70).
 		{ san: 'h3', eval: 0.45, continuation: [] },
 		{ san: 'Nd4', eval: -9.13, continuation: [] }
 	]
@@ -107,6 +108,23 @@ describe('roundMachine', () => {
 		actor.send({ type: 'REVEAL' });
 
 		expect(actor.getSnapshot().value).toBe('reveal');
+	});
+
+	it('reopens a closed round on REOPEN, resetting timedOut participants back to pending (#92)', () => {
+		const actor = actorWith(['alice', 'bob']);
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'e4' });
+		actor.send({ type: 'ROUND_TIMEOUT' }); // bob never submitted => timedOut
+
+		actor.send({ type: 'REOPEN' });
+
+		expect(actor.getSnapshot().value).toBe('active');
+		expect(actor.getSnapshot().context.participants.alice.status).toBe('submitted');
+		expect(actor.getSnapshot().context.participants.bob.status).toBe('pending');
+		// The stale close's scores/totals are cleared, not left showing bob's -3 while the
+		// reopened Round is still in flight.
+		expect(actor.getSnapshot().context.scores).toEqual({});
+		expect(actor.getSnapshot().context.totals).toEqual({});
 	});
 
 	it('moves to opponentResponse on CONTINUE, only from reveal (#48)', () => {
@@ -264,6 +282,99 @@ describe('roundMachine KICK (Host removes a disruptive Participant)', () => {
 	});
 });
 
+describe('roundMachine GUESS_RESET (Host clears a mistaken Guess during an active Round, #90)', () => {
+	it('resets a submitted participant back to pending, in the active state', () => {
+		const actor = actorWith(['alice', 'bob']);
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' });
+
+		actor.send({ type: 'GUESS_RESET', participantId: 'alice' });
+
+		expect(actor.getSnapshot().value).toBe('active');
+		expect(actor.getSnapshot().context.participants.alice).toEqual({ status: 'pending' });
+	});
+
+	it('is a no-op when sent for a participant not in the roster', () => {
+		const actor = actorWith(['alice']);
+		actor.send({ type: 'START_ROUND' });
+
+		actor.send({ type: 'GUESS_RESET', participantId: 'ghost' });
+
+		expect(actor.getSnapshot().context.participants).toEqual({ alice: { status: 'pending' } });
+	});
+
+	it('is a no-op (stays pending) when sent against an already-pending participant', () => {
+		const actor = actorWith(['alice']);
+		actor.send({ type: 'START_ROUND' });
+
+		actor.send({ type: 'GUESS_RESET', participantId: 'alice' });
+
+		expect(actor.getSnapshot().context.participants.alice).toEqual({ status: 'pending' });
+	});
+
+	it('has no effect on another participant in the same round', () => {
+		const actor = actorWith(['alice', 'bob']);
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' });
+		actor.send({ type: 'SUBMIT', participantId: 'bob', guess: 'e4' });
+
+		actor.send({ type: 'GUESS_RESET', participantId: 'alice' });
+
+		expect(actor.getSnapshot().context.participants.bob).toEqual({
+			status: 'submitted',
+			guess: 'e4'
+		});
+	});
+
+	it('is inert from closed/reveal/opponentResponse/finished', () => {
+		const actor = actorWith(['alice']);
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' });
+		actor.send({ type: 'ROUND_TIMEOUT' }); // -> closed
+
+		actor.send({ type: 'GUESS_RESET', participantId: 'alice' });
+		expect(actor.getSnapshot().value).toBe('closed');
+		expect(actor.getSnapshot().context.participants.alice).toEqual({
+			status: 'submitted',
+			guess: 'd4'
+		});
+
+		actor.send({ type: 'REVEAL' }); // -> reveal
+		actor.send({ type: 'GUESS_RESET', participantId: 'alice' });
+		expect(actor.getSnapshot().context.participants.alice).toEqual({
+			status: 'submitted',
+			guess: 'd4'
+		});
+
+		actor.send({ type: 'CONTINUE' }); // -> opponentResponse
+		actor.send({ type: 'GUESS_RESET', participantId: 'alice' });
+		expect(actor.getSnapshot().context.participants.alice).toEqual({
+			status: 'submitted',
+			guess: 'd4'
+		});
+
+		actor.send({ type: 'FINISH' }); // -> finished
+		actor.send({ type: 'GUESS_RESET', participantId: 'alice' });
+		expect(actor.getSnapshot().context.participants.alice).toEqual({
+			status: 'submitted',
+			guess: 'd4'
+		});
+	});
+
+	it('a participant reset in active, left unresolved through timeout, scores the standard -3', () => {
+		const actor = actorWithInput({ participantIds: ['alice'], answerKey, isScoringRound: true });
+		actor.send({ type: 'START_ROUND' });
+		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' });
+
+		actor.send({ type: 'GUESS_RESET', participantId: 'alice' });
+		actor.send({ type: 'ROUND_TIMEOUT' });
+
+		const ctx = actor.getSnapshot().context;
+		expect(ctx.participants.alice).toEqual({ status: 'timedOut' });
+		expect(ctx.scores.alice).toBe(-3);
+	});
+});
+
 describe('roundMachine scoring', () => {
 	it('derives each participant score on close: submitted tier, timeout -3', () => {
 		const actor = actorWithInput({
@@ -273,12 +384,12 @@ describe('roundMachine scoring', () => {
 		});
 		actor.send({ type: 'START_ROUND' });
 		actor.send({ type: 'SUBMIT', participantId: 'alice', guess: 'd4' }); // exact => +3
-		actor.send({ type: 'SUBMIT', participantId: 'bob', guess: 'h3' }); // tier +2 => +2
+		actor.send({ type: 'SUBMIT', participantId: 'bob', guess: 'h3' }); // promoted tier +3 => +3
 		// carol never submits => timedOut => -3
 
 		actor.send({ type: 'ROUND_TIMEOUT' });
 
-		expect(actor.getSnapshot().context.scores).toEqual({ alice: 3, bob: 2, carol: -3 });
+		expect(actor.getSnapshot().context.scores).toEqual({ alice: 3, bob: 3, carol: -3 });
 	});
 
 	it('folds this round into the running total carried in via priorTotals', () => {

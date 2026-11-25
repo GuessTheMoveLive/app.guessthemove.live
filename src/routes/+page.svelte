@@ -17,7 +17,8 @@
 </script>
 
 <main class="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 p-4">
-	<header class="text-center">
+	<header class="flex flex-col items-center text-center">
+		<img src="/logo.svg" alt="" class="mb-2 h-20 w-20" />
 		<h1 class="text-3xl font-semibold tracking-tight">{m.app_title()}</h1>
 		<p class="mt-1 text-sm text-muted-foreground">{m.home_subtitle()}</p>
 	</header>
@@ -44,7 +45,7 @@
 	<!-- No typed code for hosting (#37) - the server generates the Room Code and Host
 	     Token together and redirects straight to the Host's own control URL. -->
 	<form method="POST" action="/create-session" class="text-center">
-		<button type="submit" class="text-sm underline underline-offset-4 hover:text-foreground">
+		<button type="submit" class="text-sm underline underline-offset-4">
 			{m.home_host_link()}
 		</button>
 	</form>

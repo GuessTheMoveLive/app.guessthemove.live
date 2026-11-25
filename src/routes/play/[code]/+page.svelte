@@ -2,21 +2,32 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/env';
 	import { page } from '$app/state';
+	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { SessionClient } from '#lib/round/session-client.svelte.js';
 	import {
 		remainingMs,
 		formatCountdown,
 		topLeaderboard,
-		finishedMessageFor
+		finishedMessageFor,
+		belowTopStanding,
+		localizedOrdinal,
+		pointsStillAvailable,
+		pointsLabel
 	} from '#lib/host/host-view.js';
-	import { getGameData, quizSteps, opponentResponseSteps } from '#lib/round/game-data.js';
 	import {
-		FILES,
-		DISPLAY_RANKS,
+		getGameData,
+		quizSteps,
+		opponentResponseSteps,
+		EMPTY_GAME_DATA
+	} from '#lib/round/game-data.js';
+	import {
+		displayRanks,
+		displayFiles,
 		resolveTapMove,
 		formatNumberedMove,
 		formatContinuation,
 		isDarkSquare,
+		containsEmoji,
 		type ResolvedMove
 	} from '#lib/round/participant-input.js';
 	import { buildParticipantFeedback, explanationText } from '#lib/round/feedback.js';
@@ -25,9 +36,11 @@
 	import {
 		computeGuessGroupBreakdown,
 		bucketedBreakdownFor,
-		chartParticipantLabel
+		chartParticipantLabel,
+		groupOthersSentence
 	} from '#lib/round/guess-groups.js';
 	import { scoreColor } from '#lib/round/score-color.js';
+	import { connectionLabel } from '#lib/round/connection-status.js';
 	import { headerContext } from '#lib/round/header-context.svelte.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import * as Card from '#lib/components/ui/card/index.js';
@@ -39,7 +52,6 @@
 
 	const code = page.params.code ?? '';
 	const client = new SessionClient();
-	const game = getGameData();
 
 	// A rejoin (dropped connection, refresh, closed tab) must land back on the same
 	// identity, or the Participant's whole running total appears to vanish - it's
@@ -50,6 +62,7 @@
 	const storageKey = `guess-the-move:name:${code}`;
 
 	let name = $state(page.url.searchParams.get('name') ?? '');
+	let nameError = $state(false);
 	let joined = $state(false);
 	let now = $state(Date.now());
 	let tick: ReturnType<typeof setInterval>;
@@ -57,9 +70,16 @@
 	let origin = $state<string | null>(null);
 	let pending = $state<ResolvedMove | null>(null);
 
+	// #86: emoji/pictographic display names are rejected with an inline error rather
+	// than silently stripped or accepted — the typed text is left untouched so the
+	// Participant can edit it instead of retyping from scratch.
 	function join() {
 		const id = name.trim();
 		if (!id) return;
+		if (containsEmoji(id)) {
+			nameError = true;
+			return;
+		}
 		joined = true;
 		if (browser) localStorage.setItem(storageKey, id);
 		name = id;
@@ -78,20 +98,18 @@
 	onDestroy(() => {
 		clearInterval(tick);
 		client.disconnect();
-		headerContext.roomCode = null;
-		headerContext.phase = null;
 	});
 
 	const snapshot = $derived(client.snapshot);
 	const phase = $derived(snapshot?.value ?? 'lobby');
-
-	// Hands this Session's Room Code and current phase up to the layout-level sticky
-	// header (#73), so they stay visible after scrolling down a long Reveal screen.
-	$effect(() => {
-		headerContext.roomCode = code;
-		headerContext.phase = phase;
-	});
-	const countdown = $derived(formatCountdown(remainingMs(snapshot?.deadline ?? null, now)));
+	// The Host's Game Catalog selection (#93) — never shown to this Participant beyond
+	// its effect on the actual Round data below. Falls back to an empty placeholder
+	// before the Host has picked anything, same as the Host's own screen.
+	const selectedGameId = $derived(snapshot?.selectedGameId ?? null);
+	const game = $derived(selectedGameId ? getGameData(selectedGameId) : EMPTY_GAME_DATA);
+	const countdown = $derived(
+		formatCountdown(remainingMs(snapshot?.deadline ?? null, now + client.clockOffsetMs))
+	);
 	const me = $derived(name.trim());
 	const myState = $derived(snapshot?.context.participants[me]);
 	// The Round Score, broadcast on every snapshot once the Round closes - shown as
@@ -126,6 +144,12 @@
 	const finishedMessage = $derived(
 		snapshot ? finishedMessageFor(me, snapshot.context.totals) : null
 	);
+	// The Ranking view's own personal message (#98): the shared Leaderboard only ever
+	// shows the top 5, so a Participant ranked 6th or below gets no feedback about
+	// themselves from the list alone — this fills that gap with their actual rank and
+	// the point gap to whoever's immediately above them. `null` for anyone inside the
+	// top 5, who already sees their own highlighted row.
+	const belowTop = $derived(snapshot ? belowTopStanding(me, snapshot.context.totals) : null);
 
 	// Once kicked, forget the saved name - a refresh must land back on the Join screen,
 	// not silently retry into a connection the Host has already blocked server-side.
@@ -142,13 +166,30 @@
 	// know this while in its own `opponentResponse` phase, not just during `reveal`.
 	const isLastRound = $derived(roundIndex + 1 >= totalRounds);
 	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
-	const quizStep = $derived(quizSteps()[roundIndex]);
+	// Reveal/Statistics/Ranking are exclusive views on this screen (#96): this screen only
+	// ever shows one view at a time (guessing, Opponent Response, Reveal+Game Sheet,
+	// Statistics, Ranking), so once the Host opens Statistics or the Leaderboard it's the
+	// only thing shown here — the Reveal feedback card and the Game Sheet step aside. The
+	// Final Round defaults to 'ranking' when neither toggle is open, matching its existing
+	// always-on Podium. `null` outside the Reveal/closed phase, where this doesn't apply.
+	const revealFocus = $derived(
+		phase === 'reveal' || phase === 'closed'
+			? showRoomStatistics
+				? 'statistics'
+				: showLeaderboard || isFinalRound
+					? 'ranking'
+					: 'reveal'
+			: null
+	);
+	const quizStep = $derived(quizSteps(selectedGameId)[roundIndex]);
 	// The Opponent Response (#48): the single next move played in the game after this Round's
 	// Featured move, shown large in numbered notation — or, on the Featured Game's final Round
 	// (#49), the entire remaining real mainline to the game's actual end. Participants see the
 	// same move(s) the Host does, with no live controls. Reuses #43's formatContinuation (it
 	// also covers the single-move case).
-	const opponentSteps = $derived(quizStep ? opponentResponseSteps(quizStep.ply, isLastRound) : []);
+	const opponentSteps = $derived(
+		quizStep ? opponentResponseSteps(selectedGameId, quizStep.ply, isLastRound) : []
+	);
 	const opponentMove = $derived(
 		opponentSteps.length
 			? formatContinuation(
@@ -158,6 +199,11 @@
 			: null
 	);
 	const fen = $derived(quizStep?.fenBefore ?? game.startFen);
+	// The tap-to-guess grid auto-flips to the Featured Side's own view (#87): Black's
+	// pieces at the bottom when Black is to move, White's view otherwise.
+	const featuredColor = $derived(quizStep?.color ?? 'w');
+	const ranks = $derived(displayRanks(featuredColor));
+	const files = $derived(displayFiles(featuredColor));
 	const candidateSans = $derived(
 		quizStep ? [quizStep.san, ...quizStep.alternatives.map((a) => a.san)] : []
 	);
@@ -251,19 +297,60 @@
 		client.submit(pending.san);
 		pending = null;
 	}
+
+	// The footer's standing line (#93): just this Participant's name and running total —
+	// kept deliberately terse rather than spelling out rank/gap-to-leader, which read as
+	// clutter in the footer's limited width.
+	const standingLine = $derived(
+		snapshot
+			? m.play_standing({ name: me, pointsLabel: pointsLabel(snapshot.context.totals[me] ?? 0) })
+			: null
+	);
+	// The footer's "points still to be made" nudge (#93): the ceiling on what's left to
+	// gain in the Rounds yet to come, so a Participant who's fallen behind still has a
+	// reason to stay engaged. Hidden once the Session is Finished - there's nothing left.
+	const remainingPoints = $derived(
+		pointsStillAvailable(
+			roundIndex,
+			totalRounds,
+			phase === 'reveal' ||
+				phase === 'opponentResponse' ||
+				phase === 'closed' ||
+				phase === 'finished'
+		)
+	);
+	const remainingPointsLine = $derived(
+		phase !== 'finished' && totalRounds > 0
+			? m.play_points_remaining({ pointsLabel: pointsLabel(remainingPoints) })
+			: null
+	);
+
+	// Hands this Session's Room Code, connection status, round progress and (#93) this
+	// Participant's own running standing up to the layout-level sticky header/footer
+	// (#92's decision to keep that bar light, reversed) instead of this page rendering
+	// its own header row.
+	$effect(() => {
+		headerContext.roomCode = code;
+		headerContext.status = client.status;
+		// Gated on phase, not just totalRounds > 0 (#93): a Featured Game selection alone
+		// makes totalRounds available well before Start, but the Round counter shouldn't
+		// claim "Guess 1 of N" while still in the Lobby with no Round actually running.
+		headerContext.roundCurrent = totalRounds > 0 && phase !== 'lobby' ? roundIndex + 1 : null;
+		headerContext.roundTotal = totalRounds > 0 && phase !== 'lobby' ? totalRounds : null;
+		headerContext.footerLine1 = joined ? standingLine : null;
+		headerContext.footerLine2 = joined ? remainingPointsLine : null;
+	});
+	onDestroy(() => {
+		headerContext.roomCode = null;
+		headerContext.status = null;
+		headerContext.roundCurrent = null;
+		headerContext.roundTotal = null;
+		headerContext.footerLine1 = null;
+		headerContext.footerLine2 = null;
+	});
 </script>
 
 <main class="mx-auto flex max-w-md flex-col gap-6 p-4">
-	<header class="flex items-baseline justify-between">
-		<h1 class="text-xl font-semibold">{m.app_title()}</h1>
-		<p class="text-xs text-muted-foreground">
-			{m.room_label()} <span class="font-mono tracking-widest">{code}</span>
-			{#if totalRounds > 0}
-				· {m.round_x_of_y({ current: roundIndex + 1, total: totalRounds })}
-			{/if}
-		</p>
-	</header>
-
 	{#if client.ended}
 		<Card.Root>
 			<Card.Header>
@@ -285,23 +372,31 @@
 				<Card.Description>{m.play_join_desc()}</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<form class="flex gap-2" onsubmit={(e) => (e.preventDefault(), join())}>
-					<input
-						class="flex-1 rounded-md border px-3 py-2 text-sm"
-						placeholder={m.play_name_placeholder()}
-						bind:value={name}
-						maxlength="24"
-					/>
-					<Button type="submit" disabled={!name.trim()}>{m.join_button()}</Button>
+				<form class="flex flex-col gap-2" onsubmit={(e) => (e.preventDefault(), join())}>
+					<div class="flex gap-2">
+						<input
+							class="flex-1 rounded-md border px-3 py-2 text-sm"
+							placeholder={m.play_name_placeholder()}
+							bind:value={name}
+							oninput={() => (nameError = false)}
+							maxlength="24"
+						/>
+						<Button type="submit" disabled={!name.trim()}>{m.join_button()}</Button>
+					</div>
+					{#if nameError}
+						<p class="text-sm text-destructive">{m.play_name_emoji_error()}</p>
+					{/if}
 				</form>
 			</Card.Content>
 		</Card.Root>
 	{:else if phase === 'lobby'}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>{m.play_lobby_title()}</Card.Title>
+				<Card.Title>{m.play_lobby_named({ name: me })}</Card.Title>
 				<Card.Description>
-					{m.play_lobby_waiting()}{client.connected ? '' : ` · ${m.status_connecting()}`}
+					{m.play_lobby_waiting()}{client.status === 'live'
+						? ''
+						: ` · ${connectionLabel(client.status)}`}
 				</Card.Description>
 			</Card.Header>
 		</Card.Root>
@@ -309,7 +404,7 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title class="flex items-center justify-between">
-					<span>{m.play_guess_title()}</span>
+					<span>{m.play_guess_title({ name: me })}</span>
 					<span class="font-mono text-2xl tabular-nums">{countdown}</span>
 				</Card.Title>
 				<Card.Description>
@@ -318,14 +413,14 @@
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-4">
 				<div class="flex flex-col">
-					{#each DISPLAY_RANKS as rank (rank)}
+					{#each ranks as rank (rank)}
 						<div class="flex">
 							<div
 								class="flex w-5 items-center justify-center font-mono text-xs text-muted-foreground"
 							>
 								{rank}
 							</div>
-							{#each FILES as file (file)}
+							{#each files as file (file)}
 								{@const sq = `${file}${rank}`}
 								{@const isDark = isDarkSquare(file, rank)}
 								<button
@@ -344,7 +439,7 @@
 					{/each}
 					<div class="flex">
 						<div class="w-5"></div>
-						{#each FILES as file (file)}
+						{#each files as file (file)}
 							<div class="flex-1 text-center font-mono text-xs text-muted-foreground">
 								{file}
 							</div>
@@ -441,7 +536,11 @@
 						{:else if finishedMessage.kind === 'tiedLead'}
 							{m.finished_tied_lead()}
 						{:else}
-							{m.finished_behind({ points: finishedMessage.points, name: finishedMessage.name })}
+							{m.leaderboard_below_rank({
+								rank: localizedOrdinal(finishedMessage.rank, getLocale()),
+								points: finishedMessage.points,
+								name: finishedMessage.name
+							})}
 						{/if}
 					</p>
 				{/if}
@@ -451,102 +550,83 @@
 			</Card.Content>
 		</Card.Root>
 	{:else}
-		<!-- Three-card Reveal (#46): personal feedback, then the Leaderboard (gated on the
-		     Host's toggle, #51), then how the whole room guessed — each its own Card. -->
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title
-				>
-				<Card.Description>{m.play_round_score()}</Card.Description>
-			</Card.Header>
-			<Card.Content class="flex flex-col gap-4">
-				<div class="text-center">
-					<div class="font-mono text-5xl tabular-nums">
-						{myRoundScore > 0 ? '+' : ''}{myRoundScore}
-					</div>
-					<p class="mt-2 text-sm text-muted-foreground">{me}</p>
-				</div>
-				{#if feedback}
-					<div class="flex flex-col gap-2 rounded-lg border px-3 py-3">
-						<p class="text-sm font-medium">{feedback.phrase ?? explanationText(feedback.tier)}</p>
-						<div class="flex flex-col gap-1 text-sm">
-							{#if feedback.guessSan}
-								<div class="flex items-baseline justify-between gap-2">
-									<span class="text-muted-foreground">{m.play_feedback_your_move()}</span>
-									<span class="font-mono text-base"
-										>{formatNumberedMove(feedback.guessSan, feedback.ply)}</span
-									>
-								</div>
-							{/if}
-							<div class="flex items-baseline justify-between gap-2">
-								<span class="text-muted-foreground">{m.play_feedback_played()}</span>
-								<span class="font-mono text-base"
-									>{formatNumberedMove(feedback.playedSan, feedback.ply)}</span
-								>
-							</div>
-						</div>
-						{#if feedback.variant && feedback.variant.continuation.length}
-							<div class="flex flex-col gap-0.5">
-								<span class="text-xs tracking-wide text-muted-foreground uppercase"
-									>{m.play_feedback_continuation()}</span
-								>
-								<span class="font-mono text-sm">
-									{formatContinuation(feedback.variant.continuation, feedback.ply + 1)}
-									{#if feedback.variant.endEval != null}
-										<span class="text-muted-foreground">
-											({feedback.variant.endEval > 0 ? '+' : ''}{feedback.variant.endEval})
-										</span>
-									{/if}
-								</span>
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</Card.Content>
-		</Card.Root>
-
-		{#if phase === 'reveal' && history.length}
-			<!-- Game Sheet (#68): stays visible through Reveal, already filled in with the
-			     Round just revealed, instead of disappearing the instant Reveal happens. -->
+		<!-- Reveal/Statistics/Ranking are exclusive views here (#96, see revealFocus): this
+		     screen only ever shows one thing at a time, same as the guessing/Opponent
+		     Response phases above — so the default Reveal view (personal feedback + Game
+		     Sheet) steps aside the instant the Host opens Statistics or the Leaderboard. -->
+		{#if revealFocus === 'reveal'}
 			<Card.Root>
 				<Card.Header>
-					<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					<GameSheet
-						rows={history}
-						event={game.headers.Event}
-						date={game.headers.Date}
-						white={game.headers.White}
-						black={game.headers.Black}
-					/>
-				</Card.Content>
-			</Card.Root>
-		{/if}
-
-		<!-- Leaderboard (#51): only shown once the Host has toggled it open on the shared
-		     Reveal screen, except on the Final Round where it's always shown alongside the
-		     Podium. The viewer's own row is highlighted. -->
-		{#if isFinalRound || showLeaderboard}
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
+					<Card.Title
+						>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title
+					>
+					<Card.Description>{m.play_round_score()}</Card.Description>
 				</Card.Header>
 				<Card.Content class="flex flex-col gap-4">
-					{#if isFinalRound}
-						<Podium entries={top3} highlightId={me} />
+					<div class="text-center">
+						<div class="font-mono text-5xl tabular-nums">
+							{myRoundScore > 0 ? '+' : ''}{myRoundScore}
+						</div>
+						<p class="mt-2 text-sm text-muted-foreground">{me}</p>
+					</div>
+					{#if feedback}
+						<div class="flex flex-col gap-2 rounded-lg border px-3 py-3">
+							<p class="text-sm font-medium">{feedback.phrase ?? explanationText(feedback.tier)}</p>
+							<div class="flex flex-col gap-1 text-sm">
+								{#if feedback.guessSan}
+									<div class="flex items-baseline justify-between gap-2">
+										<span class="text-muted-foreground">{m.play_feedback_your_move()}</span>
+										<span class="font-mono text-base"
+											>{formatNumberedMove(feedback.guessSan, feedback.ply)}</span
+										>
+									</div>
+								{/if}
+								<div class="flex items-baseline justify-between gap-2">
+									<span class="text-muted-foreground">{m.play_feedback_played()}</span>
+									<span class="font-mono text-base"
+										>{formatNumberedMove(feedback.playedSan, feedback.ply)}</span
+									>
+								</div>
+							</div>
+							{#if feedback.variant && feedback.variant.continuation.length}
+								<div class="flex flex-col gap-0.5">
+									<span class="text-xs tracking-wide text-muted-foreground uppercase"
+										>{m.play_feedback_continuation()}</span
+									>
+									<span class="font-mono text-sm">
+										{formatContinuation(feedback.variant.continuation, feedback.ply + 1)}
+										{#if feedback.variant.endEval != null}
+											<span class="text-muted-foreground">
+												({feedback.variant.endEval > 0 ? '+' : ''}{feedback.variant.endEval})
+											</span>
+										{/if}
+									</span>
+								</div>
+							{/if}
+						</div>
 					{/if}
-					<Leaderboard
-						entries={leaders}
-						highlightId={me}
-						priorTotals={snapshot?.context.priorTotals ?? {}}
-						participants={snapshot?.context.participants ?? {}}
-					/>
 				</Card.Content>
 			</Card.Root>
-		{/if}
 
-		{#if groupBreakdown && showRoomStatistics}
+			{#if history.length}
+				<!-- Game Sheet (#68): part of the default Reveal view, already filled in with
+				     the Round just revealed, instead of disappearing the instant Reveal happens. -->
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<GameSheet
+							rows={history}
+							event={game.headers.Event}
+							date={game.headers.Date}
+							white={game.headers.White}
+							black={game.headers.Black}
+						/>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+		{:else if revealFocus === 'statistics' && groupBreakdown}
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>{m.play_guess_groups_title()}</Card.Title>
@@ -557,7 +637,7 @@
 						highlightScore={groupBreakdown.ownScore}
 					/>
 					<ul class="flex flex-col gap-1.5 text-sm">
-						{#each groupBreakdown.buckets as bucket (bucket.score)}
+						{#each [...groupBreakdown.buckets].reverse() as bucket (bucket.score)}
 							{@const isOwnBucket = bucket.score === groupBreakdown.ownScore}
 							{@const ownMove = groupBreakdown.sentence.san
 								? formatNumberedMove(groupBreakdown.sentence.san, quizStep?.ply ?? 1)
@@ -580,10 +660,7 @@
 								{#if isOwnBucket}
 									<span class="text-xs text-muted-foreground">
 										{#if groupBreakdown.sentence.others.length}
-											{m.play_guess_group_sentence_others({
-												names: groupBreakdown.sentence.others.join(', '),
-												move: ownMove
-											})}
+											{groupOthersSentence(groupBreakdown.sentence.others, ownMove)}
 										{:else}
 											{m.play_guess_group_sentence_alone({ move: ownMove })}
 										{/if}
@@ -592,6 +669,35 @@
 							</li>
 						{/each}
 					</ul>
+				</Card.Content>
+			</Card.Root>
+		{:else if revealFocus === 'ranking'}
+			<!-- Ranking (#51): the viewer's own row is highlighted. On the Final Round this is
+			     always the current view (revealFocus defaults to 'ranking' there), alongside
+			     the Podium. -->
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
+				</Card.Header>
+				<Card.Content class="flex flex-col gap-4">
+					{#if isFinalRound}
+						<Podium entries={top3} highlightId={me} />
+					{/if}
+					<Leaderboard
+						entries={leaders}
+						highlightId={me}
+						priorTotals={snapshot?.context.priorTotals ?? {}}
+						participants={snapshot?.context.participants ?? {}}
+					/>
+					{#if belowTop}
+						<p class="text-center text-sm font-medium">
+							{m.leaderboard_below_rank({
+								rank: localizedOrdinal(belowTop.rank, getLocale()),
+								points: belowTop.points,
+								name: belowTop.name
+							})}
+						</p>
+					{/if}
 				</Card.Content>
 			</Card.Root>
 		{/if}

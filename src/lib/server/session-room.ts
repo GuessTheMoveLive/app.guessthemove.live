@@ -4,10 +4,12 @@ import { roundMachine, type RoundEvent } from '#lib/round/round-machine.js';
 import { recordedGuesses, type GuessHistory } from '#lib/round/guess-history.js';
 import type { RoundSnapshot } from '#lib/round/snapshot.js';
 import { quizSteps } from '#lib/round/game-data.js';
+import { isValidGameId } from '#lib/round/game-catalog.js';
 import { generateHostToken } from '#lib/server/room-code.js';
 
 type ClientMessage =
 	| { type: 'join'; participantId: string }
+	| { type: 'select_game'; gameId: string }
 	| { type: 'start_round' }
 	| { type: 'submit'; guess: string }
 	| { type: 'adjust_round'; deltaMs: number }
@@ -19,6 +21,7 @@ type ClientMessage =
 	| { type: 'show_leaderboard' }
 	| { type: 'show_room_statistics' }
 	| { type: 'kick'; participantId: string }
+	| { type: 'reset_guess'; participantId: string }
 	| { type: 'reset' }
 	| { type: 'delete_session' }
 	| { type: 'end_session_early' };
@@ -44,12 +47,14 @@ const STORAGE_KEY_ROUND_INDEX = 'round-index';
 const STORAGE_KEY_TOTALS = 'totals';
 /** Whether the Host has opened the Leaderboard on the Reveal screen this Round - broadcast
  *  to every client so a Participant's phone only shows the Leaderboard once the Host has
- *  shown it (rather than unconditionally at every Reveal). One-way for the Round (#55): once
- *  true it stays true until a new Round starts and resets it back to false. */
+ *  shown it (rather than unconditionally at every Reveal). The Host can toggle it back off;
+ *  a new Round starting always resets it to false. Mutually exclusive with
+ *  STORAGE_KEY_SHOW_ROOM_STATISTICS below - at most one is ever true, so the Reveal
+ *  screen always has a single focus instead of stacking both cards at once. */
 const STORAGE_KEY_SHOW_LEADERBOARD = 'show-leaderboard';
 /** Whether the Host has opened Room Statistics on the Reveal screen this Round (#73) —
- *  same one-way-per-Round shape as STORAGE_KEY_SHOW_LEADERBOARD above, but gates the
- *  Guess Group breakdown card instead, independently of the Leaderboard toggle. */
+ *  same toggle shape as STORAGE_KEY_SHOW_LEADERBOARD above, but gates the Guess Group
+ *  breakdown card instead, and mutually exclusive with it. */
 const STORAGE_KEY_SHOW_ROOM_STATISTICS = 'show-room-statistics';
 /** Default visible Round length: 3 minutes (#22), shortenable/extendable by the Host. */
 const ROUND_DURATION_MS = 180_000;
@@ -73,6 +78,10 @@ const STORAGE_KEY_FINISHED_AT = 'finished-at';
 const HOST_TAG = 'host';
 /** The secret credential proving control of a Session (#37), set once at creation. */
 const STORAGE_KEY_HOST_TOKEN = 'host-token';
+/** The Featured Game id the Host has chosen from the Game Catalog (#93), set only in the
+ *  Lobby and freely re-selectable there. `start_round` refuses to proceed while this is
+ *  unset, even if somehow bypassed client-side. Cleared only by Reset. */
+const STORAGE_KEY_SELECTED_GAME_ID = 'selected-game-id';
 
 export class SessionRoom extends DurableObject {
 	private actor: Actor<typeof roundMachine> | undefined;
@@ -155,7 +164,28 @@ export class SessionRoom extends DurableObject {
 		switch (message.type) {
 			case 'join':
 				return;
+			case 'select_game': {
+				// Host-only (same isHostSocket guard as show_leaderboard below), and only
+				// meaningful in the Lobby - the Featured Game never changes once a Round has
+				// started (#93). Freely re-selectable any number of times before Start.
+				if (!this.isHostSocket(ws)) return;
+				if (actor.getSnapshot().value !== 'lobby') return;
+				if (!isValidGameId(message.gameId)) return;
+				await this.ctx.storage.put(STORAGE_KEY_SELECTED_GAME_ID, message.gameId);
+				// getActor() above already built and cached this.actor from whatever
+				// selectedGameId was stored *before* this selection — reading it fresh here
+				// would still be stale. Without invalidating, Round 1's answerKey stays
+				// locked to that earlier (often null) selection for the rest of the Round:
+				// every Guess scores 0 regardless of accuracy, no matter how correctly later
+				// Rounds (which do rebuild the actor, e.g. via next_round) score.
+				this.actor = undefined;
+				break;
+			}
 			case 'start_round': {
+				// A Session can never start with no Featured Game selected (#93) - holds even
+				// if the Host's own Start button (disabled client-side until a selection is
+				// made) is somehow bypassed or stale.
+				if ((await this.ctx.storage.get<string>(STORAGE_KEY_SELECTED_GAME_ID)) == null) return;
 				// Only the Host's "Start Round" for Round 1 (from Lobby) sends this message -
 				// every later Round is started by `next_round` driving the actor directly. So
 				// this is exactly the one moment the Session start time (#52) should be set,
@@ -179,6 +209,18 @@ export class SessionRoom extends DurableObject {
 			case 'adjust_round': {
 				// Host shortens/extends the running clock (#22). Re-schedule the authoritative
 				// timeout alarm, never letting it land in the past.
+				//
+				// A Round already `closed` has no alarm left to reschedule (it already fired) -
+				// a positive adjustment there instead reopens the Round (#92) so the Host's
+				// "+30s" keeps working after the clock has run out, giving anyone who missed
+				// the deadline a fresh chance to submit.
+				if (actor.getSnapshot().value === 'closed') {
+					if (message.deltaMs > 0) {
+						actor.send({ type: 'REOPEN' });
+						await this.ctx.storage.setAlarm(Date.now() + message.deltaMs);
+					}
+					break;
+				}
 				const current = await this.ctx.storage.getAlarm();
 				if (current != null) {
 					await this.ctx.storage.setAlarm(Math.max(Date.now() + 1_000, current + message.deltaMs));
@@ -223,7 +265,8 @@ export class SessionRoom extends DurableObject {
 				// Guarded to that exact screen — Finish only ever renders there — so a
 				// stray message from anywhere else is a no-op.
 				if (actor.getSnapshot().value !== 'opponentResponse') return;
-				if (this.roundIndex + 1 < quizSteps().length) return;
+				const selectedGameId = await this.ctx.storage.get<string>(STORAGE_KEY_SELECTED_GAME_ID);
+				if (this.roundIndex + 1 < quizSteps(selectedGameId ?? null).length) return;
 				actor.send({ type: 'FINISH' });
 				break;
 			}
@@ -233,8 +276,9 @@ export class SessionRoom extends DurableObject {
 				// stray repeat click from the Host's own network lag is a harmless no-op.
 				const phase = actor.getSnapshot().value;
 				if (phase !== 'reveal' && phase !== 'opponentResponse') return;
+				const selectedGameId = await this.ctx.storage.get<string>(STORAGE_KEY_SELECTED_GAME_ID);
 				const nextIndex = this.roundIndex + 1;
-				if (nextIndex >= quizSteps().length) return; // Featured Game has no more Rounds.
+				if (nextIndex >= quizSteps(selectedGameId ?? null).length) return; // No more Rounds.
 
 				await this.ctx.storage.put(STORAGE_KEY_TOTALS, actor.getSnapshot().context.totals);
 				await this.ctx.storage.put(STORAGE_KEY_ROUND_INDEX, nextIndex);
@@ -249,19 +293,25 @@ export class SessionRoom extends DurableObject {
 				break;
 			}
 			case 'show_leaderboard': {
-				// Host-only (#51, one-way since #55): opens the Leaderboard on the shared
-				// Reveal screen and every Participant's phone. There's no hiding it back once
-				// shown - a repeat message (or a stray one from a Participant) is a no-op.
+				// Host-only: toggles the Leaderboard on the shared Reveal screen and every
+				// Participant's phone on/off. Mutually exclusive with Room Statistics below —
+				// only one of the two ever shows at once, so turning this on turns that off,
+				// keeping the Reveal screen uncluttered and giving each view its own focus.
 				if (!this.isHostSocket(ws)) return;
-				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, true);
+				const current =
+					(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false;
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, !current);
+				if (!current) await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, false);
 				break;
 			}
 			case 'show_room_statistics': {
-				// Host-only, one-way per Round (#73): same shape as show_leaderboard above,
-				// but opens the Guess Group breakdown card instead, independently of the
-				// Leaderboard toggle.
+				// Host-only: same toggle shape as show_leaderboard above, but for the Guess
+				// Group breakdown card — and the same mutual exclusivity with it.
 				if (!this.isHostSocket(ws)) return;
-				await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, true);
+				const current =
+					(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_ROOM_STATISTICS)) ?? false;
+				await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, !current);
+				if (!current) await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, false);
 				break;
 			}
 			case 'kick': {
@@ -291,6 +341,16 @@ export class SessionRoom extends DurableObject {
 				}
 				break;
 			}
+			case 'reset_guess': {
+				// Host-only (#90), mirroring the kick guard above: clears one Participant's
+				// Guess back to pending so they can resubmit before the Round's shared
+				// deadline. No roster/storage bookkeeping of its own, unlike kick - the
+				// participant isn't being removed - so it just forwards to the actor and
+				// falls through to the shared persistSnapshot/broadcastSnapshot below.
+				if (!this.isHostSocket(ws)) return;
+				actor.send({ type: 'GUESS_RESET', participantId: message.participantId });
+				break;
+			}
 			case 'reset': {
 				// Same Room Code, same Featured Game - just wipes roster/scores/kicked-list/
 				// round-index back to the Lobby (#38). Available from any phase, including
@@ -308,6 +368,7 @@ export class SessionRoom extends DurableObject {
 				await this.ctx.storage.delete(STORAGE_KEY_SESSION_START_TIME);
 				await this.ctx.storage.delete(STORAGE_KEY_FINISHED_AT);
 				await this.ctx.storage.delete(STORAGE_KEY_ENDED_EARLY);
+				await this.ctx.storage.delete(STORAGE_KEY_SELECTED_GAME_ID);
 				await this.ctx.storage.deleteAlarm();
 				this.actor = undefined;
 				this.participantIds = [];
@@ -406,7 +467,9 @@ export class SessionRoom extends DurableObject {
 		const priorTotals =
 			(await this.ctx.storage.get<Record<string, number>>(STORAGE_KEY_TOTALS)) ?? {};
 		const snapshot = await this.ctx.storage.get<Snapshot<unknown>>(STORAGE_KEY_SNAPSHOT);
-		const answerKey = quizSteps()[this.roundIndex] ?? null;
+		const selectedGameId =
+			(await this.ctx.storage.get<string>(STORAGE_KEY_SELECTED_GAME_ID)) ?? null;
+		const answerKey = quizSteps(selectedGameId)[this.roundIndex] ?? null;
 
 		this.actor = createActor(roundMachine, {
 			input: { participantIds, answerKey, isScoringRound: true, priorTotals },
@@ -464,12 +527,16 @@ export class SessionRoom extends DurableObject {
 	private async broadcastSnapshot(): Promise<void> {
 		const actor = await this.getActor();
 		const snapshot = actor.getSnapshot();
+		const selectedGameId =
+			(await this.ctx.storage.get<string>(STORAGE_KEY_SELECTED_GAME_ID)) ?? null;
 		const payload: RoundSnapshot = {
 			value: snapshot.value as RoundSnapshot['value'],
 			context: snapshot.context,
 			deadline: await this.ctx.storage.getAlarm(),
+			serverNow: Date.now(),
 			roundIndex: this.roundIndex,
-			totalRounds: quizSteps().length,
+			totalRounds: quizSteps(selectedGameId).length,
+			selectedGameId,
 			showLeaderboard: (await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false,
 			showRoomStatistics:
 				(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_ROOM_STATISTICS)) ?? false,

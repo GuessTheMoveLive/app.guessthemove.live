@@ -187,7 +187,7 @@ export function buildParticipantFeedback(
 	// #61: the tier label comes from the same computed win-probability-loss bands
 	// scoring.ts uses to award the score, not a separately hand-typed PGN tier - so
 	// the two can never drift out of sync.
-	const computedTier = computeTier(step, alt.eval);
+	const computedTier = computeTier(step, alt.eval, alt.winProb);
 	if (computedTier === 'blunder') {
 		return { tier: blunderTier(score), score, ply, playedSan: step.san, guessSan, variant, phrase };
 	}

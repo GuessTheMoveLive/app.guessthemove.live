@@ -17,10 +17,37 @@ export interface Piece {
 	color: PieceColor;
 }
 
+const PICTOGRAPHIC_PATTERN = /\p{Extended_Pictographic}/u;
+
+/**
+ * Whether a candidate Participant display name contains an emoji/pictographic
+ * character (#86) — rejected at join rather than silently stripped. Accented
+ * letters, non-Latin scripts, digits, spaces, and basic punctuation are all
+ * unaffected; only the Unicode `Extended_Pictographic` property (emoji and
+ * emoji-like symbols) is checked for.
+ */
+export function containsEmoji(name: string): boolean {
+	return PICTOGRAPHIC_PATTERN.test(name);
+}
+
 /** Files left-to-right across the grid. */
 export const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 /** Ranks top-to-bottom down the grid, White's view (#24: full coordinates on both axes). */
 export const DISPLAY_RANKS = [8, 7, 6, 5, 4, 3, 2, 1] as const;
+
+/**
+ * Ranks top-to-bottom for the tap-to-guess grid, oriented so the Featured Side's own
+ * pieces sit at the bottom (#87): unchanged for White, reversed for Black. Callers get
+ * `featuredColor` from the current Round's `quizStep.color` (`GameStep.color`, game-data.ts).
+ */
+export function displayRanks(featuredColor: PieceColor): readonly number[] {
+	return featuredColor === 'b' ? [1, 2, 3, 4, 5, 6, 7, 8] : DISPLAY_RANKS;
+}
+
+/** Files left-to-right for the tap-to-guess grid — see {@link displayRanks} (#87). */
+export function displayFiles(featuredColor: PieceColor): readonly (typeof FILES)[number][] {
+	return featuredColor === 'b' ? [...FILES].reverse() : FILES;
+}
 
 /**
  * Whether a tap-grid square renders as the dark color, matching standard chess board
@@ -31,7 +58,16 @@ export function isDarkSquare(file: (typeof FILES)[number], rank: number): boolea
 	return (FILES.indexOf(file) + rank) % 2 === 1;
 }
 
-const PIECE_GLYPH: Record<PieceType, string> = {
+const WHITE_PIECE_GLYPH: Record<PieceType, string> = {
+	k: '♔',
+	q: '♕',
+	r: '♖',
+	b: '♗',
+	n: '♘',
+	p: '♙'
+};
+
+const BLACK_PIECE_GLYPH: Record<PieceType, string> = {
 	k: '♚',
 	q: '♛',
 	r: '♜',
@@ -39,6 +75,10 @@ const PIECE_GLYPH: Record<PieceType, string> = {
 	n: '♞',
 	p: '♟'
 };
+
+function pieceGlyph(type: PieceType, color: PieceColor): string {
+	return color === 'w' ? WHITE_PIECE_GLYPH[type] : BLACK_PIECE_GLYPH[type];
+}
 
 const SAN_LETTER_TO_TYPE: Record<string, PieceType> = {
 	K: 'k',
@@ -85,19 +125,21 @@ export function pieceAt(fen: string, square: string): Piece | null {
 
 /**
  * Render a SAN move in standard PGN notation, except K/Q/R/B/N letters (piece-to-move
- * and promotion piece) become their Unicode glyphs. Pawn moves are left exactly as
- * standard SAN (e.g. "e4", "exd5") — no glyph is prefixed, unlike a figurine-only
- * notation that would mark every move with a piece symbol.
+ * and promotion piece) become their Unicode glyphs — White's moves in the white-glyph
+ * set, Black's in the black-glyph set (#88: previously always black, regardless of
+ * `color`). Pawn moves are left exactly as standard SAN (e.g. "e4", "exd5") — no glyph
+ * is prefixed, unlike a figurine-only notation that would mark every move with a piece
+ * symbol.
  */
-export function sanToGlyph(san: string): string {
+export function sanToGlyph(san: string, color: PieceColor): string {
 	if (san === 'O-O' || san === 'O-O-O') return san;
 
 	const withPromo = san.replace(
 		/=([QRBN])/g,
-		(_, letter: string) => `=${PIECE_GLYPH[SAN_LETTER_TO_TYPE[letter]]}`
+		(_, letter: string) => `=${pieceGlyph(SAN_LETTER_TO_TYPE[letter], color)}`
 	);
 	const leadType = SAN_LETTER_TO_TYPE[withPromo[0]];
-	if (leadType) return PIECE_GLYPH[leadType] + withPromo.slice(1);
+	if (leadType) return pieceGlyph(leadType, color) + withPromo.slice(1);
 	return withPromo;
 }
 
@@ -191,7 +233,7 @@ export function resolveTapMove(
 		san = matches.length === 1 ? matches[0] : fallbackSan(piece, from, to, capture);
 	}
 
-	return { from, to, piece, capture, san, glyph: sanToGlyph(san) };
+	return { from, to, piece, capture, san, glyph: sanToGlyph(san, piece.color) };
 }
 
 /** The 1-based move number a ply belongs to (White's 5th and Black's 5th are both 5). */
@@ -210,8 +252,9 @@ export function isWhitePly(ply: number): boolean {
  * Black move is written when it stands alone, not following its White counterpart.
  */
 export function formatNumberedMove(san: string, ply: number): string {
-	const prefix = `${moveNumber(ply)}${isWhitePly(ply) ? '.' : '...'}`;
-	return `${prefix}${sanToGlyph(san)}`;
+	const white = isWhitePly(ply);
+	const prefix = `${moveNumber(ply)}${white ? '.' : '...'}`;
+	return `${prefix}${sanToGlyph(san, white ? 'w' : 'b')}`;
 }
 
 /**
@@ -224,8 +267,9 @@ export function formatContinuation(sans: string[], startPly: number): string {
 	return sans
 		.map((san, i) => {
 			const ply = startPly + i;
-			const glyph = sanToGlyph(san);
-			if (isWhitePly(ply)) return `${moveNumber(ply)}.${glyph}`;
+			const white = isWhitePly(ply);
+			const glyph = sanToGlyph(san, white ? 'w' : 'b');
+			if (white) return `${moveNumber(ply)}.${glyph}`;
 			if (i === 0) return `${moveNumber(ply)}...${glyph}`;
 			return glyph;
 		})
@@ -252,8 +296,8 @@ export function buildMoveHistory(steps: GameStep[]): MoveHistoryRow[] {
 			row = { number, white: null, black: null };
 			rows.push(row);
 		}
-		if (step.color === 'w') row.white = sanToGlyph(step.san);
-		else row.black = sanToGlyph(step.san);
+		if (step.color === 'w') row.white = sanToGlyph(step.san, step.color);
+		else row.black = sanToGlyph(step.san, step.color);
 	}
 	return rows;
 }

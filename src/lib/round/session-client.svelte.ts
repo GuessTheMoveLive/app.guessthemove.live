@@ -35,7 +35,25 @@ export class SessionClient {
 	/** True once the Host has deleted this Session entirely (#38) — every connection,
 	 *  Host included, sees "This session has ended" rather than just retrying. */
 	ended = $state(false);
+	/** Server clock minus this device's own clock, measured off each broadcast snapshot's
+	 *  `serverNow` (#92) - add this to a local `Date.now()` reading before comparing it to
+	 *  `deadline` so the Round countdown is accurate even when the device's own wall clock
+	 *  is off by a few seconds either way. */
+	clockOffsetMs = $state(0);
+	/** True once the very first connection has opened - distinguishes "still making the
+	 *  first connection" from "was connected, then dropped" below, so the connection chip
+	 *  (#92) can tell "connecting…" apart from "broken". */
+	#hasConnectedOnce = $state(false);
 	#ws: WebSocket | null = null;
+
+	/** The connection chip's three states (#92): `connecting` before the first connection
+	 *  has ever opened, `live` while connected, `broken` for a connection that opened once
+	 *  and has since dropped (and wasn't a kick/delete, which get their own dedicated
+	 *  screens instead of this chip). */
+	get status(): 'connecting' | 'live' | 'broken' {
+		if (this.connected) return 'live';
+		return this.#hasConnectedOnce ? 'broken' : 'connecting';
+	}
 
 	connect(options: ConnectOptions): void {
 		if (!browser || this.#ws) return;
@@ -49,14 +67,19 @@ export class SessionClient {
 		const ws = new WebSocket(`${scheme}://${location.host}/api/session/${code}?${query}`);
 		this.#ws = ws;
 
-		ws.addEventListener('open', () => (this.connected = true));
+		ws.addEventListener('open', () => {
+			this.connected = true;
+			this.#hasConnectedOnce = true;
+		});
 		ws.addEventListener('close', (event) => {
 			this.connected = false;
 			if (event.code === KICK_CLOSE_CODE) this.kicked = true;
 			else if (event.code === DELETE_CLOSE_CODE) this.ended = true;
 		});
 		ws.addEventListener('message', (event) => {
-			this.snapshot = JSON.parse(event.data as string) as RoundSnapshot;
+			const snapshot = JSON.parse(event.data as string) as RoundSnapshot;
+			this.clockOffsetMs = snapshot.serverNow - Date.now();
+			this.snapshot = snapshot;
 		});
 	}
 
@@ -66,6 +89,13 @@ export class SessionClient {
 
 	startRound(): void {
 		this.#send({ type: 'start_round' });
+	}
+
+	/** Host selects the Featured Game from the Game Catalog, in the Lobby (#93) - freely
+	 *  re-selectable any number of times before Start, which SessionRoom refuses to allow
+	 *  until some selection has been made. */
+	selectGame(gameId: string): void {
+		this.#send({ type: 'select_game', gameId });
 	}
 
 	/** Shorten (negative) or extend (positive) the running Round clock, in ms (#22). */
@@ -98,16 +128,16 @@ export class SessionClient {
 		this.#send({ type: 'next_round' });
 	}
 
-	/** Host opens the Leaderboard on the shared Reveal screen and every Participant's
-	 *  phone (#51) — broadcast via the snapshot's `showLeaderboard`. One-way for the Round
-	 *  (#55): there's no corresponding hide. */
+	/** Host toggles the Leaderboard on the shared Reveal screen and every Participant's
+	 *  phone (#51) — broadcast via the snapshot's `showLeaderboard`. Mutually exclusive
+	 *  with showRoomStatistics below: the server turns that off when this turns on. */
 	showLeaderboard(): void {
 		this.#send({ type: 'show_leaderboard' });
 	}
 
-	/** Host opens the Guess Group breakdown card on the shared Reveal screen and every
-	 *  Participant's phone (#73) — same one-way-per-Round shape as showLeaderboard above,
-	 *  broadcast via the snapshot's `showRoomStatistics`, and independent of it. */
+	/** Host toggles the Guess Group breakdown card on the shared Reveal screen and every
+	 *  Participant's phone (#73) — same toggle shape as showLeaderboard above, broadcast via
+	 *  the snapshot's `showRoomStatistics`, and mutually exclusive with it. */
 	showRoomStatistics(): void {
 		this.#send({ type: 'show_room_statistics' });
 	}
@@ -115,6 +145,13 @@ export class SessionClient {
 	/** Host removes a disruptive Participant; they cannot rejoin under the same name. */
 	kick(participantId: string): void {
 		this.#send({ type: 'kick', participantId });
+	}
+
+	/** Host clears one Participant's mistaken Guess back to not-submitted so they can
+	 *  resubmit before the Round's shared deadline (#90) - no effect on anyone else's
+	 *  Guess, score, or remaining time, and no independent timer of its own. */
+	resetGuess(participantId: string): void {
+		this.#send({ type: 'reset_guess', participantId });
 	}
 
 	/** Host wipes roster/scores back to the Lobby, same Room Code and Featured Game (#38). */

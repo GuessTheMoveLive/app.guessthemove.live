@@ -11,10 +11,22 @@ import {
 import type { GameData, GameStep } from './game-data';
 import type { AnswerKeyAlternative } from './scoring';
 
+const STANDARD_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// The real position before each ply of 1. e4 e5 2. Nf3 Nc6 3. Bb5 — needed so
+// renderVariation can actually replay a guessed SAN through chess.js.
+const FEN_BEFORE_PLY = [
+	STANDARD_START,
+	'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+	'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+	'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2',
+	'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3'
+];
+
 function step(partial: Partial<GameStep> & { ply: number; san: string }): GameStep {
 	return {
 		color: partial.ply % 2 === 1 ? 'w' : 'b',
-		fenBefore: '',
+		fenBefore: FEN_BEFORE_PLY[partial.ply - 1],
 		fenAfter: '',
 		moveNumber: null,
 		playedComment: null,
@@ -26,8 +38,6 @@ function step(partial: Partial<GameStep> & { ply: number; san: string }): GameSt
 function alt(partial: Partial<AnswerKeyAlternative> & { san: string }): AnswerKeyAlternative {
 	return { eval: null, continuation: [], ...partial };
 }
-
-const STANDARD_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 // Three graded (Featured Side) White moves — e4, Nf3, Bb5 — interleaved with two
 // ungraded Black replies, so Round 0/1/2 map onto ply 1/3/5.
@@ -126,18 +136,26 @@ describe('buildParticipantPgn', () => {
 		expect(pgn).toContain('1. e4 e5 2. Nf3 Nc6 3. Bb5');
 	});
 
-	it("attaches every played Round's Guess as a move comment", () => {
-		const history = { 0: { alice: 'd4' }, 1: { alice: 'Nf3' } };
-		const pgn = buildParticipantPgn(game(), history, 'alice', { alice: 1 }, 2, true);
-		expect(pgn).toContain('1. e4 {Guessed: d4} e5 2. Nf3 {Guessed: Nf3} Nc6');
+	it("attaches every played Round's wrong Guess as a real PGN variation, not a comment", () => {
+		const history = { 0: { alice: 'd4' } };
+		const pgn = buildParticipantPgn(game(), history, 'alice', { alice: 0 }, 1, true);
+		expect(pgn).toContain('1. e4 (1. d4) e5');
+		expect(pgn).not.toContain('Guessed: d4');
 	});
 
-	it('carries no Guess comment on a Round beyond where the Session ended early', () => {
-		const history = { 0: { alice: 'd4' }, 1: { alice: 'Nf3' } };
+	it('adds no variation when the Guess matched the move actually played', () => {
+		const history = { 1: { alice: 'Nf3' } };
+		const pgn = buildParticipantPgn(game(), history, 'alice', { alice: 3 }, 2, true);
+		expect(pgn).toContain('2. Nf3 Nc6');
+		expect(pgn).not.toMatch(/Nf3\s*\(/);
+	});
+
+	it('carries no variation on a Round beyond where the Session ended early', () => {
+		const history = { 0: { alice: 'd4' }, 1: { alice: 'Bc4' }, 2: { alice: 'Qh5' } };
 		// roundsPlayed = 2: Round 2 (the final move, Bb5) never happened.
 		const pgn = buildParticipantPgn(game(), history, 'alice', { alice: 1 }, 2, true);
 		const finalMoveSection = pgn.split('3. Bb5')[1];
-		expect(finalMoveSection).not.toContain('Guessed: Bb5');
+		expect(finalMoveSection).not.toContain('Qh5');
 	});
 
 	it("attaches the plain-prose performance summary to the PGN's final move", () => {
@@ -146,10 +164,10 @@ describe('buildParticipantPgn', () => {
 		expect(pgn).not.toMatch(/\[\s*Points/i);
 	});
 
-	it("merges the final move's own Guess comment with the performance summary", () => {
-		const history = { 0: { alice: 'd4' }, 1: { alice: 'Nf3' }, 2: { alice: 'Bb5' } };
+	it("places the final move's own Guess variation before the performance summary comment", () => {
+		const history = { 0: { alice: 'e4' }, 1: { alice: 'Nf3' }, 2: { alice: 'Bc4' } };
 		const pgn = buildParticipantPgn(game(), history, 'alice', { alice: 9 }, 3, false);
-		expect(pgn).toContain('{Guessed: Bb5 Final score: +9 points.');
+		expect(pgn).toContain('3. Bb5 (3. Bc4) {Final score: +9 points.');
 	});
 });
 
@@ -218,22 +236,28 @@ describe('hostFinalMoveSummary', () => {
 });
 
 describe('buildHostPgn', () => {
-	it("attaches every played Round's distinct Guess Groups, not one participant's own Guess", () => {
+	it("attaches every played Round's distinct wrong Guess Groups as real PGN variations, each carrying its own participant names as a comment, and omits the group that guessed right", () => {
 		const history = {
 			0: { alice: 'd4', bob: 'd4', carol: 'e4' },
-			1: { alice: 'Nf3' }
+			1: { alice: 'Bc4' }
 		};
 		const pgn = buildHostPgn(game(), history, { alice: 1, bob: 1, carol: 3 }, 2, false, null);
-		expect(pgn).toContain(
-			'1. e4 {Guesses: d4 (alice, bob); e4 (carol)} e5 2. Nf3 {Guesses: Nf3 (alice)}'
-		);
+		expect(pgn).toContain('1. e4 (1. d4 {alice, bob}) e5 2. Nf3 (2. Bc4 {alice}) Nc6');
+		expect(pgn).not.toContain('Guesses');
 	});
 
-	it('carries no Guess Groups comment on a Round beyond where the Session ended early', () => {
+	it('adds no variation for a Round where every Guess matched the move actually played', () => {
+		const history = { 0: { alice: 'e4', bob: 'e4' } };
+		const pgn = buildHostPgn(game(), history, { alice: 3, bob: 3 }, 1, false, null);
+		expect(pgn).toContain('1. e4 e5');
+		expect(pgn).not.toMatch(/e4\s*\(/);
+	});
+
+	it('carries no Guess Group variation on a Round beyond where the Session ended early', () => {
 		const history = { 0: { alice: 'd4' } };
 		const pgn = buildHostPgn(game(), history, { alice: 0 }, 1, true, null);
 		const finalMoveSection = pgn.split('3. Bb5')[1];
-		expect(finalMoveSection).not.toContain('Guesses:');
+		expect(finalMoveSection).not.toContain('(1. d4');
 	});
 
 	it('attaches the Host summary (full Leaderboard, early-end state, elapsed time) to the final move', () => {
@@ -242,9 +266,9 @@ describe('buildHostPgn', () => {
 		expect(pgn).toContain('Total elapsed time: 2m 0s.');
 	});
 
-	it("merges the final move's own Guess Groups comment with the Host summary", () => {
-		const history = { 0: { alice: 'e4' }, 1: { alice: 'Nf3' }, 2: { alice: 'Bb5' } };
+	it("places the final move's own Guess Group variation before the Host summary comment", () => {
+		const history = { 0: { alice: 'e4' }, 1: { alice: 'Nf3' }, 2: { alice: 'Bc4' } };
 		const pgn = buildHostPgn(game(), history, { alice: 9 }, 3, false, null);
-		expect(pgn).toContain('{Guesses: Bb5 (alice) Final Leaderboard: 1st alice (+9).');
+		expect(pgn).toContain('3. Bb5 (3. Bc4 {alice}) {Final Leaderboard: 1st alice (+9).');
 	});
 });

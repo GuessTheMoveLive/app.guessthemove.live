@@ -117,6 +117,19 @@ export function chartParticipantLabel(count: number): string {
 }
 
 /**
+ * The Guess Group sentence naming everyone else who submitted the viewer's own move
+ * (#53's `sentence.others`), pluralised through paraglide so a single other Participant
+ * reads as "Charlie also played..." with the singular verb form each locale needs (e.g.
+ * German "hat" vs "haben"), not just a plural count of names joined together.
+ */
+export function groupOthersSentence(others: string[], move: string): string {
+	const names = others.join(', ');
+	return others.length === 1
+		? m.play_guess_group_sentence_others_one({ names, move })
+		: m.play_guess_group_sentence_others_other({ names, move });
+}
+
+/**
  * The label below a chart bar (#46): the signed Round Score in points, pluralised so
  * "+1 point" / "-1 point" stay singular while "+2 points", "-3 points" and "0 points"
  * read plural. The sign is baked into the interpolated value, so every locale keeps the

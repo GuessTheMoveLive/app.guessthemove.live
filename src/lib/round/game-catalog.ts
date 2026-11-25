@@ -1,4 +1,5 @@
 import bernsteinCapablanca from '../data/bernstein-capablanca.json';
+import botvinnikBatuev from '../data/botvinnik-batuev.json';
 import capablancaMarshall from '../data/capablanca-marshall.json';
 import type { GameData } from './game-data';
 import { openingNameFor } from './eco-openings';
@@ -14,7 +15,8 @@ interface ManifestEntry {
 
 const MANIFEST: ManifestEntry[] = [
 	{ id: 'bernstein-capablanca', data: bernsteinCapablanca as unknown as GameData },
-	{ id: 'capablanca-marshall', data: capablancaMarshall as unknown as GameData }
+	{ id: 'capablanca-marshall', data: capablancaMarshall as unknown as GameData },
+	{ id: 'botvinnik-batuev', data: botvinnikBatuev as unknown as GameData }
 ];
 
 /** One row of the Lobby's Game Catalog table — every display fact read straight off

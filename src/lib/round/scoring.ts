@@ -21,6 +21,12 @@ export type Tier = '+3' | '+2' | '+1' | '0' | 'blunder';
 export interface AnswerKeyAlternative {
 	san: string;
 	eval: number | null;
+	/** Mover-relative win-probability (0-100), sourced per ADR 0009 from the engine's
+	 *  native WDL (Engine Win Probability) or, while still In Book, from Lichess Masters
+	 *  outcome stats (Book Win Probability) — authored offline alongside `eval`. Null for
+	 *  every game authored before 0009, which keeps deriving win-probability from `eval`
+	 *  via the logistic curve ({@link winPercentForMover}). */
+	winProb?: number | null;
 	/** The precomputed continuation (Feedback's Variant, #36): the SANs played after this
 	 *  alternative, authored offline alongside the rest of the answer key. Empty when the
 	 *  PGN's variation carried no further moves. */
@@ -37,7 +43,7 @@ export interface AnswerKeyStep {
 	/** Whose move this is — needed to mirror an Evaluation (always White's pawns
 	 *  perspective) into the mover's own win-probability (#61). */
 	color: 'w' | 'b';
-	playedComment: { eval: number | null } | null;
+	playedComment: { eval: number | null; winProb?: number | null } | null;
 	alternatives: AnswerKeyAlternative[];
 }
 
@@ -69,13 +75,35 @@ function winPercentForMover(evalPawns: number, color: 'w' | 'b'): number {
 	return 50 + 50 * (2 / (1 + Math.exp(-WIN_PERCENT_K * centipawns)) - 1);
 }
 
-/** Every move at this position with a known Evaluation (the played move plus
- *  every graded alternative), converted to the mover's own win-probability. */
+/** `winProb` when authored (ADR 0009's Engine/Book Win Probability), otherwise the
+ *  logistic-curve derivation from `evalPawns` (#61) — the one place every mover-relative
+ *  win-probability in this module is resolved, so old (eval-only) and new
+ *  (winProb-authored) Featured Games share every other computation unchanged. */
+function moverWinPercent(
+	step: AnswerKeyStep,
+	evalPawns: number | null,
+	winProb?: number | null
+): number | null {
+	if (winProb != null) return winProb;
+	if (evalPawns == null) return null;
+	return winPercentForMover(evalPawns, step.color);
+}
+
+/** Every move at this position with a known Evaluation or win-probability (the played
+ *  move plus every graded alternative), as the mover's own win-probability. */
 function allWinPercents(step: AnswerKeyStep): number[] {
-	const evals: number[] = [];
-	if (step.playedComment?.eval != null) evals.push(step.playedComment.eval);
-	for (const alt of step.alternatives) if (alt.eval != null) evals.push(alt.eval);
-	return evals.map((e) => winPercentForMover(e, step.color));
+	const percents: number[] = [];
+	const played = moverWinPercent(
+		step,
+		step.playedComment?.eval ?? null,
+		step.playedComment?.winProb
+	);
+	if (played != null) percents.push(played);
+	for (const alt of step.alternatives) {
+		const percent = moverWinPercent(step, alt.eval, alt.winProb);
+		if (percent != null) percents.push(percent);
+	}
+	return percents;
 }
 
 /** The highest mover-relative win-probability among the Featured Side's actual
@@ -87,10 +115,10 @@ function bestWinPercent(step: AnswerKeyStep): number | null {
 	return percents.length ? Math.max(...percents) : null;
 }
 
-/** The played move's own win-probability. Null when its Evaluation is unknown. */
+/** The played move's own win-probability. Null when neither its winProb nor its
+ *  Evaluation is known. */
 function playedWinPercent(step: AnswerKeyStep): number | null {
-	if (step.playedComment?.eval == null) return null;
-	return winPercentForMover(step.playedComment.eval, step.color);
+	return moverWinPercent(step, step.playedComment?.eval ?? null, step.playedComment?.winProb);
 }
 
 /** The highest win-probability strictly below the played move's — i.e. the move
@@ -187,11 +215,15 @@ function blunderScoreFromLoss(loss: number): number {
  * replacing the hand-typed PGN tier label. Null when the Evaluation, or every
  * Evaluation at this position, is unknown — there's nothing to band.
  */
-export function computeTier(step: AnswerKeyStep, evalPawns: number | null): Tier | null {
-	if (evalPawns == null) return null;
+export function computeTier(
+	step: AnswerKeyStep,
+	evalPawns: number | null,
+	winProb?: number | null
+): Tier | null {
+	const movePercent = moverWinPercent(step, evalPawns, winProb);
+	if (movePercent == null) return null;
 	const best = bestWinPercent(step);
 	if (best == null) return null;
-	const movePercent = winPercentForMover(evalPawns, step.color);
 	if (isTopTier(step, movePercent)) return '+3';
 	return tierFromLoss(best - movePercent);
 }
@@ -201,11 +233,15 @@ export function computeTier(step: AnswerKeyStep, evalPawns: number | null): Tier
  * computed tier (#61) — the graded-alternative half of {@link scoreGuess}, its
  * only caller. Null when there's no Evaluation to compute from.
  */
-export function scoreFromEval(step: AnswerKeyStep, evalPawns: number | null): number | null {
-	if (evalPawns == null) return null;
+export function scoreFromEval(
+	step: AnswerKeyStep,
+	evalPawns: number | null,
+	winProb?: number | null
+): number | null {
+	const movePercent = moverWinPercent(step, evalPawns, winProb);
+	if (movePercent == null) return null;
 	const best = bestWinPercent(step);
 	if (best == null) return null;
-	const movePercent = winPercentForMover(evalPawns, step.color);
 	if (isTopTier(step, movePercent)) return TIER_POINTS['+3'];
 	const loss = best - movePercent;
 	const tier = tierFromLoss(loss);
@@ -224,7 +260,7 @@ export function scoreGuess(step: AnswerKeyStep, guessSan: string): number {
 	if (guessSan === step.san) return 3;
 	const alt = step.alternatives.find((a) => a.san === guessSan);
 	if (!alt) return 0;
-	return scoreFromEval(step, alt.eval) ?? 0;
+	return scoreFromEval(step, alt.eval, alt.winProb) ?? 0;
 }
 
 /**

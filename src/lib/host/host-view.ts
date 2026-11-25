@@ -305,7 +305,12 @@ export interface AnswerKeyRow {
  *  all compute to tier +2) still rank apart instead of being treated as tied. Null
  *  when the move's own Evaluation is unknown - an unanalyzed eval can't be placed by
  *  strength, and sorts last via the comparator below. */
-function strengthRank(step: AnswerKeyStep, evalPawns: number | null): number | null {
+function strengthRank(
+	step: AnswerKeyStep,
+	evalPawns: number | null,
+	winProb?: number | null
+): number | null {
+	if (winProb != null) return winProb;
 	if (evalPawns == null) return null;
 	return step.color === 'w' ? evalPawns : -evalPawns;
 }
@@ -342,6 +347,7 @@ export function answerKeyBreakdown(
 	if (!step) return [];
 
 	const playedEval = step.playedComment?.eval ?? null;
+	const playedWinProb = step.playedComment?.winProb ?? null;
 	const playedScore = playedMoveScore(step);
 	const playedLabel = playedScore != null ? formatScoreLabel(playedScore) : null;
 	const moverName = step.color === 'w' ? whiteName : blackName;
@@ -354,7 +360,7 @@ export function answerKeyBreakdown(
 
 	const ranked = [
 		{
-			rank: strengthRank(step, playedEval),
+			rank: strengthRank(step, playedEval, playedWinProb),
 			row: {
 				san: step.san,
 				glyph: formatNumberedMove(step.san, ply),
@@ -366,11 +372,11 @@ export function answerKeyBreakdown(
 			}
 		},
 		...step.alternatives.map((alt) => ({
-			rank: strengthRank(step, alt.eval),
+			rank: strengthRank(step, alt.eval, alt.winProb),
 			row: {
 				san: alt.san,
 				glyph: formatNumberedMove(alt.san, ply),
-				tier: formatScoreLabel(scoreFromEval(step, alt.eval) ?? 0),
+				tier: formatScoreLabel(scoreFromEval(step, alt.eval, alt.winProb) ?? 0),
 				eval: alt.eval,
 				continuation: alt.continuation.length ? formatContinuation(alt.continuation, ply + 1) : '',
 				isGameMove: alt.san === step.san,

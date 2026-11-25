@@ -1018,6 +1018,34 @@ describe('SessionRoom', () => {
 			expect(snapshot.totalRounds).not.toBe(quizSteps('bernstein-capablanca').length);
 		});
 
+		it('Round 1 scores correctly even though joining before select_game already built the actor', async () => {
+			// Regression for a bug where Round 1 always scored 0: `fetch`'s
+			// broadcastSnapshot (triggered by every join) calls getActor(), which
+			// caches an actor built from whatever selectedGameId was in storage at
+			// that moment (none yet, here) - and the select_game handler persisted the
+			// new id without invalidating that cache, so start_round's Round 1 kept
+			// scoring off the stale (unselected) answer key.
+			const { room, ctx, token } = await openRoom({ selectGame: false });
+			const { ws: hostWs } = await joinHost(room, ctx, token);
+			const { ws: aliceWs } = await join(room, ctx, 'alice');
+
+			await room.webSocketMessage(
+				hostWs as never,
+				JSON.stringify({ type: 'select_game', gameId: 'capablanca-marshall' })
+			);
+			await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
+
+			const bestMove = quizSteps('capablanca-marshall')[0].san;
+			await room.webSocketMessage(
+				aliceWs as never,
+				JSON.stringify({ type: 'submit', guess: bestMove })
+			);
+			await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'reveal' }));
+
+			const snapshot = aliceWs.lastSnapshot() as { context: { scores: Record<string, number> } };
+			expect(snapshot.context.scores.alice).toBe(3);
+		});
+
 		it('ignores a select_game once the Session has left the Lobby', async () => {
 			const { room, ctx, token } = await openRoom({ selectGame: false });
 			const { ws: hostWs } = await joinHost(room, ctx, token);

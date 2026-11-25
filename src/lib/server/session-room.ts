@@ -170,6 +170,13 @@ export class SessionRoom extends DurableObject {
 				if (actor.getSnapshot().value !== 'lobby') return;
 				if (!isValidGameId(message.gameId)) return;
 				await this.ctx.storage.put(STORAGE_KEY_SELECTED_GAME_ID, message.gameId);
+				// getActor() above already built and cached this.actor from whatever
+				// selectedGameId was stored *before* this selection — reading it fresh here
+				// would still be stale. Without invalidating, Round 1's answerKey stays
+				// locked to that earlier (often null) selection for the rest of the Round:
+				// every Guess scores 0 regardless of accuracy, no matter how correctly later
+				// Rounds (which do rebuild the actor, e.g. via next_round) score.
+				this.actor = undefined;
 				break;
 			}
 			case 'start_round': {

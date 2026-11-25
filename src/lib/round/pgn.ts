@@ -1,15 +1,86 @@
 import { Chess } from 'chess.js';
 import type { GameData, GameStep } from './game-data';
 import type { GuessHistory } from './guess-history';
+import { isWhitePly, moveNumber as moveNumberForPly } from './participant-input';
 import { scoreGuess } from './scoring';
 
 // Participant PGN export (#59): the first PGN-writing code in the codebase (chess.js
 // was present but unused for PGN before this). The mainline is always the full
 // original Featured Game — even moves beyond where an early-ended Session (#57)
-// stopped — decorated per-Round with this participant's own Guess, plus a
-// plain-prose performance summary on the PGN's final move. Comments only; no
+// stopped — decorated per-Round with real PGN variations (RAV) for the Guesses made
+// that Round, plus a plain-prose performance summary on the PGN's final move. Guesses
+// are rendered as actual move notation rather than prose comments embedding a SAN
+// (e.g. "Guessed: Qc2") — a lightweight PGN viewer set to another language renders
+// real moves in its own notation conventions, but can't translate a SAN sitting
+// inside an English sentence. chess.js's own `pgn()` writer has no concept of
+// variations, so the movetext here is hand-rolled instead of delegated to it. No
 // custom header tags, since lightweight PGN viewers tend to render move comments
 // but ignore unrecognized headers.
+
+/** One guessed line to render as a PGN variation on some Round's mainline move. */
+interface GuessVariation {
+	/** The guessed move, followed by its precomputed continuation when the guess
+	 *  matches a graded alternative — just the guessed move alone otherwise. */
+	sans: string[];
+	/** Attached to the variation's first move only (e.g. who guessed it) — never a
+	 *  move itself, so it stays safe to leave in English. Null for no comment. */
+	comment: string | null;
+}
+
+function escapeHeaderValue(value: string): string {
+	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/** PGN comments are delimited by braces, which can't appear inside one — stripped
+ *  rather than escaped, since PGN has no escape sequence for a literal brace. */
+function escapeComment(text: string): string {
+	return text.replace(/[{}]/g, '');
+}
+
+/** The SAN line to render as a variation for one guessed move: the alternative's own
+ *  precomputed continuation when the guess matches a graded alternative — so the
+ *  variation can be replayed as a real engine line, not just one move — or just the
+ *  guessed move alone when it doesn't (an ungraded guess carries no continuation). */
+function guessVariationSans(step: GameStep, guessSan: string): string[] {
+	const alt = step.alternatives.find((a) => a.san === guessSan);
+	return alt ? [alt.san, ...alt.continuation] : [guessSan];
+}
+
+/**
+ * Renders one guessed line as a PGN variation (RAV): replays `sans` from
+ * `step.fenBefore` through chess.js so the variation carries real, validated move
+ * notation, with `comment` (when given) attached to the first move only. Returns null
+ * when the first move in the line isn't legal from `step.fenBefore` — an ungraded
+ * guess built from a tap the client never fully validated against legality, so there
+ * is no legal move to anchor a variation to; such a guess is silently dropped from
+ * the PGN rather than crashing the export.
+ */
+function renderVariation(step: GameStep, sans: string[], comment: string | null): string | null {
+	const chess = new Chess(step.fenBefore);
+	const tokens: string[] = [];
+	let ply = step.ply;
+
+	for (let i = 0; i < sans.length; i++) {
+		let move;
+		try {
+			move = chess.move(sans[i]);
+		} catch {
+			move = null;
+		}
+		if (!move) break;
+
+		if (i === 0) {
+			tokens.push(isWhitePly(ply) ? `${moveNumberForPly(ply)}.` : `${moveNumberForPly(ply)}...`);
+		} else if (isWhitePly(ply)) {
+			tokens.push(`${moveNumberForPly(ply)}.`);
+		}
+		tokens.push(move.san);
+		if (i === 0 && comment) tokens.push(`{${escapeComment(comment)}}`);
+		ply++;
+	}
+
+	return tokens.length > 0 ? `(${tokens.join(' ')})` : null;
+}
 
 /**
  * Rounds actually played by the Session as a whole: every prior Round that
@@ -122,54 +193,64 @@ export function finalMoveSummary(stats: ParticipantPgnStats): string {
 
 /**
  * Shared PGN-writing core (#59/#60): renders the full original mainline from
- * `game.startFen` through every move, tagging every graded Round this Session
- * actually played (`roundsPlayed`, up to `commentForRound`'s own lookup) with
- * whatever comment `commentForRound` returns for that Round index (null for no
- * comment), and merging `summary` onto the very last move — appended to that
- * move's own comment when it already carries one. Moves beyond `roundsPlayed`
- * (an early-ended Session, #57) never call `commentForRound` at all.
+ * `game.startFen` through every move, splicing in whatever `variationsForRound`
+ * returns as real RAV variations after every graded Round this Session actually
+ * played (`roundsPlayed`, up to `variationsForRound`'s own lookup), and attaching
+ * `summary` as a plain comment on the very last move. Hand-rolled rather than
+ * delegated to chess.js's own `pgn()` writer, which can only emit a linear comment
+ * per move, not variations. Moves beyond `roundsPlayed` (an early-ended Session,
+ * #57) never call `variationsForRound` at all.
  */
 function buildPgn(
 	game: GameData,
 	roundsPlayed: number,
 	summary: string,
-	commentForRound: (roundIndex: number) => string | null
+	variationsForRound: (roundIndex: number, step: GameStep) => GuessVariation[]
 ): string {
-	const chess = new Chess(game.startFen);
-	for (const [key, value] of Object.entries(game.headers)) {
-		chess.setHeader(key, value);
-	}
+	const headerLines = Object.entries(game.headers).map(
+		([key, value]) => `[${key} "${escapeHeaderValue(value)}"]`
+	);
 
+	const tokens: string[] = [];
 	let quizRoundIndex = 0;
 	game.steps.forEach((step, i) => {
-		chess.move(step.san);
+		if (isWhitePly(step.ply)) {
+			tokens.push(`${moveNumberForPly(step.ply)}.`);
+		} else if (i === 0) {
+			tokens.push(`${moveNumberForPly(step.ply)}...`);
+		}
+		tokens.push(step.san);
 
 		if (step.alternatives.length > 0) {
 			if (quizRoundIndex < roundsPlayed) {
-				const comment = commentForRound(quizRoundIndex);
-				if (comment != null) chess.setComment(comment);
+				for (const variation of variationsForRound(quizRoundIndex, step)) {
+					const rendered = renderVariation(step, variation.sans, variation.comment);
+					if (rendered) tokens.push(rendered);
+				}
 			}
 			quizRoundIndex++;
 		}
 
 		if (i === game.steps.length - 1) {
-			const existing = chess.getComment();
-			chess.setComment(existing ? `${existing} ${summary}` : summary);
+			tokens.push(`{${escapeComment(summary)}}`);
 		}
 	});
+	tokens.push(game.headers.Result ?? '*');
 
-	return chess.pgn();
+	return [...headerLines, '', tokens.join(' ')].join('\n');
 }
 
 /**
  * One participant's personalized PGN for the Featured Game (#59): the full
- * original mainline from `game.startFen` through every played move, with
- * `{Guessed: ...}` comments on every graded Round this participant actually
- * played (looked up by Round index in `guessHistory`, same indexing as the Game
- * Sheet, #58) and a plain-prose performance summary on the very last move —
- * merged with that move's own Guess comment when it happens to carry one too.
- * Moves beyond `roundsPlayed` (an early-ended Session, #57) carry no Guess
- * comment, since no Guess happened.
+ * original mainline from `game.startFen` through every played move, with a real
+ * PGN variation on every graded Round this participant actually played where their
+ * Guess (looked up by Round index in `guessHistory`, same indexing as the Game
+ * Sheet, #58) differed from the move actually played — carrying the engine's own
+ * precomputed continuation when the Guess matches a graded alternative — and a
+ * plain-prose performance summary on the very last move. A Round where the
+ * participant guessed the move actually played gets no variation at all (the
+ * mainline already is their Guess), and moves beyond `roundsPlayed` (an
+ * early-ended Session, #57) carry none either, since no Guess happened.
  */
 export function buildParticipantPgn(
 	game: GameData,
@@ -190,9 +271,10 @@ export function buildParticipantPgn(
 	);
 	const summary = finalMoveSummary(stats);
 
-	return buildPgn(game, roundsPlayed, summary, (roundIndex) => {
+	return buildPgn(game, roundsPlayed, summary, (roundIndex, step) => {
 		const guessSan = guessHistory[roundIndex]?.[participantId];
-		return guessSan != null ? `Guessed: ${guessSan}` : null;
+		if (guessSan == null || guessSan === step.san) return [];
+		return [{ sans: guessVariationSans(step, guessSan), comment: null }];
 	});
 }
 
@@ -239,11 +321,6 @@ export function roundGuessGroups(
 			a.san.localeCompare(b.san)
 	);
 	return groups;
-}
-
-function formatRoundGuessComment(groups: RoundGuessGroup[]): string {
-	const text = groups.map((g) => `${g.san} (${g.participantIds.join(', ')})`).join('; ');
-	return `Guesses: ${text}`;
 }
 
 function ordinalRank(ranked: { id: string; total: number }[]): string {
@@ -295,11 +372,13 @@ export function hostFinalMoveSummary(
 
 /**
  * The Host's room-level PGN for the Featured Game (#60): the same full original
- * mainline `buildParticipantPgn` (#59) renders, but decorated with every Round's
- * distinct Guess Groups and their full participant-name groups instead of one
- * participant's own Guess, and a Host-facing summary (full Leaderboard, early-end
- * state, total elapsed time) on the final move rather than one participant's
- * personal performance.
+ * mainline `buildParticipantPgn` (#59) renders, but decorated with a real PGN
+ * variation for every distinct Guess Group this Session actually saw that round
+ * (other than the group that guessed the move actually played — the mainline
+ * already shows that move), each variation's first move carrying that group's full
+ * participant-name list as its comment, and a Host-facing summary (full
+ * Leaderboard, early-end state, total elapsed time) on the final move rather than
+ * one participant's personal performance.
  */
 export function buildHostPgn(
 	game: GameData,
@@ -319,8 +398,13 @@ export function buildHostPgn(
 		elapsedMs
 	);
 
-	return buildPgn(game, roundsPlayed, summary, (roundIndex) => {
-		const groups = roundGuessGroups(quizSteps[roundIndex], guessHistory[roundIndex] ?? {});
-		return groups.length ? formatRoundGuessComment(groups) : null;
+	return buildPgn(game, roundsPlayed, summary, (roundIndex, step) => {
+		const groups = roundGuessGroups(step, guessHistory[roundIndex] ?? {});
+		return groups
+			.filter((g) => g.san !== step.san)
+			.map((g) => ({
+				sans: guessVariationSans(step, g.san),
+				comment: g.participantIds.join(', ')
+			}));
 	});
 }

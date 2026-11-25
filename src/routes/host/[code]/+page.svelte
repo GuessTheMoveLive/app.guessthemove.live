@@ -139,21 +139,6 @@
 	// know this while in its own `opponentResponse` phase, not just during `reveal`.
 	const isLastRound = $derived(!hasNextRound);
 	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
-	// Reveal/Statistics/Ranking are exclusive focuses of the Reveal phase (#96): whichever
-	// is current gets the room's full attention, so every other card on this screen - the
-	// Reveal card itself, the Score Sheet, the Scoreboard roster and the Answer Key - steps
-	// aside while it's up. The Final Round defaults to 'ranking' when neither toggle is open,
-	// matching its existing always-on Podium/Leaderboard. `null` outside the Reveal phase,
-	// where none of this gating applies.
-	const revealFocus = $derived(
-		phase === 'reveal'
-			? showRoomStatistics
-				? 'statistics'
-				: showLeaderboard || isFinalRound
-					? 'ranking'
-					: 'reveal'
-			: null
-	);
 	const quizStep = $derived(quizSteps(selectedGameId)[roundIndex]);
 	const scoreboard = $derived(
 		scoreboardRows(
@@ -499,50 +484,39 @@
 					{/if}
 				</Card.Root>
 			{:else}
-				<!-- Reveal/Statistics/Ranking are exclusive focuses of the Reveal phase (#96, see
-		     revealFocus): whichever is open gets the room's full attention, so when
-		     Statistics or the Leaderboard is open this card doesn't render at all — not
-		     even as an empty box — leaving just the toggle/Continue controls in a plain
-		     row so the Host can still switch back. The Podium/Ranking for this Reveal
-		     lives in the Ranking card (left column) instead of inline here, per #89. -->
-				{#snippet revealControls()}
-					{#if isFinalRound}
-						<p class="text-sm font-medium text-muted-foreground">
-							{m.host_final_round()}
-						</p>
-						<Button variant="outline" onclick={() => client.showRoomStatistics()}>
-							{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
-						</Button>
-						<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
-					{:else}
-						<Button variant="outline" onclick={() => client.showRoomStatistics()}>
-							{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
-						</Button>
-						<Button variant="outline" onclick={() => client.showLeaderboard()}>
-							{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
-						</Button>
-						<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
-					{/if}
-				{/snippet}
-				{#if revealFocus === 'reveal'}
-					<Card.Root>
-						<Card.Header>
-							<Card.Title
-								>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title
-							>
-						</Card.Header>
-						<Card.Footer class="flex flex-wrap gap-2">
-							{@render revealControls()}
-						</Card.Footer>
-					</Card.Root>
-				{:else}
-					<div class="flex flex-wrap gap-2">
-						{@render revealControls()}
-					</div>
-				{/if}
+				<!-- The Podium/Ranking for this Reveal lives in the Ranking card (left column)
+		     instead of inline here — see the #89 three-lane layout. The Host always sees
+		     every card at once (#96) — Statistics/Ranking exclusivity is a Participant-screen
+		     rule only (see play/[code]/+page.svelte), so the Host's own Reveal card, Score
+		     Sheet, Scoreboard and Answer Key never hide. -->
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title
+						>
+					</Card.Header>
+					<Card.Footer class="flex flex-wrap gap-2">
+						{#if isFinalRound}
+							<p class="text-sm font-medium text-muted-foreground">
+								{m.host_final_round()}
+							</p>
+							<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+								{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
+							</Button>
+							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
+						{:else}
+							<Button variant="outline" onclick={() => client.showRoomStatistics()}>
+								{showRoomStatistics ? m.host_hide_room_statistics() : m.host_show_room_statistics()}
+							</Button>
+							<Button variant="outline" onclick={() => client.showLeaderboard()}>
+								{showLeaderboard ? m.host_hide_leaderboard() : m.host_show_leaderboard()}
+							</Button>
+							<Button onclick={() => client.continueRound()}>{m.host_continue()}</Button>
+						{/if}
+					</Card.Footer>
+				</Card.Root>
 			{/if}
 
-			{#if !client.ended && phase !== 'finished' && history.length && revealFocus !== 'statistics' && revealFocus !== 'ranking'}
+			{#if !client.ended && phase !== 'finished' && history.length}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>
@@ -563,7 +537,7 @@
 		<!-- Left lane order matches the Participant's own Reveal card order (#90): Guess
 		     Groups, then Ranking (Leaderboard/Podium) — see src/routes/play/[code]/+page.svelte. -->
 		<div class="flex flex-col gap-6 md:col-start-1 md:row-start-1">
-			{#if rosterSize > 0 && phase !== 'finished' && revealFocus !== 'statistics' && revealFocus !== 'ranking'}
+			{#if rosterSize > 0 && phase !== 'finished'}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.host_scoreboard_title({ count: rosterSize })}</Card.Title
@@ -625,7 +599,7 @@
 				</Card.Root>
 			{/if}
 
-			{#if !client.ended && revealFocus === 'statistics' && guessGroups.groups.length}
+			{#if !client.ended && phase === 'reveal' && guessGroups.groups.length && showRoomStatistics}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.guess_groups_title()}</Card.Title>
@@ -680,7 +654,7 @@
 						<Leaderboard entries={everyone} />
 					</Card.Content>
 				</Card.Root>
-			{:else if !client.ended && revealFocus === 'ranking'}
+			{:else if !client.ended && phase !== 'lobby' && phase !== 'active' && phase !== 'opponentResponse' && (isFinalRound || showLeaderboard)}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.leaderboard_title()}</Card.Title>
@@ -701,7 +675,7 @@
 		</div>
 
 		<div class="flex flex-col gap-6 md:col-start-3 md:row-start-1">
-			{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length && revealFocus !== 'statistics' && revealFocus !== 'ranking'}
+			{#if !client.ended && phase !== 'lobby' && phase !== 'finished' && breakdown.length}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.host_answer_key_title()}</Card.Title>

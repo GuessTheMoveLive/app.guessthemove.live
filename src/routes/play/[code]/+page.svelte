@@ -156,6 +156,21 @@
 	// know this while in its own `opponentResponse` phase, not just during `reveal`.
 	const isLastRound = $derived(roundIndex + 1 >= totalRounds);
 	const isFinalRound = $derived(phase === 'reveal' && isLastRound);
+	// Reveal/Statistics/Ranking are exclusive views on this screen (#96): this screen only
+	// ever shows one view at a time (guessing, Opponent Response, Reveal+Game Sheet,
+	// Statistics, Ranking), so once the Host opens Statistics or the Leaderboard it's the
+	// only thing shown here — the Reveal feedback card and the Game Sheet step aside. The
+	// Final Round defaults to 'ranking' when neither toggle is open, matching its existing
+	// always-on Podium. `null` outside the Reveal/closed phase, where this doesn't apply.
+	const revealFocus = $derived(
+		phase === 'reveal' || phase === 'closed'
+			? showRoomStatistics
+				? 'statistics'
+				: showLeaderboard || isFinalRound
+					? 'ranking'
+					: 'reveal'
+			: null
+	);
 	const quizStep = $derived(quizSteps(selectedGameId)[roundIndex]);
 	// The Opponent Response (#48): the single next move played in the game after this Round's
 	// Featured move, shown large in numbered notation — or, on the Featured Game's final Round
@@ -521,62 +536,83 @@
 			</Card.Content>
 		</Card.Root>
 	{:else}
-		<!-- Reveal (#46, reordered #90): personal feedback, then how the whole room guessed,
-		     then the Ranking (gated on the Host's toggle, #51), then the Game Sheet — each
-		     its own Card. -->
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title
-				>
-				<Card.Description>{m.play_round_score()}</Card.Description>
-			</Card.Header>
-			<Card.Content class="flex flex-col gap-4">
-				<div class="text-center">
-					<div class="font-mono text-5xl tabular-nums">
-						{myRoundScore > 0 ? '+' : ''}{myRoundScore}
+		<!-- Reveal/Statistics/Ranking are exclusive views here (#96, see revealFocus): this
+		     screen only ever shows one thing at a time, same as the guessing/Opponent
+		     Response phases above — so the default Reveal view (personal feedback + Game
+		     Sheet) steps aside the instant the Host opens Statistics or the Leaderboard. -->
+		{#if revealFocus === 'reveal'}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title
+						>{phase === 'reveal' ? m.play_reveal_title() : m.play_closed_title()}</Card.Title
+					>
+					<Card.Description>{m.play_round_score()}</Card.Description>
+				</Card.Header>
+				<Card.Content class="flex flex-col gap-4">
+					<div class="text-center">
+						<div class="font-mono text-5xl tabular-nums">
+							{myRoundScore > 0 ? '+' : ''}{myRoundScore}
+						</div>
+						<p class="mt-2 text-sm text-muted-foreground">{me}</p>
 					</div>
-					<p class="mt-2 text-sm text-muted-foreground">{me}</p>
-				</div>
-				{#if feedback}
-					<div class="flex flex-col gap-2 rounded-lg border px-3 py-3">
-						<p class="text-sm font-medium">{feedback.phrase ?? explanationText(feedback.tier)}</p>
-						<div class="flex flex-col gap-1 text-sm">
-							{#if feedback.guessSan}
+					{#if feedback}
+						<div class="flex flex-col gap-2 rounded-lg border px-3 py-3">
+							<p class="text-sm font-medium">{feedback.phrase ?? explanationText(feedback.tier)}</p>
+							<div class="flex flex-col gap-1 text-sm">
+								{#if feedback.guessSan}
+									<div class="flex items-baseline justify-between gap-2">
+										<span class="text-muted-foreground">{m.play_feedback_your_move()}</span>
+										<span class="font-mono text-base"
+											>{formatNumberedMove(feedback.guessSan, feedback.ply)}</span
+										>
+									</div>
+								{/if}
 								<div class="flex items-baseline justify-between gap-2">
-									<span class="text-muted-foreground">{m.play_feedback_your_move()}</span>
+									<span class="text-muted-foreground">{m.play_feedback_played()}</span>
 									<span class="font-mono text-base"
-										>{formatNumberedMove(feedback.guessSan, feedback.ply)}</span
+										>{formatNumberedMove(feedback.playedSan, feedback.ply)}</span
 									>
 								</div>
+							</div>
+							{#if feedback.variant && feedback.variant.continuation.length}
+								<div class="flex flex-col gap-0.5">
+									<span class="text-xs tracking-wide text-muted-foreground uppercase"
+										>{m.play_feedback_continuation()}</span
+									>
+									<span class="font-mono text-sm">
+										{formatContinuation(feedback.variant.continuation, feedback.ply + 1)}
+										{#if feedback.variant.endEval != null}
+											<span class="text-muted-foreground">
+												({feedback.variant.endEval > 0 ? '+' : ''}{feedback.variant.endEval})
+											</span>
+										{/if}
+									</span>
+								</div>
 							{/if}
-							<div class="flex items-baseline justify-between gap-2">
-								<span class="text-muted-foreground">{m.play_feedback_played()}</span>
-								<span class="font-mono text-base"
-									>{formatNumberedMove(feedback.playedSan, feedback.ply)}</span
-								>
-							</div>
 						</div>
-						{#if feedback.variant && feedback.variant.continuation.length}
-							<div class="flex flex-col gap-0.5">
-								<span class="text-xs tracking-wide text-muted-foreground uppercase"
-									>{m.play_feedback_continuation()}</span
-								>
-								<span class="font-mono text-sm">
-									{formatContinuation(feedback.variant.continuation, feedback.ply + 1)}
-									{#if feedback.variant.endEval != null}
-										<span class="text-muted-foreground">
-											({feedback.variant.endEval > 0 ? '+' : ''}{feedback.variant.endEval})
-										</span>
-									{/if}
-								</span>
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</Card.Content>
-		</Card.Root>
+					{/if}
+				</Card.Content>
+			</Card.Root>
 
-		{#if groupBreakdown && showRoomStatistics}
+			{#if history.length}
+				<!-- Game Sheet (#68): part of the default Reveal view, already filled in with
+				     the Round just revealed, instead of disappearing the instant Reveal happens. -->
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<GameSheet
+							rows={history}
+							event={game.headers.Event}
+							date={game.headers.Date}
+							white={game.headers.White}
+							black={game.headers.Black}
+						/>
+					</Card.Content>
+				</Card.Root>
+			{/if}
+		{:else if revealFocus === 'statistics' && groupBreakdown}
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>{m.play_guess_groups_title()}</Card.Title>
@@ -624,12 +660,10 @@
 					</ul>
 				</Card.Content>
 			</Card.Root>
-		{/if}
-
-		<!-- Ranking (#51): only shown once the Host has toggled it open on the shared Reveal
-		     screen, except on the Final Round where it's always shown alongside the Podium.
-		     The viewer's own row is highlighted. -->
-		{#if isFinalRound || showLeaderboard}
+		{:else if revealFocus === 'ranking'}
+			<!-- Ranking (#51): the viewer's own row is highlighted. On the Final Round this is
+			     always the current view (revealFocus defaults to 'ranking' there), alongside
+			     the Podium. -->
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>{isFinalRound ? m.final_results_title() : m.leaderboard_title()}</Card.Title>
@@ -643,25 +677,6 @@
 						highlightId={me}
 						priorTotals={snapshot?.context.priorTotals ?? {}}
 						participants={snapshot?.context.participants ?? {}}
-					/>
-				</Card.Content>
-			</Card.Root>
-		{/if}
-
-		{#if phase === 'reveal' && history.length}
-			<!-- Game Sheet (#68): stays visible through Reveal, already filled in with the
-			     Round just revealed, instead of disappearing the instant Reveal happens. -->
-			<Card.Root>
-				<Card.Header>
-					<Card.Title class="text-sm">{m.play_game_sheet()}</Card.Title>
-				</Card.Header>
-				<Card.Content>
-					<GameSheet
-						rows={history}
-						event={game.headers.Event}
-						date={game.headers.Date}
-						white={game.headers.White}
-						black={game.headers.Black}
 					/>
 				</Card.Content>
 			</Card.Root>

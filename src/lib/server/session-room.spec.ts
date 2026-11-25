@@ -613,20 +613,28 @@ describe('SessionRoom', () => {
 		);
 	});
 
-	it('show_room_statistics is independent of show_leaderboard — toggling one leaves the other untouched (#73)', async () => {
+	it('show_room_statistics and show_leaderboard are mutually exclusive — opening one closes the other (#96)', async () => {
 		const { room, ctx, token } = await openRoom();
 		const { ws: hostWs } = await joinHost(room, ctx, token);
 		const { ws: aliceWs } = await join(room, ctx, 'alice');
 
+		const lastFlags = () =>
+			hostWs.lastSnapshot() as { showLeaderboard: boolean; showRoomStatistics: boolean };
+
 		await room.webSocketMessage(aliceWs as never, JSON.stringify({ type: 'start_round' }));
 		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_room_statistics' }));
+		expect(lastFlags().showRoomStatistics).toBe(true);
+		expect(lastFlags().showLeaderboard).toBe(false);
 
-		const snapshot = hostWs.lastSnapshot() as {
-			showLeaderboard: boolean;
-			showRoomStatistics: boolean;
-		};
-		expect(snapshot.showRoomStatistics).toBe(true);
-		expect(snapshot.showLeaderboard).toBe(false);
+		// Opening the Leaderboard closes Room Statistics in turn.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
+		expect(lastFlags().showLeaderboard).toBe(true);
+		expect(lastFlags().showRoomStatistics).toBe(false);
+
+		// Toggling the open one back off doesn't reopen the other.
+		await room.webSocketMessage(hostWs as never, JSON.stringify({ type: 'show_leaderboard' }));
+		expect(lastFlags().showLeaderboard).toBe(false);
+		expect(lastFlags().showRoomStatistics).toBe(false);
 	});
 
 	it('end_session_early: jumps every client straight to Final Results, keeping the Room Code alive (#57)', async () => {

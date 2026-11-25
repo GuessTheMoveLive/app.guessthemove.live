@@ -129,15 +129,15 @@ export class SessionClient {
 	}
 
 	/** Host toggles the Leaderboard on the shared Reveal screen and every Participant's
-	 *  phone (#51) — broadcast via the snapshot's `showLeaderboard`. Independent of
-	 *  showRoomStatistics below; both can be open at once. */
+	 *  phone (#51) — broadcast via the snapshot's `showLeaderboard`. Mutually exclusive
+	 *  with showRoomStatistics below: the server turns that off when this turns on. */
 	showLeaderboard(): void {
 		this.#send({ type: 'show_leaderboard' });
 	}
 
 	/** Host toggles the Guess Group breakdown card on the shared Reveal screen and every
 	 *  Participant's phone (#73) — same toggle shape as showLeaderboard above, broadcast via
-	 *  the snapshot's `showRoomStatistics`, and independent of it. */
+	 *  the snapshot's `showRoomStatistics`, and mutually exclusive with it. */
 	showRoomStatistics(): void {
 		this.#send({ type: 'show_room_statistics' });
 	}

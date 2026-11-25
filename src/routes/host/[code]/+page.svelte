@@ -128,9 +128,9 @@
 	// Broadcast rather than local (#51): synced through the snapshot so a Participant's
 	// phone can gate its own Leaderboard card on the same toggle (see play/[code]).
 	const showLeaderboard = $derived(snapshot?.showLeaderboard ?? false);
-	// Independent sibling toggle (#73): gates the Guess Group breakdown card on a
-	// Participant's phone, same broadcast shape as showLeaderboard — the Host Display's
-	// own breakdown below is never gated by it.
+	// Sibling toggle (#73): gates the Guess Group breakdown card on a Participant's phone,
+	// same broadcast shape as showLeaderboard, and mutually exclusive with it server-side
+	// (#96) — the Host Display's own breakdown below is never gated by it.
 	const showRoomStatistics = $derived(snapshot?.showRoomStatistics ?? false);
 	const roundIndex = $derived(snapshot?.roundIndex ?? 0);
 	const totalRounds = $derived(snapshot?.totalRounds ?? 0);
@@ -473,12 +473,19 @@
 				</Card.Root>
 			{:else}
 				<!-- The Podium/Ranking for this Reveal lives in the Ranking card (left column)
-		     instead of inline here — see the #89 three-lane layout. -->
+		     instead of inline here — see the #89 three-lane layout. Reveal/Statistics/Ranking
+		     are exclusive focuses (#96): once the Host opens Statistics or the Leaderboard
+		     (mutually exclusive with each other, enforced server-side), this card's own
+		     title and the Score Sheet below it step aside so whichever is open gets the
+		     room's full attention — the toggle buttons stay put so the Host can switch back. -->
 				<Card.Root>
-					<Card.Header>
-						<Card.Title>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title
-						>
-					</Card.Header>
+					{#if !showRoomStatistics && !showLeaderboard}
+						<Card.Header>
+							<Card.Title
+								>{isFinalRound ? m.final_results_title() : m.host_reveal_title()}</Card.Title
+							>
+						</Card.Header>
+					{/if}
 					<Card.Footer class="flex flex-wrap gap-2">
 						{#if isFinalRound}
 							<p class="text-sm font-medium text-muted-foreground">
@@ -501,7 +508,7 @@
 				</Card.Root>
 			{/if}
 
-			{#if !client.ended && phase !== 'finished' && history.length}
+			{#if !client.ended && phase !== 'finished' && history.length && !(phase === 'reveal' && (showRoomStatistics || showLeaderboard))}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title class="text-sm">{m.host_score_sheet()}</Card.Title>

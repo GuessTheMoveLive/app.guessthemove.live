@@ -48,11 +48,13 @@ const STORAGE_KEY_TOTALS = 'totals';
 /** Whether the Host has opened the Leaderboard on the Reveal screen this Round - broadcast
  *  to every client so a Participant's phone only shows the Leaderboard once the Host has
  *  shown it (rather than unconditionally at every Reveal). The Host can toggle it back off;
- *  a new Round starting always resets it to false. */
+ *  a new Round starting always resets it to false. Mutually exclusive with
+ *  STORAGE_KEY_SHOW_ROOM_STATISTICS below - at most one is ever true, so the Reveal
+ *  screen always has a single focus instead of stacking both cards at once. */
 const STORAGE_KEY_SHOW_LEADERBOARD = 'show-leaderboard';
 /** Whether the Host has opened Room Statistics on the Reveal screen this Round (#73) —
  *  same toggle shape as STORAGE_KEY_SHOW_LEADERBOARD above, but gates the Guess Group
- *  breakdown card instead, independently of the Leaderboard toggle. */
+ *  breakdown card instead, and mutually exclusive with it. */
 const STORAGE_KEY_SHOW_ROOM_STATISTICS = 'show-room-statistics';
 /** Default visible Round length: 3 minutes (#22), shortenable/extendable by the Host. */
 const ROUND_DURATION_MS = 180_000;
@@ -292,20 +294,24 @@ export class SessionRoom extends DurableObject {
 			}
 			case 'show_leaderboard': {
 				// Host-only: toggles the Leaderboard on the shared Reveal screen and every
-				// Participant's phone on/off, independently of Room Statistics below.
+				// Participant's phone on/off. Mutually exclusive with Room Statistics below —
+				// only one of the two ever shows at once, so turning this on turns that off,
+				// keeping the Reveal screen uncluttered and giving each view its own focus.
 				if (!this.isHostSocket(ws)) return;
 				const current =
 					(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_LEADERBOARD)) ?? false;
 				await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, !current);
+				if (!current) await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, false);
 				break;
 			}
 			case 'show_room_statistics': {
 				// Host-only: same toggle shape as show_leaderboard above, but for the Guess
-				// Group breakdown card, independently of the Leaderboard toggle.
+				// Group breakdown card — and the same mutual exclusivity with it.
 				if (!this.isHostSocket(ws)) return;
 				const current =
 					(await this.ctx.storage.get<boolean>(STORAGE_KEY_SHOW_ROOM_STATISTICS)) ?? false;
 				await this.ctx.storage.put(STORAGE_KEY_SHOW_ROOM_STATISTICS, !current);
+				if (!current) await this.ctx.storage.put(STORAGE_KEY_SHOW_LEADERBOARD, false);
 				break;
 			}
 			case 'kick': {
